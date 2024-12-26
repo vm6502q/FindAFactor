@@ -608,27 +608,36 @@ struct Factorizer {
 std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size_t wheelFactorizationLevel, size_t nodeCount, size_t nodeId)
 {
     BigInteger toFactor(toFactorStr);
-    std::vector<BigInteger> trialDivisionPrimes = SegmentedSieveOfEratosthenes(wheelFactorizationLevel);
-
-    const unsigned cpuCount = std::thread::hardware_concurrency();
+    std::vector<BigInteger> wheelFactorizationPrimes = SegmentedSieveOfEratosthenes(wheelFactorizationLevel);
 
     const uint64_t fullMaxBase = (uint64_t)sqrt(toFactor);
     if (fullMaxBase * fullMaxBase == toFactor) {
         return boost::lexical_cast<std::string>(fullMaxBase);
     }
 
-    for (int64_t primeIndex = 0; primeIndex < 7; ++primeIndex) {
-        const BigInteger currentPrime = trialDivisionPrimes[primeIndex];
-        if ((toFactor % currentPrime) == 0) {
-            return boost::lexical_cast<std::string>(currentPrime);
-        }
-        ++primeIndex;
+    BigInteger result = 1U;
+    std::vector<BigInteger> trialDivisionPrimes = SegmentedSieveOfEratosthenes(std::min((uint64_t)fullMaxBase, (uint64_t)1000000000ULL));
+    for (uint64_t primeIndex = 0U; (primeIndex < trialDivisionPrimes.size()) || (result > 1U); primeIndex+=1000) {
+        dispatch.dispatch([&toFactor, &trialDivisionPrimes, &result, primeIndex]() {
+            const uint64_t maxLcv = std::min(primeIndex + 1000U, trialDivisionPrimes.size());
+            for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
+                const BigInteger currentPrime = trialDivisionPrimes[primeIndex];
+                if ((toFactor % currentPrime) == 0) {
+                    result = currentPrime;
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+    if (result > 1U) {
+        return boost::lexical_cast<std::string>(result);
     }
 
     const BigInteger offset = 1U;
     const BigInteger fullRange = backward(fullMaxBase);
 
-    std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<BigInteger>(trialDivisionPrimes.begin(), trialDivisionPrimes.end()), toFactor);
+    std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<BigInteger>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()), toFactor);
     inc_seqs.erase(inc_seqs.begin(), inc_seqs.begin() + MIN_RTD_LEVEL);
 
     const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + BIGGEST_WHEEL - 1U) / BIGGEST_WHEEL;
@@ -645,6 +654,7 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
         return worker.getSmoothNumbers(toFactor, inc_seqs_clone, offset);
     };
 
+    const unsigned cpuCount = std::thread::hardware_concurrency();
     std::vector<std::future<BigInteger>> futures;
     futures.reserve(cpuCount);
 
@@ -652,7 +662,6 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
         futures.push_back(std::async(std::launch::async, workerFn));
     }
 
-    BigInteger result = 1U;
     for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
         BigInteger r = futures[cpu].get();
         if (r > result) {
