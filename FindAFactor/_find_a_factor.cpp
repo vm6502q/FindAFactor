@@ -608,7 +608,6 @@ struct Factorizer {
 std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size_t wheelFactorizationLevel, size_t nodeCount, size_t nodeId)
 {
     BigInteger toFactor(toFactorStr);
-    std::vector<BigInteger> wheelFactorizationPrimes = SegmentedSieveOfEratosthenes(wheelFactorizationLevel);
 
     const uint64_t fullMaxBase = (uint64_t)sqrt(toFactor);
     if (fullMaxBase * fullMaxBase == toFactor) {
@@ -637,8 +636,13 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
     const BigInteger offset = 1U;
     const BigInteger fullRange = backward(fullMaxBase);
 
+    const auto it = std::upper_bound(trialDivisionPrimes.begin(), trialDivisionPrimes.end(), wheelFactorizationLevel);
+    std::vector<BigInteger> wheelFactorizationPrimes(trialDivisionPrimes.begin(), it);
+    // std::vector<BigInteger> smoothPrimes(it, it + 32U);
+    trialDivisionPrimes.clear();
     std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<BigInteger>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()), toFactor);
     inc_seqs.erase(inc_seqs.begin(), inc_seqs.begin() + MIN_RTD_LEVEL);
+    wheelFactorizationPrimes.clear();
 
     const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + BIGGEST_WHEEL - 1U) / BIGGEST_WHEEL;
     Factorizer worker(nodeRange, nodeCount, nodeId);
