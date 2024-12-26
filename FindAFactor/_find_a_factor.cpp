@@ -428,17 +428,6 @@ std::vector<BigInteger> SegmentedSieveOfEratosthenes(BigInteger n)
     return knownPrimes;
 }
 
-std::vector<std::string> _SegmentedSieveOfEratosthenes(const std::string& n) {
-    std::vector<BigInteger> v = SegmentedSieveOfEratosthenes(BigInteger(n));
-    std::vector<std::string> toRet;
-    toRet.reserve(v.size());
-    for (const BigInteger& p : v) {
-        toRet.push_back(boost::lexical_cast<std::string>(p));
-    }
-
-    return toRet;
-}
-
 constexpr unsigned short wheel11[480U] = {
     1U, 13U, 17U, 19U, 23U, 29U, 31U, 37U, 41U, 43U, 47U, 53U, 59U, 61U, 67U, 71U, 73U, 79U, 83U, 89U, 97U, 101U,
     103U, 107U, 109U, 113U, 127U, 131U, 137U, 139U, 149U, 151U, 157U, 163U, 167U, 169U, 173U, 179U, 181U, 191U,
