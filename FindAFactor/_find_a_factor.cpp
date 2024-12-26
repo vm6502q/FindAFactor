@@ -76,9 +76,7 @@
 
 namespace Qimcifa {
 
-typedef boost::multiprecision::number<boost::multiprecision::cpp_int_backend<128, 128,
-    boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>>
-    BigInteger;
+typedef boost::multiprecision::cpp_int BigInteger;
 
     // Make this a multiple of 2, 3, 5, 7, 11, 13, 17, 19, and 23.
 constexpr int BIGGEST_WHEEL = 223092870;
@@ -306,7 +304,7 @@ struct Factorizer {
     }
 };
 
-uint64_t find_a_factor(const std::string& toFactorStr)
+std::string find_a_factor(const std::string& toFactorStr)
 {
     BigInteger toFactor(toFactorStr);
     // First 7 primes
@@ -316,13 +314,13 @@ uint64_t find_a_factor(const std::string& toFactorStr)
 
     const uint64_t fullMaxBase = (uint64_t)sqrt(toFactor);
     if (fullMaxBase * fullMaxBase == toFactor) {
-        return fullMaxBase;
+        return boost::lexical_cast<std::string>(fullMaxBase);
     }
 
     for (int64_t primeIndex = 0; primeIndex < 7; ++primeIndex) {
         const unsigned currentPrime = trialDivisionPrimes[primeIndex];
         if ((toFactor % currentPrime) == 0) {
-            return currentPrime;
+            return boost::lexical_cast<std::string>(currentPrime);
         }
         ++primeIndex;
     }
@@ -341,25 +339,25 @@ uint64_t find_a_factor(const std::string& toFactorStr)
         for (const auto& b : inc_seqs) {
             inc_seqs_clone.emplace_back(b);
         }
-        return (uint64_t)worker.getSmoothNumbers(toFactor, inc_seqs_clone, offset);
+        return worker.getSmoothNumbers(toFactor, inc_seqs_clone, offset);
     };
 
-    std::vector<std::future<uint64_t>> futures;
+    std::vector<std::future<BigInteger>> futures;
     futures.reserve(cpuCount);
 
     for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
         futures.push_back(std::async(std::launch::async, workerFn));
     }
 
-    uint64_t result = 1U;
+    BigInteger result = 1U;
     for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
-        uint64_t r = futures[cpu].get();
+        BigInteger r = futures[cpu].get();
         if (r > result) {
             result = r;
         }
     }
 
-    return result;
+    return boost::lexical_cast<std::string>(result);
 }
 } // namespace Qimcifa
 
