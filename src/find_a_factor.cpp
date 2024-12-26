@@ -76,7 +76,9 @@
 
 namespace Qimcifa {
 
-typedef uint64_t BigInteger;
+typedef boost::multiprecision::number<boost::multiprecision::cpp_int_backend<128, 128,
+    boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>>
+    BigInteger;
 
     // Make this a multiple of 2, 3, 5, 7, 11, 13, 17, 19, and 23.
 constexpr int BIGGEST_WHEEL = 223092870;
@@ -304,14 +306,15 @@ struct Factorizer {
     }
 };
 
-BigInteger find_a_factor(const BigInteger& toFactor)
+uint64_t find_a_factor(const std::string& toFactorStr)
 {
+    BigInteger toFactor(toFactorStr);
     // First 7 primes
     std::vector<unsigned> trialDivisionPrimes = { 2, 3, 5, 7, 11, 13, 17 };
 
     const unsigned cpuCount = std::thread::hardware_concurrency();
 
-    const BigInteger fullMaxBase = sqrt(toFactor);
+    const uint64_t fullMaxBase = (uint64_t)sqrt(toFactor);
     if (fullMaxBase * fullMaxBase == toFactor) {
         return fullMaxBase;
     }
@@ -338,19 +341,19 @@ BigInteger find_a_factor(const BigInteger& toFactor)
         for (const auto& b : inc_seqs) {
             inc_seqs_clone.emplace_back(b);
         }
-        return worker.getSmoothNumbers(toFactor, inc_seqs_clone, offset);
+        return (uint64_t)worker.getSmoothNumbers(toFactor, inc_seqs_clone, offset);
     };
 
-    std::vector<std::future<BigInteger>> futures;
+    std::vector<std::future<uint64_t>> futures;
     futures.reserve(cpuCount);
 
     for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
         futures.push_back(std::async(std::launch::async, workerFn));
     }
 
-    BigInteger result = 1U;
+    uint64_t result = 1U;
     for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
-        BigInteger r = futures[cpu].get();
+        uint64_t r = futures[cpu].get();
         if (r > result) {
             result = r;
         }
