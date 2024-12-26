@@ -638,8 +638,9 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
 
     const auto it = std::upper_bound(trialDivisionPrimes.begin(), trialDivisionPrimes.end(), wheelFactorizationLevel);
     std::vector<BigInteger> wheelFactorizationPrimes(trialDivisionPrimes.begin(), it);
-    // std::vector<BigInteger> smoothPrimes(it, it + 32U);
     trialDivisionPrimes.clear();
+    // trialDivisionPrimes.erase(trialDivisionPrimes.begin(), it);
+    // std::vector<BigInteger> smoothPrimes(trialDivisionPrimes.begin(), trialDivisionPrimes.begin() + 32U);
     std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<BigInteger>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()), toFactor);
     inc_seqs.erase(inc_seqs.begin(), inc_seqs.begin() + MIN_RTD_LEVEL);
     wheelFactorizationPrimes.clear();
