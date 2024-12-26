@@ -616,8 +616,8 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
     }
 
     BigInteger result = 1U;
-    std::vector<BigInteger> trialDivisionPrimes = SegmentedSieveOfEratosthenes(std::min((uint64_t)fullMaxBase, (uint64_t)1000000000ULL));
-    for (uint64_t primeIndex = 0U; (primeIndex < trialDivisionPrimes.size()) || (result > 1U); primeIndex+=1000) {
+    std::vector<BigInteger> trialDivisionPrimes = SegmentedSieveOfEratosthenes(std::min((uint64_t)fullMaxBase, (uint64_t)268435456ULL));
+    for (uint64_t primeIndex = 0U; (primeIndex < trialDivisionPrimes.size()) || (result > 1U); primeIndex+=512) {
         dispatch.dispatch([&toFactor, &trialDivisionPrimes, &result, primeIndex]() {
             const uint64_t maxLcv = std::min(primeIndex + 1000U, trialDivisionPrimes.size());
             for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
