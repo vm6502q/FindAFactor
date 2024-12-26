@@ -365,7 +365,7 @@ uint64_t find_a_factor(const std::string& toFactorStr)
 
 using namespace Qimcifa;
 
-PYBIND11_MODULE(FindAFactor, m) {
+PYBIND11_MODULE(_find_a_factor, m) {
     m.doc() = "pybind11 plugin to find any factor of input";
-    m.def("find_a_factor", &find_a_factor, "Finds any nontrivial factor of input (or returns 1 if prime)");
+    m.def("_find_a_factor", &find_a_factor, "Finds any nontrivial factor of input (or returns 1 if prime)");
 }

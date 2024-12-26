@@ -10,8 +10,8 @@ with open(README_PATH) as readme_file:
 
 ext_modules = [
     Extension(
-        'FindAFactor',
-        ["src/find_a_factor.cpp"],
+        '_find_a_factor',
+        ["FindAFactor/_find_a_factor.cpp"],
         include_dirs=["pybind11/include"],
         language='c++',
         extra_compile_args = cpp_args,
