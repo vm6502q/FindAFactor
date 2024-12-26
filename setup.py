@@ -11,8 +11,8 @@ with open(README_PATH) as readme_file:
 ext_modules = [
     Extension(
         '_find_a_factor',
-        ["FindAFactor/_find_a_factor.cpp"],
-        include_dirs=["pybind11/include"],
+        ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp"],
+        include_dirs=['FindAFactor/include', 'pybind11/include'],
         language='c++',
         extra_compile_args = cpp_args,
     ),
