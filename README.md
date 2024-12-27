@@ -11,15 +11,15 @@ from FindAFactor import find_a_factor
 
 to_factor = 1000
 
-factor = find_a_factor(to_factor, node_count=1, node_id=0, wheel_factorization_level=17, use_congruence_of_squares=False)
+factor = find_a_factor(to_factor, use_congruence_of_squares=True, node_count=1, node_id=0, wheel_factorization_level=17)
 ```
 
 The `find_a_factor()` function should return any nontrivial factor of `to_factor` (that is, any factor besides `1` or `to_factor`) if it exists. If a nontrivial factor does _not_ exist (i.e., the number to factor is prime), the function will return `1` or the original `to_factor`. We do not (yet) guarantee that `find_a_factor()` can be used 100% reliably for primality proving (if it returns `1`), but, by design intention, it ultimately should. (It's possible that edge cases might occassionally be missed, but this ultimately shouldn't happen, as we improve the library.)
 
+- `use_congruence_of_squares` (default value: `False`): This attempts to check congruence of squares. (This mode will ultimately become Gaussian elimination, with future development.)
 - `node_count` (default value: `1`): `FindAFactor` can perform factorization in a _distributed_ manner, across nodes, without network communication! When `node_count` is set higher than `1`, the search space for factors is segmented equally per node. If the number to factor is semiprime, for example, all nodes except the one that happens to contain the (unknown) prime factor less than the square root of `to_factor` will ultimately return `1`, while one node will find and return this factor. For best performance, every node involved in factorization should have roughly the same CPU throughput capacity.
 - `node_id` (default value: `0`): This is the identifier of this node, when performing distributed factorization with `node_count` higher than `1`. `node_id` values start at `0` and go as high as `(node_count - 1)`.
 - `wheel_factorization_level` (default value: `17`): This is the value up to which "wheel factorization" and trial division are used to check factors and optimize "brute force," in general. The default value of `17` includes all prime factors of `17` and below and works well in general, though `19` or higher might be slightly preferred in certain cases.
-- `use_congruence_of_squares` (default value: `False`): This attempts to check congruence of squares. (This mode will ultimately become Gaussian elimination, with future development.)
 
 ## About 
 This library was originally called ["Qimcifa"](https://github.com/vm6502q/qimcifa) and demonstrated a (Shor's-like) "quantum-inspired" algorithm for integer factoring. It has since been developed into a general factoring algorithm and tool.

@@ -11,26 +11,26 @@ def main():
         return 1
 
     to_factor = int(sys.argv[1])
+    use_congruence_of_squares = True
     node_count = 1
     node_id = 0
     wheel_factorization_level = 17
-    use_congruence_of_squares = False
 
-    if argv_len > 3:
+    if argv_len > 2:
+        use_congruence_of_squares = bool(sys.argv[5])
+    if argv_len > 4:
         node_count = int(sys.argv[2])
         node_id = int(sys.argv[3])
-    if argv_len > 4:
-        wheel_factorization_level = int(sys.argv[4])
     if argv_len > 5:
-        use_congruence_of_squares = bool(sys.argv[5])
+        wheel_factorization_level = int(sys.argv[4])
 
     start = time.perf_counter()
     result = find_a_factor(
         to_factor,
+        use_congruence_of_squares = use_congruence_of_squares,
         node_count = node_count,
         node_id = node_id,
-        wheel_factorization_level = wheel_factorization_level,
-        use_congruence_of_squares = use_congruence_of_squares
+        wheel_factorization_level = wheel_factorization_level
     )
     print(time.perf_counter() - start)
     print(str(result) + " * " + str(to_factor // result) + " == " + str(to_factor))

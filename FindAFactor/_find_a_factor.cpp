@@ -854,7 +854,7 @@ struct Factorizer {
         BigInteger smoothNumber = (*smoothParts)[0U];
         for (size_t sp = 1U; sp < smoothParts->size(); ++sp) {
             smoothNumber *= (*smoothParts)[sp];
-            if (smoothNumber > toFactorSqrt) {
+            if (smoothNumber > toFactor) {
                 const BigInteger result = checkCongruenceOfSquares(smoothNumber);
                 if (result != 1U) {
                     return result;
@@ -897,7 +897,7 @@ struct Factorizer {
     }
 };
 
-std::string find_a_factor(const std::string& toFactorStr, const size_t& nodeCount, const size_t& nodeId, const size_t& wheelFactorizationLevel, const bool& isConOfSqr)
+std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr, const size_t& nodeCount, const size_t& nodeId, const size_t& wheelFactorizationLevel)
 {
     BigInteger toFactor(toFactorStr);
 
