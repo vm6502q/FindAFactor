@@ -887,7 +887,7 @@ struct Factorizer {
         for (size_t sp = 0U; sp < smoothParts->size(); ++sp) {
             smoothNumber *= (*smoothParts)[sp];
             if (smoothNumber > toFactor) {
-                // smoothNumbers.push_back(smoothNumber);
+                //smoothNumbers.push_back(smoothNumber);
                 const BigInteger result = checkCongruenceOfSquares(smoothNumber);
                 if (result != 1U) {
                     return result;
@@ -897,7 +897,7 @@ struct Factorizer {
         }
         smoothParts->clear();
 
-        // Bugged:
+        // Bugged, maybe too much memory per thread:
         // return findFactorViaGaussianElimination(smoothNumbers, primes, toFactor);
         return 1U;
     }
@@ -920,13 +920,13 @@ struct Factorizer {
     }
 
     // Perform Gaussian elimination on a binary matrix
-    std::vector<int> gaussianElimination(std::vector<std::vector<int>>& matrix) {
+    std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& matrix) {
         int rows = matrix.size();
         int cols = matrix[0].size();
         std::vector<int> pivots(cols, -1);
         for (int col = 0; col < cols; ++col) {
             for (int row = col; row < rows; ++row) {
-                if (matrix[row][col] == 1) {
+                if (matrix[row][col]) {
                     std::swap(matrix[col], matrix[row]);
                     pivots[col] = row;
                     break;
@@ -934,26 +934,31 @@ struct Factorizer {
             }
             if (pivots[col] == -1) continue;
             for (int row = 0; row < rows; ++row) {
-                if (row != col && matrix[row][col] == 1) {
+                if ((row != col) && matrix[row][col]) {
                     for (int k = 0; k < cols; ++k) {
-                        matrix[row][k] ^= matrix[col][k];
+                        matrix[row][k] = matrix[row][k] ^ matrix[col][k];
                     }
                 }
             }
         }
-        return pivots;
+        std::vector<bool> result;
+        result.reserve(cols);
+        for (const int& p : pivots) {
+            result.push_back(p & 1U);
+        }
+        return result;
     }
 
     // Compute the prime factorization modulo 2
-    std::vector<int> factorizationVector(BigInteger num, const std::vector<BigInteger>& primes) {
-        std::vector<int> vec(primes.size(), 0);
+    std::vector<bool> factorizationVector(BigInteger num, const std::vector<BigInteger>& primes) {
+        std::vector<bool> vec(primes.size(), false);
         for (size_t i = 0; i < primes.size(); ++i) {
-            int count = 0;
+            bool count = false;
             while (num % primes[i] == 0) {
                 num /= primes[i];
-                ++count;
+                count = !count;
             }
-            vec[i] = count % 2;
+            vec[i] = count;
         }
         return vec;
     }
@@ -961,15 +966,13 @@ struct Factorizer {
     // Find factor via Gaussian elimination
     BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& smoothNumbers, const std::vector<BigInteger>& primes, BigInteger target) {
         // Build the factorization matrix
-        std::vector<std::vector<int>> matrix;
-        std::vector<BigInteger> originalNumbers;
+        std::vector<std::vector<bool>> matrix;
         for (const BigInteger& num : smoothNumbers) {
             matrix.push_back(factorizationVector(num, primes));
-            originalNumbers.push_back(num);
         }
 
         // Perform Gaussian elimination
-        std::vector<int> pivots = gaussianElimination(matrix);
+        std::vector<bool> pivots = gaussianElimination(matrix);
 
         // Check for linear dependencies and find a congruence of squares
         for (size_t i = 0; i < matrix.size(); ++i) {
@@ -983,7 +986,7 @@ struct Factorizer {
                 }
                 if (dependent) {
                     // Compute x and y
-                    BigInteger x = (originalNumbers[i] * originalNumbers[j]) % target;
+                    BigInteger x = (smoothNumbers[i] * smoothNumbers[j]) % target;
                     int y = modExp(x, target / 2, target);
                     BigInteger factor = gcd(x - y, target);
                     if ((factor != 1U) && (factor < target)) {
@@ -1011,9 +1014,10 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     const BigInteger sqrtFullMaxBase = sqrt(fullMaxBase);
 
     BigInteger result = 1U;
-    const std::vector<BigInteger> primes = SegmentedSieveOfEratosthenes(sqrtFullMaxBase);
-    std::vector<BigInteger> wheelFactorizationPrimes(
-        primes.begin(), std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel));
+    std::vector<BigInteger> primes = SegmentedSieveOfEratosthenes(sqrtFullMaxBase);
+    const auto it = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
+    std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
+    primes.erase(primes.begin(), it);
     for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result > 1U); primeIndex+=512) {
         dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
             const uint64_t maxLcv = std::min(primeIndex + 1000U, primes.size());
