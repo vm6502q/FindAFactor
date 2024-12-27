@@ -574,29 +574,7 @@ struct Factorizer {
             for (BigInteger p = batchStart; p < batchEnd;) {
                 p += GetWheelIncrement(inc_seqs);
                 const BigInteger n = gcd(forward(p), toFactor);
-                if ((n != 1U) && (n != toFactor)) {
-                    batchNumber = batchBound;
-                    return n;
-                }
-                const BigInteger cgs = checkCongruenceOfSquares(toFactor, n);
-                if (cgs > 1U) {
-                    return cgs;
-                }
-            }
-        }
-
-        return 1U;
-    }
-
-    BigInteger getSmoothNumbersSemiprime(const BigInteger& toFactor, std::vector<boost::dynamic_bitset<uint64_t>>& inc_seqs, const BigInteger& offset)
-    {
-        for (BigInteger batchNum = (BigInteger)getNextBatch(); batchNum < batchBound; batchNum = (BigInteger)getNextBatch()) {
-            const BigInteger batchStart = batchNum * wheelRatio + offset;
-            const BigInteger batchEnd = (batchNum + 1U) * wheelRatio + offset;
-            for (BigInteger p = batchStart; p < batchEnd;) {
-                p += GetWheelIncrement(inc_seqs);
-                const BigInteger n = forward(p);
-                if (((toFactor % n) == 0U) && (toFactor != n)) {
+                if (n != 1U) {
                     batchNumber = batchBound;
                     return n;
                 }
@@ -650,7 +628,7 @@ struct Factorizer {
     }
 };
 
-std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size_t wheelFactorizationLevel, size_t nodeCount, size_t nodeId)
+std::string find_a_factor(const std::string& toFactorStr, size_t nodeCount, size_t nodeId, size_t wheelFactorizationLevel)
 {
     BigInteger toFactor(toFactorStr);
 
@@ -666,7 +644,7 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
             const uint64_t maxLcv = std::min(primeIndex + 1000U, trialDivisionPrimes.size());
             for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
                 const BigInteger currentPrime = trialDivisionPrimes[primeIndex];
-                if ((toFactor % currentPrime) == 0) {
+                if ((toFactor % currentPrime) == 0U) {
                     result = currentPrime;
                     return true;
                 }
@@ -698,14 +676,11 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
     const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
     const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
     Factorizer worker(toFactor * toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio);
-    const auto workerFn = [&toFactor, &isSemiprime, &inc_seqs, &offset, &worker] {
+    const auto workerFn = [&toFactor, &inc_seqs, &offset, &worker] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
         for (const auto& b : inc_seqs) {
             inc_seqs_clone.emplace_back(b);
-        }
-        if (isSemiprime) {
-            return worker.getSmoothNumbersSemiprime(toFactor, inc_seqs_clone, offset);
         }
         return worker.getSmoothNumbers(toFactor, inc_seqs_clone, offset);
     };
