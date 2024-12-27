@@ -946,10 +946,10 @@ struct Factorizer {
     {
         // The basic idea is "congruence of squares":
         // a^2 = b^2 mod N
-        // If we're lucky enough that the above is true, for a^2 = toTest and (b^2 mod N) = remainder,
+        // If we're lucky enough that the above is true, for a^2 = smoothNumber and (b^2 mod N) = remainder,
         // then we can immediately find a factor.
 
-        // Consider a to be equal to "toTest."
+        // Consider a to be equal to "smoothNumber."
         const BigInteger bSqr = (smoothNumber * smoothNumber) % toFactor;
         const BigInteger b = sqrt(bSqr);
         if ((b * b) != bSqr) {
