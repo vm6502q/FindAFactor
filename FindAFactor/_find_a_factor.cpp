@@ -886,8 +886,8 @@ struct Factorizer {
         // smoothNumbers.reserve(smoothParts->size() >> 1U);
         for (size_t sp = 0U; sp < smoothParts->size(); ++sp) {
             smoothNumber *= (*smoothParts)[sp];
-            if (smoothNumber > toFactor) {
-                //smoothNumbers.push_back(smoothNumber);
+            if (smoothNumber > toFactorSqrt) {
+                // smoothNumbers.push_back(smoothNumber);
                 const BigInteger result = checkCongruenceOfSquares(smoothNumber);
                 if (result != 1U) {
                     return result;
