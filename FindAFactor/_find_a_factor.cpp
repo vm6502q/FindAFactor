@@ -769,11 +769,11 @@ inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>>* inc_
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Utility to perform modular exponentiation
-int modExp(BigInteger base, BigInteger exp, const BigInteger& mod) {
-    int result = 1;
-    while (exp > 0) {
-        if ((exp & 1U) == 1U) {
-            result = (int)((result * base) % mod);
+BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger& mod) {
+    BigInteger result = 1U;
+    while (exp) {
+        if (exp & 1U) {
+            result = (result * base) % mod;
         }
         base = (base * base) % mod;
         exp >>= 1U;
@@ -847,7 +847,7 @@ BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& smoot
             if (dependent) {
                 // Compute x and y
                 BigInteger x = (smoothNumbers[i] * smoothNumbers[j]) % target;
-                int y = modExp(x, target / 2, target);
+                BigInteger y = modExp(x, target / 2, target);
                 BigInteger factor = gcd(x - y, target);
                 if ((factor != 1U) && (factor < target)) {
                     return factor;
