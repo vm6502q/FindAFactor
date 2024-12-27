@@ -80,10 +80,12 @@ namespace Qimcifa {
 
 typedef boost::multiprecision::cpp_int BigInteger;
 
-    // Make this a multiple of 2, 3, 5, 7, 11, 13, 17, 19, and 23.
+// Make this a multiple of 2, 3, 5, 7, 11, 13, 17, 19, and 23.
 constexpr int BIGGEST_WHEEL = 223092870;
 // Make this a multiple of 2, 3, 5, 7, or 11.
 constexpr int SMALLEST_WHEEL = 2310;
+// Ratio of biggest vs. smallest wheel;
+constexpr int WHEEL_RATIO = BIGGEST_WHEEL / SMALLEST_WHEEL;
 constexpr int MIN_RTD_LEVEL = 5;
 
 DispatchQueue dispatch(std::thread::hardware_concurrency());
@@ -571,8 +573,8 @@ struct Factorizer {
     BigInteger getSmoothNumbers(const BigInteger& toFactor, std::vector<boost::dynamic_bitset<uint64_t>>& inc_seqs, const BigInteger& offset)
     {
         for (BigInteger batchNum = (BigInteger)getNextBatch(); batchNum < batchBound; batchNum = (BigInteger)getNextBatch()) {
-            const BigInteger batchStart = batchNum * BIGGEST_WHEEL + offset;
-            const BigInteger batchEnd = (batchNum + 1U) * BIGGEST_WHEEL + offset;
+            const BigInteger batchStart = batchNum * WHEEL_RATIO + offset;
+            const BigInteger batchEnd = (batchNum + 1U) * WHEEL_RATIO + offset;
             for (BigInteger p = batchStart; p < batchEnd;) {
                 p += GetWheelIncrement(inc_seqs);
                 const BigInteger n = gcd(forward(p), toFactor);
@@ -596,8 +598,8 @@ struct Factorizer {
     BigInteger getSmoothNumbersSemiprime(const BigInteger& toFactor, std::vector<boost::dynamic_bitset<uint64_t>>& inc_seqs, const BigInteger& offset)
     {
         for (BigInteger batchNum = (BigInteger)getNextBatch(); batchNum < batchBound; batchNum = (BigInteger)getNextBatch()) {
-            const BigInteger batchStart = batchNum * BIGGEST_WHEEL + offset;
-            const BigInteger batchEnd = (batchNum + 1U) * BIGGEST_WHEEL + offset;
+            const BigInteger batchStart = batchNum * WHEEL_RATIO + offset;
+            const BigInteger batchEnd = (batchNum + 1U) * WHEEL_RATIO + offset;
             for (BigInteger p = batchStart; p < batchEnd;) {
                 p += GetWheelIncrement(inc_seqs);
                 const BigInteger n = forward(p);
@@ -698,7 +700,7 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
     inc_seqs.erase(inc_seqs.begin(), inc_seqs.begin() + MIN_RTD_LEVEL);
     wheelFactorizationPrimes.clear();
 
-    const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + BIGGEST_WHEEL - 1U) / BIGGEST_WHEEL;
+    const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + WHEEL_RATIO - 1U) / WHEEL_RATIO;
     Factorizer worker(toFactor * toFactor, fullMaxBase, nodeRange, nodeCount, nodeId);
     const auto workerFn = [&toFactor, &isSemiprime, &inc_seqs, &offset, &worker] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
