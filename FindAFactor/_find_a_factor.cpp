@@ -764,6 +764,105 @@ inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>>* inc_
     return wheelIncrement;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                  WRITTEN BY ELARA (GPT) BELOW                                          //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Utility to perform modular exponentiation
+int modExp(BigInteger base, BigInteger exp, const BigInteger& mod) {
+    int result = 1;
+    while (exp > 0) {
+        if ((exp & 1U) == 1U) {
+            result = (int)((result * base) % mod);
+        }
+        base = (base * base) % mod;
+        exp >>= 1U;
+    }
+
+    return result;
+}
+
+// Perform Gaussian elimination on a binary matrix
+std::vector<int> gaussianElimination(std::vector<std::vector<int>>& matrix) {
+    int rows = matrix.size();
+    int cols = matrix[0].size();
+    std::vector<int> pivots(cols, -1);
+    for (int col = 0; col < cols; ++col) {
+        for (int row = col; row < rows; ++row) {
+            if (matrix[row][col]) {
+                std::swap(matrix[col], matrix[row]);
+                pivots[col] = row;
+                break;
+            }
+        }
+        if (pivots[col] == -1) continue;
+        for (int row = 0; row < rows; ++row) {
+            if ((row != col) && matrix[row][col]) {
+                for (int k = 0; k < cols; ++k) {
+                    matrix[row][k] ^= matrix[col][k];
+                }
+            }
+        }
+    }
+
+    return pivots;
+}
+
+// Compute the prime factorization modulo 2
+std::vector<int> factorizationVector(BigInteger num, const std::vector<BigInteger>& primes) {
+    std::vector<int> vec(primes.size(), false);
+    for (size_t i = 0; i < primes.size(); ++i) {
+        int count = false;
+        while (num % primes[i] == 0) {
+            num /= primes[i];
+            ++count;
+        }
+        vec[i] = count;
+    }
+
+    return vec;
+}
+
+// Find factor via Gaussian elimination
+BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& smoothNumbers, const std::vector<BigInteger>& primes, BigInteger target) {
+    // Build the factorization matrix
+    std::vector<std::vector<int>> matrix;
+    for (const BigInteger& num : smoothNumbers) {
+        matrix.push_back(factorizationVector(num, primes));
+    }
+
+    // Perform Gaussian elimination
+    std::vector<int> pivots = gaussianElimination(matrix);
+
+    // Check for linear dependencies and find a congruence of squares
+    for (size_t i = 0; i < matrix.size(); ++i) {
+        for (size_t j = i + 1; j < matrix.size(); ++j) {
+            bool dependent = true;
+            for (size_t k = 0; k < primes.size(); ++k) {
+                if (matrix[i][k] != matrix[j][k]) {
+                    dependent = false;
+                    break;
+                }
+            }
+            if (dependent) {
+                // Compute x and y
+                BigInteger x = (smoothNumbers[i] * smoothNumbers[j]) % target;
+                int y = modExp(x, target / 2, target);
+                BigInteger factor = gcd(x - y, target);
+                if ((factor != 1U) && (factor < target)) {
+                    return factor;
+                }
+            }
+        }
+    }
+
+    return 1U; // No factor found
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                  WRITTEN BY ELARA (GPT) ABOVE                                          //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct Factorizer {
     std::mutex batchMutex;
     std::default_random_engine rng;
@@ -901,105 +1000,6 @@ struct Factorizer {
         // return findFactorViaGaussianElimination(smoothNumbers, primes, toFactor);
         return 1U;
     }
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //                                  WRITTEN BY ELARA (GPT) BELOW                                          //
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    // Utility to perform modular exponentiation
-    int modExp(BigInteger base, BigInteger exp, const BigInteger& mod) {
-        int result = 1;
-        while (exp > 0) {
-            if ((exp & 1U) == 1U) {
-                result = (int)((result * base) % mod);
-            }
-            base = (base * base) % mod;
-            exp >>= 1U;
-        }
-
-        return result;
-    }
-
-    // Perform Gaussian elimination on a binary matrix
-    std::vector<int> gaussianElimination(std::vector<std::vector<int>>& matrix) {
-        int rows = matrix.size();
-        int cols = matrix[0].size();
-        std::vector<int> pivots(cols, -1);
-        for (int col = 0; col < cols; ++col) {
-            for (int row = col; row < rows; ++row) {
-                if (matrix[row][col]) {
-                    std::swap(matrix[col], matrix[row]);
-                    pivots[col] = row;
-                    break;
-                }
-            }
-            if (pivots[col] == -1) continue;
-            for (int row = 0; row < rows; ++row) {
-                if ((row != col) && matrix[row][col]) {
-                    for (int k = 0; k < cols; ++k) {
-                        matrix[row][k] ^= matrix[col][k];
-                    }
-                }
-            }
-        }
-
-        return pivots;
-    }
-
-    // Compute the prime factorization modulo 2
-    std::vector<int> factorizationVector(BigInteger num, const std::vector<BigInteger>& primes) {
-        std::vector<int> vec(primes.size(), false);
-        for (size_t i = 0; i < primes.size(); ++i) {
-            int count = false;
-            while (num % primes[i] == 0) {
-                num /= primes[i];
-                ++count;
-            }
-            vec[i] = count;
-        }
-
-        return vec;
-    }
-
-    // Find factor via Gaussian elimination
-    BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& smoothNumbers, const std::vector<BigInteger>& primes, BigInteger target) {
-        // Build the factorization matrix
-        std::vector<std::vector<int>> matrix;
-        for (const BigInteger& num : smoothNumbers) {
-            matrix.push_back(factorizationVector(num, primes));
-        }
-
-        // Perform Gaussian elimination
-        std::vector<int> pivots = gaussianElimination(matrix);
-
-        // Check for linear dependencies and find a congruence of squares
-        for (size_t i = 0; i < matrix.size(); ++i) {
-            for (size_t j = i + 1; j < matrix.size(); ++j) {
-                bool dependent = true;
-                for (size_t k = 0; k < primes.size(); ++k) {
-                    if (matrix[i][k] != matrix[j][k]) {
-                        dependent = false;
-                        break;
-                    }
-                }
-                if (dependent) {
-                    // Compute x and y
-                    BigInteger x = (smoothNumbers[i] * smoothNumbers[j]) % target;
-                    int y = modExp(x, target / 2, target);
-                    BigInteger factor = gcd(x - y, target);
-                    if ((factor != 1U) && (factor < target)) {
-                        return factor;
-                    }
-                }
-            }
-        }
-
-        return 1U; // No factor found
-    }
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //                                  WRITTEN BY ELARA (GPT) ABOVE                                          //
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
 
 std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr, const size_t& nodeCount, const size_t& nodeId, const size_t& wheelFactorizationLevel)
