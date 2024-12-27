@@ -535,6 +535,7 @@ inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>>& inc_
 
 struct Factorizer {
     std::mutex batchMutex;
+    BigInteger toFactorSqr;
     BigInteger toFactorSqrt;
     BigInteger batchNumber;
     BigInteger batchBound;
@@ -542,8 +543,9 @@ struct Factorizer {
     BigInteger smoothNumber;
     bool isFinished;
 
-    Factorizer(const BigInteger& tfs, const BigInteger& range, size_t nodeCount, size_t nodeId )
-        : toFactorSqrt(tfs)
+    Factorizer(const BigInteger& tfsqr, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId )
+        : toFactorSqr(tfsqr)
+        , toFactorSqrt(tfsqrt)
         , batchNumber(nodeId * range)
         , batchBound((nodeId + 1U) * range)
         , batchCount(nodeCount * range)
@@ -619,7 +621,7 @@ struct Factorizer {
     BigInteger checkCongruenceOfSquares(const BigInteger& toFactor, const BigInteger& toTest)
     {
         smoothNumber *= toTest;
-        if (smoothNumber > toFactor) {
+        if (smoothNumber >= toFactorSqr) {
             smoothNumber = toTest;
         }
         if (smoothNumber <= toFactorSqrt) {
@@ -697,7 +699,7 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
     wheelFactorizationPrimes.clear();
 
     const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + BIGGEST_WHEEL - 1U) / BIGGEST_WHEEL;
-    Factorizer worker(fullMaxBase, nodeRange, nodeCount, nodeId);
+    Factorizer worker(toFactor * toFactor, fullMaxBase, nodeRange, nodeCount, nodeId);
     const auto workerFn = [&toFactor, &isSemiprime, &inc_seqs, &offset, &worker] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
