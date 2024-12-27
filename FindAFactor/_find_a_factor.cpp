@@ -766,18 +766,19 @@ inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>>* inc_
 
 struct Factorizer {
     std::mutex batchMutex;
+    std::default_random_engine rng;
     BigInteger toFactorSqr;
     BigInteger toFactor;
     BigInteger toFactorSqrt;
-    BigInteger primePartBound;
     BigInteger batchNumber;
     BigInteger batchBound;
     BigInteger batchCount;
     size_t wheelRatio;
-    std::default_random_engine rng;
+    size_t primePartBound;
 
-    Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr, const BigInteger& tfsqrtpc = 0U)
-        : toFactorSqr(tfsqr)
+    Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr, const size_t& tfsqrtpc = 0U)
+        : rng({})
+        , toFactorSqr(tfsqr)
         , toFactor(tf)
         , toFactorSqrt(tfsqrt)
         , primePartBound(tfsqrtpc << 3U)
@@ -785,7 +786,6 @@ struct Factorizer {
         , batchBound((nodeId + 1U) * range)
         , batchCount(nodeCount * range)
         , wheelRatio(wr)
-        , rng({})
     {
     }
 
@@ -910,8 +910,9 @@ std::string find_a_factor(const std::string& toFactorStr, const size_t& nodeCoun
     std::vector<BigInteger> trialDivisionPrimes = SegmentedSieveOfEratosthenes(std::min((uint64_t)fullMaxBase, (uint64_t)134217728ULL));
     std::vector<BigInteger> wheelFactorizationPrimes(
         trialDivisionPrimes.begin(), std::upper_bound(trialDivisionPrimes.begin(), trialDivisionPrimes.end(), wheelFactorizationLevel));
-    const BigInteger tfsqrtPrimeCount = isConOfSqr
-        ? ((fullMaxBase <= 134217728ULL) ? trialDivisionPrimes.size() : SegmentedCountPrimesTo(fullMaxBase)) - wheelFactorizationPrimes.size()
+    const size_t tfsqrtPrimeCount = isConOfSqr
+        ? ((fullMaxBase <= 134217728ULL)
+            ? trialDivisionPrimes.size() : (size_t)SegmentedCountPrimesTo(fullMaxBase)) - wheelFactorizationPrimes.size()
         : 0U;
     for (uint64_t primeIndex = 0U; (primeIndex < trialDivisionPrimes.size()) || (result > 1U); primeIndex+=512) {
         dispatch.dispatch([&toFactor, &trialDivisionPrimes, &result, primeIndex]() {
