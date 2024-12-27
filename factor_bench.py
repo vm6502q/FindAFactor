@@ -17,12 +17,12 @@ def main():
     wheel_factorization_level = 17
 
     if argv_len > 2:
-        use_congruence_of_squares = bool(sys.argv[5])
+        use_congruence_of_squares = bool(sys.argv[2])
     if argv_len > 4:
-        node_count = int(sys.argv[2])
-        node_id = int(sys.argv[3])
+        node_count = int(sys.argv[3])
+        node_id = int(sys.argv[4])
     if argv_len > 5:
-        wheel_factorization_level = int(sys.argv[4])
+        wheel_factorization_level = int(sys.argv[5])
 
     start = time.perf_counter()
     result = find_a_factor(
