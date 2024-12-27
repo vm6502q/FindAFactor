@@ -781,11 +781,11 @@ struct Factorizer {
         , toFactorSqr(tfsqr)
         , toFactor(tf)
         , toFactorSqrt(tfsqrt)
-        , primePartBound(tfsqrtpc << 3U)
         , batchNumber(nodeId * range)
         , batchBound((nodeId + 1U) * range)
         , batchCount(nodeCount * range)
         , wheelRatio(wr)
+        , primePartBound(tfsqrtpc << 3U)
     {
     }
 
