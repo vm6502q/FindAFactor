@@ -891,15 +891,11 @@ struct Factorizer {
     BigInteger getNextBatch() {
         std::lock_guard<std::mutex> lock(batchMutex);
 
-        BigInteger result = batchCount - (batchNumber + 1U);
-
         if (batchNumber == batchBound) {
             return batchBound;
         }
 
-        ++batchNumber;
-
-        return result;
+        return batchCount - (++batchNumber);
     }
 
     BigInteger bruteForce(std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs)
