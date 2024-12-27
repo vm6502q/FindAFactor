@@ -534,6 +534,7 @@ inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>>& inc_
 struct Factorizer {
     std::mutex batchMutex;
     BigInteger toFactorSqr;
+    BigInteger toFactor;
     BigInteger toFactorSqrt;
     BigInteger batchNumber;
     BigInteger batchBound;
@@ -541,8 +542,9 @@ struct Factorizer {
     BigInteger smoothNumber;
     size_t wheelRatio;
 
-    Factorizer(const BigInteger& tfsqr, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr)
+    Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr)
         : toFactorSqr(tfsqr)
+        , toFactor(tf)
         , toFactorSqrt(tfsqrt)
         , batchNumber(nodeId * range)
         , batchBound((nodeId + 1U) * range)
@@ -566,11 +568,11 @@ struct Factorizer {
         return result;
     }
 
-    BigInteger getSmoothNumbers(const BigInteger& toFactor, std::vector<boost::dynamic_bitset<uint64_t>>& inc_seqs, const BigInteger& offset)
+    BigInteger bruteForce(std::vector<boost::dynamic_bitset<uint64_t>>& inc_seqs)
     {
         for (BigInteger batchNum = (BigInteger)getNextBatch(); batchNum < batchBound; batchNum = (BigInteger)getNextBatch()) {
-            const BigInteger batchStart = batchNum * wheelRatio + offset;
-            const BigInteger batchEnd = (batchNum + 1U) * wheelRatio + offset;
+            const BigInteger batchStart = batchNum * wheelRatio;
+            const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
             for (BigInteger p = batchStart; p < batchEnd;) {
                 p += GetWheelIncrement(inc_seqs);
                 const BigInteger n = gcd(forward(p), toFactor);
@@ -578,7 +580,25 @@ struct Factorizer {
                     batchNumber = batchBound;
                     return n;
                 }
-                const BigInteger cgs = checkCongruenceOfSquares(toFactor, n);
+            }
+        }
+
+        return 1U;
+    }
+
+    BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<uint64_t>>& inc_seqs)
+    {
+        for (BigInteger batchNum = (BigInteger)getNextBatch(); batchNum < batchBound; batchNum = (BigInteger)getNextBatch()) {
+            const BigInteger batchStart = batchNum * wheelRatio;
+            const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
+            for (BigInteger p = batchStart; p < batchEnd;) {
+                p += GetWheelIncrement(inc_seqs);
+                const BigInteger n = gcd(forward(p), toFactor);
+                if (n != 1U) {
+                    batchNumber = batchBound;
+                    return n;
+                }
+                const BigInteger cgs = checkCongruenceOfSquares(n);
                 if (cgs > 1U) {
                     return cgs;
                 }
@@ -588,7 +608,7 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger checkCongruenceOfSquares(const BigInteger& toFactor, const BigInteger& toTest)
+    BigInteger checkCongruenceOfSquares(const BigInteger& toTest)
     {
         smoothNumber *= toTest;
         if (smoothNumber >= toFactorSqr) {
@@ -628,7 +648,7 @@ struct Factorizer {
     }
 };
 
-std::string find_a_factor(const std::string& toFactorStr, size_t nodeCount, size_t nodeId, size_t wheelFactorizationLevel)
+std::string find_a_factor(const std::string& toFactorStr, const size_t& nodeCount, const size_t& nodeId, const size_t& wheelFactorizationLevel, const bool& isConOfSqr)
 {
     BigInteger toFactor(toFactorStr);
 
@@ -656,9 +676,6 @@ std::string find_a_factor(const std::string& toFactorStr, size_t nodeCount, size
         return boost::lexical_cast<std::string>(result);
     }
 
-    const BigInteger offset = 1U;
-    const BigInteger fullRange = backward(fullMaxBase);
-
     const auto it = std::upper_bound(trialDivisionPrimes.begin(), trialDivisionPrimes.end(), wheelFactorizationLevel);
     std::vector<BigInteger> wheelFactorizationPrimes(trialDivisionPrimes.begin(), it);
     trialDivisionPrimes.clear();
@@ -674,15 +691,18 @@ std::string find_a_factor(const std::string& toFactorStr, size_t nodeCount, size
 
     // Ratio of biggest vs. smallest wheel;
     const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
-    const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
-    Factorizer worker(toFactor * toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio);
-    const auto workerFn = [&toFactor, &inc_seqs, &offset, &worker] {
+    const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
+    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio);
+    const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
         for (const auto& b : inc_seqs) {
             inc_seqs_clone.emplace_back(b);
         }
-        return worker.getSmoothNumbers(toFactor, inc_seqs_clone, offset);
+        if (isConOfSqr) {
+            return worker.smoothCongruences(inc_seqs_clone);
+        }
+        return worker.bruteForce(inc_seqs_clone);
     };
 
     const unsigned cpuCount = std::thread::hardware_concurrency();
