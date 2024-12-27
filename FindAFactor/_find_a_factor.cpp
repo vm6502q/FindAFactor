@@ -540,7 +540,6 @@ struct Factorizer {
     BigInteger batchCount;
     BigInteger smoothNumber;
     size_t wheelRatio;
-    bool isFinished;
 
     Factorizer(const BigInteger& tfsqr, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr)
         : toFactorSqr(tfsqr)
@@ -550,7 +549,6 @@ struct Factorizer {
         , batchCount(nodeCount * range)
         , smoothNumber(1U)
         , wheelRatio(wr)
-        , isFinished(false)
     {
     }
 
@@ -577,15 +575,12 @@ struct Factorizer {
                 p += GetWheelIncrement(inc_seqs);
                 const BigInteger n = gcd(forward(p), toFactor);
                 if ((n != 1U) && (n != toFactor)) {
-                    isFinished = true;
+                    batchNumber = batchBound;
                     return n;
                 }
                 const BigInteger cgs = checkCongruenceOfSquares(toFactor, n);
                 if (cgs > 1U) {
                     return cgs;
-                }
-                if (isFinished) {
-                    return 1U;
                 }
             }
         }
@@ -602,15 +597,12 @@ struct Factorizer {
                 p += GetWheelIncrement(inc_seqs);
                 const BigInteger n = forward(p);
                 if (((toFactor % n) == 0U) && (toFactor != n)) {
-                    isFinished = true;
+                    batchNumber = batchBound;
                     return n;
                 }
                 const BigInteger cgs = checkCongruenceOfSquares(toFactor, n);
                 if (cgs > 1U) {
                     return cgs;
-                }
-                if (isFinished) {
-                    return 1U;
                 }
             }
         }
