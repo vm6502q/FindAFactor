@@ -80,12 +80,8 @@ namespace Qimcifa {
 
 typedef boost::multiprecision::cpp_int BigInteger;
 
-// Make this a multiple of 2, 3, 5, 7, 11, 13, 17, 19, and 23.
-constexpr int BIGGEST_WHEEL = 223092870;
 // Make this a multiple of 2, 3, 5, 7, or 11.
 constexpr int SMALLEST_WHEEL = 2310;
-// Ratio of biggest vs. smallest wheel;
-constexpr int WHEEL_RATIO = BIGGEST_WHEEL / SMALLEST_WHEEL;
 constexpr int MIN_RTD_LEVEL = 5;
 
 DispatchQueue dispatch(std::thread::hardware_concurrency());
@@ -543,15 +539,17 @@ struct Factorizer {
     BigInteger batchBound;
     BigInteger batchCount;
     BigInteger smoothNumber;
+    size_t wheelRatio;
     bool isFinished;
 
-    Factorizer(const BigInteger& tfsqr, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId )
+    Factorizer(const BigInteger& tfsqr, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr)
         : toFactorSqr(tfsqr)
         , toFactorSqrt(tfsqrt)
         , batchNumber(nodeId * range)
         , batchBound((nodeId + 1U) * range)
         , batchCount(nodeCount * range)
         , smoothNumber(1U)
+        , wheelRatio(wr)
         , isFinished(false)
     {
     }
@@ -573,8 +571,8 @@ struct Factorizer {
     BigInteger getSmoothNumbers(const BigInteger& toFactor, std::vector<boost::dynamic_bitset<uint64_t>>& inc_seqs, const BigInteger& offset)
     {
         for (BigInteger batchNum = (BigInteger)getNextBatch(); batchNum < batchBound; batchNum = (BigInteger)getNextBatch()) {
-            const BigInteger batchStart = batchNum * WHEEL_RATIO + offset;
-            const BigInteger batchEnd = (batchNum + 1U) * WHEEL_RATIO + offset;
+            const BigInteger batchStart = batchNum * wheelRatio + offset;
+            const BigInteger batchEnd = (batchNum + 1U) * wheelRatio + offset;
             for (BigInteger p = batchStart; p < batchEnd;) {
                 p += GetWheelIncrement(inc_seqs);
                 const BigInteger n = gcd(forward(p), toFactor);
@@ -598,8 +596,8 @@ struct Factorizer {
     BigInteger getSmoothNumbersSemiprime(const BigInteger& toFactor, std::vector<boost::dynamic_bitset<uint64_t>>& inc_seqs, const BigInteger& offset)
     {
         for (BigInteger batchNum = (BigInteger)getNextBatch(); batchNum < batchBound; batchNum = (BigInteger)getNextBatch()) {
-            const BigInteger batchStart = batchNum * WHEEL_RATIO + offset;
-            const BigInteger batchEnd = (batchNum + 1U) * WHEEL_RATIO + offset;
+            const BigInteger batchStart = batchNum * wheelRatio + offset;
+            const BigInteger batchEnd = (batchNum + 1U) * wheelRatio + offset;
             for (BigInteger p = batchStart; p < batchEnd;) {
                 p += GetWheelIncrement(inc_seqs);
                 const BigInteger n = forward(p);
@@ -694,14 +692,20 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
     const auto it = std::upper_bound(trialDivisionPrimes.begin(), trialDivisionPrimes.end(), wheelFactorizationLevel);
     std::vector<BigInteger> wheelFactorizationPrimes(trialDivisionPrimes.begin(), it);
     trialDivisionPrimes.clear();
-    // trialDivisionPrimes.erase(trialDivisionPrimes.begin(), it);
-    // std::vector<BigInteger> smoothPrimes(trialDivisionPrimes.begin(), trialDivisionPrimes.begin() + 32U);
+
+    size_t biggestWheel = 1ULL;
+    for (const BigInteger& wp : wheelFactorizationPrimes) {
+        biggestWheel *= (size_t)wp;
+    }
+
     std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<BigInteger>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()), toFactor);
     inc_seqs.erase(inc_seqs.begin(), inc_seqs.begin() + MIN_RTD_LEVEL);
     wheelFactorizationPrimes.clear();
 
-    const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + WHEEL_RATIO - 1U) / WHEEL_RATIO;
-    Factorizer worker(toFactor * toFactor, fullMaxBase, nodeRange, nodeCount, nodeId);
+    // Ratio of biggest vs. smallest wheel;
+    const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
+    const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
+    Factorizer worker(toFactor * toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio);
     const auto workerFn = [&toFactor, &isSemiprime, &inc_seqs, &offset, &worker] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
