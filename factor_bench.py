@@ -20,10 +20,12 @@ if argv_len > 4:
     wheel_factorization_level=int(sys.argv[4])
 
 start = time.perf_counter()
-print(find_a_factor(
+result = find_a_factor(
     to_factor,
-    wheel_factorization_level=wheel_factorization_level,
     node_count=node_count,
-    node_id=node_id
-))
+    node_id=node_id,
+    wheel_factorization_level=wheel_factorization_level
+)
 print(time.perf_counter() - start)
+print(str(result) + " * " + str(to_factor // result) + " == " + str(to_factor))
+print((result * (to_factor // result)) == to_factor)
