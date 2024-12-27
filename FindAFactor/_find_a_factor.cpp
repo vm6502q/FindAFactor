@@ -916,11 +916,12 @@ struct Factorizer {
             base = (base * base) % mod;
             exp >>= 1U;
         }
+
         return result;
     }
 
     // Perform Gaussian elimination on a binary matrix
-    std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& matrix) {
+    std::vector<int> gaussianElimination(std::vector<std::vector<int>>& matrix) {
         int rows = matrix.size();
         int cols = matrix[0].size();
         std::vector<int> pivots(cols, -1);
@@ -936,43 +937,40 @@ struct Factorizer {
             for (int row = 0; row < rows; ++row) {
                 if ((row != col) && matrix[row][col]) {
                     for (int k = 0; k < cols; ++k) {
-                        matrix[row][k] = matrix[row][k] ^ matrix[col][k];
+                        matrix[row][k] ^= matrix[col][k];
                     }
                 }
             }
         }
-        std::vector<bool> result;
-        result.reserve(cols);
-        for (const int& p : pivots) {
-            result.push_back(p & 1U);
-        }
-        return result;
+
+        return pivots;
     }
 
     // Compute the prime factorization modulo 2
-    std::vector<bool> factorizationVector(BigInteger num, const std::vector<BigInteger>& primes) {
-        std::vector<bool> vec(primes.size(), false);
+    std::vector<int> factorizationVector(BigInteger num, const std::vector<BigInteger>& primes) {
+        std::vector<int> vec(primes.size(), false);
         for (size_t i = 0; i < primes.size(); ++i) {
-            bool count = false;
+            int count = false;
             while (num % primes[i] == 0) {
                 num /= primes[i];
-                count = !count;
+                ++count;
             }
             vec[i] = count;
         }
+
         return vec;
     }
 
     // Find factor via Gaussian elimination
     BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& smoothNumbers, const std::vector<BigInteger>& primes, BigInteger target) {
         // Build the factorization matrix
-        std::vector<std::vector<bool>> matrix;
+        std::vector<std::vector<int>> matrix;
         for (const BigInteger& num : smoothNumbers) {
             matrix.push_back(factorizationVector(num, primes));
         }
 
         // Perform Gaussian elimination
-        std::vector<bool> pivots = gaussianElimination(matrix);
+        std::vector<int> pivots = gaussianElimination(matrix);
 
         // Check for linear dependencies and find a congruence of squares
         for (size_t i = 0; i < matrix.size(); ++i) {
@@ -995,6 +993,7 @@ struct Factorizer {
                 }
             }
         }
+
         return 1U; // No factor found
     }
 
