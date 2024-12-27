@@ -535,15 +535,19 @@ inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>>& inc_
 
 struct Factorizer {
     std::mutex batchMutex;
+    BigInteger toFactorSqrt;
     BigInteger batchNumber;
     BigInteger batchBound;
     BigInteger batchCount;
+    BigInteger smoothNumber;
     bool isFinished;
 
-    Factorizer(BigInteger range, size_t nodeCount, size_t nodeId)
-        : batchNumber(nodeId * range)
+    Factorizer(const BigInteger& tfs, const BigInteger& range, size_t nodeCount, size_t nodeId )
+        : toFactorSqrt(tfs)
+        , batchNumber(nodeId * range)
         , batchBound((nodeId + 1U) * range)
         , batchCount(nodeCount * range)
+        , smoothNumber(1U)
         , isFinished(false)
     {
     }
@@ -574,6 +578,10 @@ struct Factorizer {
                     isFinished = true;
                     return n;
                 }
+                const BigInteger cgs = checkCongruenceOfSquares(toFactor, n);
+                if (cgs > 1U) {
+                    return cgs;
+                }
                 if (isFinished) {
                     return 1U;
                 }
@@ -595,10 +603,53 @@ struct Factorizer {
                     isFinished = true;
                     return n;
                 }
+                const BigInteger cgs = checkCongruenceOfSquares(toFactor, n);
+                if (cgs > 1U) {
+                    return cgs;
+                }
                 if (isFinished) {
                     return 1U;
                 }
             }
+        }
+
+        return 1U;
+    }
+
+    BigInteger checkCongruenceOfSquares(const BigInteger& toFactor, const BigInteger& toTest)
+    {
+        smoothNumber *= toTest;
+        if (smoothNumber > toFactor) {
+            smoothNumber = toTest;
+        }
+        if (smoothNumber <= toFactorSqrt) {
+            return 1U;
+        }
+
+        // The basic idea is "congruence of squares":
+        // a^2 = b^2 mod N
+        // If we're lucky enough that the above is true, for a^2 = toTest and (b^2 mod N) = remainder,
+        // then we can immediately find a factor.
+
+        // Consider a to be equal to "toTest."
+        const BigInteger bSqr = (smoothNumber * smoothNumber) % toFactor;
+        const BigInteger b = sqrt(bSqr);
+        if ((b * b) != bSqr) {
+            smoothNumber = 1U;
+            return false;
+        }
+
+        BigInteger f1 = gcd(smoothNumber + b, toFactor);
+        BigInteger f2 = gcd(smoothNumber - b, toFactor);
+        BigInteger fmul = f1 * f2;
+        while ((fmul > 1U) && (fmul != toFactor) && ((toFactor % fmul) == 0)) {
+            fmul = f1;
+            f1 = f1 * f2;
+            f2 = toFactor / (fmul * f2);
+            fmul = f1 * f2;
+        }
+        if ((fmul == toFactor) && (f1 > 1U) && (f2 > 1U)) {
+            return f1;
         }
 
         return 1U;
@@ -646,7 +697,7 @@ std::string find_a_factor(const std::string& toFactorStr, bool isSemiprime, size
     wheelFactorizationPrimes.clear();
 
     const BigInteger nodeRange = (((fullRange + nodeCount - 1U) / nodeCount) + BIGGEST_WHEEL - 1U) / BIGGEST_WHEEL;
-    Factorizer worker(nodeRange, nodeCount, nodeId);
+    Factorizer worker(fullMaxBase, nodeRange, nodeCount, nodeId);
     const auto workerFn = [&toFactor, &isSemiprime, &inc_seqs, &offset, &worker] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
