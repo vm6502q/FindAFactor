@@ -4,6 +4,20 @@ Find any nontrivial factor of a number
 ## Copyright and license
 (c) Daniel Strano and the Qrack contributors 2017-2024. All rights reserved.
 
+## Installation
+From PyPi:
+```
+pip3 install FindAFactor
+```
+
+From Source: install `pybind11`, then
+```
+pip3 install .
+```
+in the root source directory (with `setup.py`).
+
+Windows users might find Windows Subsystem Linux (WSL) to be the easier and preferred choice for installation.
+
 ## Usage
 
 ```py
