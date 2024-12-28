@@ -844,7 +844,7 @@ BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& prime
     }
     semiSmoothNumbers->clear();
 
-    if (matrix.size() < 2U) {
+    if (matrix.size() < primes.size()) {
         return 1U;
     }
 
@@ -852,6 +852,7 @@ BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& prime
     gaussianElimination(matrix);
 
     // Check for linear dependencies and find a congruence of squares
+    std::vector<size_t> toStrike;
     for (size_t i = 0; i < matrix.size(); ++i) {
         for (size_t j = i + 1; j < matrix.size(); ++j) {
             bool independent = false;
@@ -866,19 +867,12 @@ BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& prime
                 continue;
             }
 
+            toStrike.push_back(i);
+            toStrike.push_back(j);
+
             // Compute x and y
-            BigInteger x = 1U;
-            BigInteger y = 1U;
-            for (size_t k = 0; k < primes.size(); ++k) {
-                if (matrix[i][k]) {
-                    x *= primes[k];
-                    x %= target;
-                }
-                if (matrix[j][k]) {
-                    y *= primes[k];
-                    y %= target;
-                }
-            }
+            BigInteger x = ((*smoothNumbers)[i] * (*smoothNumbers)[j]) % target;
+            BigInteger y = modExp(x, target / 2, target);
 
             // Check congruence of squares
             BigInteger factor = gcd(x - y, target);
@@ -892,6 +886,12 @@ BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& prime
                 return factor;
             }
         }
+    }
+
+    // These numbers have been tried already:
+    std::sort(toStrike.begin(), toStrike.end());
+    for (size_t i = 0U; i < toStrike.size(); ++i) {
+        smoothNumbers->erase(smoothNumbers->begin() + toStrike[toStrike.size() - (i + 1U)]);
     }
 
     return 1U; // No factor found
