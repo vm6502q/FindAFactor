@@ -819,15 +819,18 @@ void gaussianElimination(std::map<BigInteger, std::vector<bool>>& matrix) {
 // Compute the prime factorization modulo 2
 std::vector<bool> factorizationVector(BigInteger num, const std::vector<BigInteger>& primes) {
     std::vector<bool> vec(primes.size(), false);
-    for (size_t i = 0; i < primes.size(); ++i) {
+    for (size_t i = 0U; i < primes.size(); ++i) {
         bool count = false;
-        while (num % primes[i] == 0) {
+        while (num % primes[i] == 0U) {
             num /= primes[i];
             count = !count;
         }
         vec[i] = count;
+        if (num == 1U) {
+            break;
+        }
     }
-    if (num) {
+    if (num != 1U) {
         return std::vector<bool>();
     }
 
@@ -912,7 +915,7 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger smoothCongruences(const std::vector<BigInteger>& primes, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* smoothParts)
+    BigInteger smoothCongruences(const std::vector<BigInteger>& primes, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* semiSmoothParts)
     {
         for (BigInteger batchNum = getNextAltBatch(); batchNum < batchBound; batchNum = getNextAltBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
@@ -924,13 +927,9 @@ struct Factorizer {
                     batchNumber = batchBound;
                     return n;
                 }
-                const std::vector<bool> fv = factorizationVector(n, primes);
-                if (!fv.size()) {
-                    continue;
-                }
-                smoothParts->push_back(n);
-                if (smoothParts->size() >= primePartBound) {
-                    const BigInteger m = makeSemiSmoothNumbers(primes, smoothParts);
+                semiSmoothParts->push_back(n);
+                if (semiSmoothParts->size() >= primePartBound) {
+                    const BigInteger m = makeSmoothNumbers(primes, semiSmoothParts);
                     if (m != 1U) {
                         batchNumber = batchBound;
                         return m;
@@ -942,12 +941,20 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger makeSemiSmoothNumbers(const std::vector<BigInteger>& primes, std::vector<BigInteger>* smoothParts)
+    BigInteger makeSmoothNumbers(const std::vector<BigInteger>& primes, std::vector<BigInteger>* semiSmoothParts)
     {
-        std::shuffle(smoothParts->begin(), smoothParts->end(), rng);
+        std::vector<BigInteger> smoothParts;
+        for (const BigInteger& n : (*semiSmoothParts)) {
+            const std::vector<bool> fv = factorizationVector(n, primes);
+            if (fv.size()) {
+                smoothParts.push_back(n);
+            }
+        }
+        semiSmoothParts->clear();
+        std::shuffle(smoothParts.begin(), smoothParts.end(), rng);
         BigInteger smoothNumber = 1U;
-        for (size_t sp = 0U; sp < smoothParts->size(); ++sp) {
-            smoothNumber *= (*smoothParts)[sp];
+        for (size_t sp = 0U; sp < smoothParts.size(); ++sp) {
+            smoothNumber *= smoothParts[sp];
             if (smoothNumber > toFactorSqrt) {
                 auto it = smoothNumberMap.find(smoothNumber);
                 if (it == smoothNumberMap.end()) {
@@ -956,7 +963,7 @@ struct Factorizer {
                 smoothNumber = 1U;
             }
         }
-        smoothParts->clear();
+        smoothParts.clear();
 
         return findFactorViaGaussianElimination(primes, toFactor);
     }
@@ -1087,8 +1094,8 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
             inc_seqs_clone.emplace_back(b);
         }
         if (isConOfSqr) {
-            std::vector<BigInteger> smoothParts;
-            return worker.smoothCongruences(primes, &inc_seqs_clone, &smoothParts);
+            std::vector<BigInteger> semiSmoothParts;
+            return worker.smoothCongruences(primes, &inc_seqs_clone, &semiSmoothParts);
         }
         return worker.bruteForce(&inc_seqs_clone);
     };
