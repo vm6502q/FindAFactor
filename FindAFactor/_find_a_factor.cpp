@@ -783,14 +783,18 @@ BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger& mod) {
 }
 
 // Perform Gaussian elimination on a binary matrix
-void gaussianElimination(std::vector<std::vector<bool>>& matrix) {
+void gaussianElimination(std::map<BigInteger, std::vector<bool>>& matrix) {
     size_t rows = matrix.size();
-    size_t cols = matrix[0].size();
+    size_t cols = matrix.begin()->second.size();
     std::vector<int> pivots(cols, -1);
     for (size_t col = 0; col < cols; ++col) {
+        auto colIt = matrix.begin();
+        std::advance(colIt, col);
         for (size_t row = col; row < rows; ++row) {
-            if (matrix[row][col]) {
-                std::swap(matrix[col], matrix[row]);
+            auto rowIt = matrix.begin();
+            std::advance(rowIt, row);
+            if (rowIt->second[col]) {
+                std::swap(colIt->second, rowIt->second);
                 pivots[col] = row;
                 break;
             }
@@ -798,10 +802,14 @@ void gaussianElimination(std::vector<std::vector<bool>>& matrix) {
         if (pivots[col] == -1) {
             continue;
         }
+        const std::vector<bool>& c = colIt->second;
         for (size_t row = 0; row < rows; ++row) {
-            if ((row != col) && matrix[row][col]) {
+            auto rowIt = matrix.begin();
+            std::advance(rowIt, row);
+            std::vector<bool>& r = rowIt->second;
+            if ((row != col) && r[col]) {
                 for (size_t k = 0; k < cols; ++k) {
-                    matrix[row][k] = matrix[row][k] ^ matrix[col][k];
+                    r[k] = r[k] ^ c[k];
                 }
             }
         }
@@ -843,8 +851,7 @@ struct Factorizer {
     BigInteger batchCount;
     size_t wheelRatio;
     size_t primePartBound;
-    std::vector<BigInteger> smoothNumbers;
-    std::vector<std::vector<bool>> matrix;
+    std::map<BigInteger, std::vector<bool>> smoothNumberMap;
 
     Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr, const size_t& ppb = 0U)
         : rng({})
@@ -961,25 +968,30 @@ struct Factorizer {
             if (!r.size()) {
                 continue;
             }
-            matrix.push_back(r);
-            smoothNumbers.push_back(num);
+            smoothNumberMap[num] = r;
         }
         semiSmoothNumbers->clear();
 
-        if (matrix.size() < primes.size()) {
+        if (smoothNumberMap.size() < primes.size()) {
             return 1U;
         }
 
         // Perform Gaussian elimination
-        gaussianElimination(matrix);
+        gaussianElimination(smoothNumberMap);
 
         // Check for linear dependencies and find a congruence of squares
         std::vector<size_t> toStrike;
-        for (size_t i = 0; i < matrix.size(); ++i) {
-            for (size_t j = i + 1; j < matrix.size(); ++j) {
+        for (size_t i = 0; i < smoothNumberMap.size(); ++i) {
+            auto iIt = smoothNumberMap.begin();
+            std::advance(iIt, i);
+            std::vector<bool>& iRow = iIt->second;
+            for (size_t j = i + 1; j < smoothNumberMap.size(); ++j) {
+                auto jIt = smoothNumberMap.begin();
+                std::advance(jIt, j);
+                std::vector<bool>& jRow = jIt->second;
                 bool independent = false;
                 for (size_t k = 0; k < primes.size(); ++k) {
-                    if (matrix[i][k] != matrix[j][k]) {
+                    if (iRow[k] != jRow[k]) {
                         independent = true;
                         break;
                     }
@@ -993,7 +1005,7 @@ struct Factorizer {
                 toStrike.push_back(j);
 
                 // Compute x and y
-                BigInteger x = (smoothNumbers[i] * smoothNumbers[j]) % target;
+                BigInteger x = (iIt->first * jIt->first) % target;
                 BigInteger y = modExp(x, target / 2, target);
 
                 // Check congruence of squares
@@ -1013,9 +1025,10 @@ struct Factorizer {
         // These numbers have been tried already:
         std::sort(toStrike.begin(), toStrike.end());
         for (size_t i = 0U; i < toStrike.size(); ++i) {
-            const size_t s = toStrike[toStrike.size() - (i + 1U)];
-            smoothNumbers.erase(smoothNumbers.begin() + s);
-            matrix.erase(matrix.begin() - s);
+            const size_t s = toStrike[i];
+            auto it = smoothNumberMap.begin();
+            std::advance(it, s - i);
+            smoothNumberMap.erase(it);
         }
 
         return 1U; // No factor found
