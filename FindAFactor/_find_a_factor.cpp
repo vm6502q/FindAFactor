@@ -1057,6 +1057,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     const auto it = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
     std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
     primes.erase(primes.begin(), it);
+
     for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result != 1U); primeIndex+=64) {
         dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
             const uint64_t maxLcv = std::min(primeIndex + 64U, primes.size());
@@ -1073,7 +1074,14 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     if (result > 1U) {
         return boost::lexical_cast<std::string>(result);
     }
+
     primes = std::vector<BigInteger>(primes.begin(), primes.begin() + log2(toFactor));
+    std::map<BigInteger, std::vector<bool>> smoothNumberMap;
+    for (size_t pid = 0U; pid < primes.size(); ++pid) {
+        const BigInteger& p = primes[pid];
+        smoothNumberMap[p] = std::vector<bool>(primes.size(), false);
+        smoothNumberMap[p][pid] = true;
+    }
 
     size_t biggestWheel = 1ULL;
     for (const BigInteger& wp : wheelFactorizationPrimes) {
@@ -1089,7 +1097,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
     std::shared_ptr<std::mutex> sharedMutex(new std::mutex);
     Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio, 1ULL << 12U);
-    const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker, sharedMutex] {
+    const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap, sharedMutex] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
         for (const auto& b : inc_seqs) {
@@ -1097,7 +1105,6 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
         }
         if (isConOfSqr) {
             std::vector<BigInteger> semiSmoothParts;
-            std::map<BigInteger, std::vector<bool>> smoothNumberMap;
 
             return worker.smoothCongruences(sharedMutex, primes, &inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
         }
