@@ -902,6 +902,16 @@ struct Factorizer {
         return batchCount - (++batchNumber);
     }
 
+    BigInteger getNextAltBatch() {
+        if (getNextBatch() == batchBound) {
+            return batchBound;
+        }
+
+        const BigInteger halfBatchNum = (batchNumber >> 1U);
+
+        return (batchNumber & 1U) ? batchCount - halfBatchNum : (BigInteger)(halfBatchNum + 1U);
+    }
+
     // BigInteger getRandomBatch() {
     //     std::lock_guard<std::mutex> lock(batchMutex);
     //     batchNumber = (batchNumber + dist(mt)) % toFactor;
@@ -928,7 +938,7 @@ struct Factorizer {
 
     BigInteger smoothCongruences(const std::vector<BigInteger>& primes, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* smoothParts)
     {
-        for (BigInteger batchNum = getNextBatch(); batchNum < batchBound; batchNum = getNextBatch()) {
+        for (BigInteger batchNum = getNextAltBatch(); batchNum < batchBound; batchNum = getNextAltBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
             const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
             for (BigInteger p = batchStart; p < batchEnd;) {
