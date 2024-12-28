@@ -924,6 +924,10 @@ struct Factorizer {
                     batchNumber = batchBound;
                     return n;
                 }
+                const std::vector<bool> fv = factorizationVector(n, primes);
+                if (!fv.size()) {
+                    continue;
+                }
                 smoothParts->push_back(n);
                 if (smoothParts->size() >= primePartBound) {
                     const BigInteger m = makeSemiSmoothNumbers(primes, smoothParts);
@@ -941,19 +945,20 @@ struct Factorizer {
     BigInteger makeSemiSmoothNumbers(const std::vector<BigInteger>& primes, std::vector<BigInteger>* smoothParts)
     {
         std::shuffle(smoothParts->begin(), smoothParts->end(), rng);
-        BigInteger semiSmoothNumber = 1U;
-        std::vector<BigInteger> semiSmoothNumbers;
-        semiSmoothNumbers.reserve(smoothParts->size() >> 1U);
+        BigInteger smoothNumber = 1U;
         for (size_t sp = 0U; sp < smoothParts->size(); ++sp) {
-            semiSmoothNumber *= (*smoothParts)[sp];
-            if (semiSmoothNumber > toFactorSqrt) {
-                semiSmoothNumbers.push_back(semiSmoothNumber);
-                semiSmoothNumber = 1U;
+            smoothNumber *= (*smoothParts)[sp];
+            if (smoothNumber > toFactorSqrt) {
+                auto it = smoothNumberMap.find(smoothNumber);
+                if (it == smoothNumberMap.end()) {
+                    smoothNumberMap[smoothNumber] = factorizationVector(smoothNumber, primes);
+                }
+                smoothNumber = 1U;
             }
         }
         smoothParts->clear();
 
-        return findFactorViaGaussianElimination(primes, toFactor, &semiSmoothNumbers);
+        return findFactorViaGaussianElimination(primes, toFactor);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -961,20 +966,7 @@ struct Factorizer {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Find factor via Gaussian elimination
-    BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& primes, BigInteger target, std::vector<BigInteger>* semiSmoothNumbers) {
-        // Build the factorization matrix
-        for (const BigInteger& num : (*semiSmoothNumbers)) {
-            const std::vector<bool> r = factorizationVector(num, primes);
-            if (!r.size()) {
-                continue;
-            }
-            auto it = smoothNumberMap.find(num);
-            if (it == smoothNumberMap.end()) {
-                smoothNumberMap[num] = r;
-            }
-        }
-        semiSmoothNumbers->clear();
-
+    BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& primes, BigInteger target) {
         if (smoothNumberMap.size() < primes.size()) {
             return 1U;
         }
