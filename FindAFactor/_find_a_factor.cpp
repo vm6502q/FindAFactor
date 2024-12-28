@@ -882,13 +882,16 @@ struct Factorizer {
     }
 
     BigInteger getNextAltBatch() {
-        if (getNextBatch() == batchBound) {
+        std::lock_guard<std::mutex> lock(batchMutex);
+
+        if (batchNumber == batchBound) {
             return batchBound;
         }
 
+        ++batchNumber;
         const BigInteger halfBatchNum = (batchNumber >> 1U);
 
-        return (batchNumber & 1U) ? batchCount - halfBatchNum : (BigInteger)(halfBatchNum + 1U);
+        return (batchNumber & 1U) ? batchCount - (halfBatchNum + 1U) : halfBatchNum;
     }
 
     // BigInteger getRandomBatch() {
