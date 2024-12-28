@@ -1005,7 +1005,6 @@ struct Factorizer {
                     continue;
                 }
 
-                toStrike.push_back(i);
                 toStrike.push_back(j);
 
                 // Compute x and y
