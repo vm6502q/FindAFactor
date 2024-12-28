@@ -783,75 +783,92 @@ BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger& mod) {
 }
 
 // Perform Gaussian elimination on a binary matrix
-std::vector<int> gaussianElimination(std::vector<std::vector<int>>& matrix) {
-    int rows = matrix.size();
-    int cols = matrix[0].size();
+void gaussianElimination(std::vector<std::vector<bool>>& matrix) {
+    size_t rows = matrix.size();
+    size_t cols = matrix[0].size();
     std::vector<int> pivots(cols, -1);
-    for (int col = 0; col < cols; ++col) {
-        for (int row = col; row < rows; ++row) {
+    for (size_t col = 0; col < cols; ++col) {
+        for (size_t row = col; row < rows; ++row) {
             if (matrix[row][col]) {
                 std::swap(matrix[col], matrix[row]);
                 pivots[col] = row;
                 break;
             }
         }
-        if (pivots[col] == -1) continue;
-        for (int row = 0; row < rows; ++row) {
+        if (pivots[col] == -1) {
+            continue;
+        }
+        for (size_t row = 0; row < rows; ++row) {
             if ((row != col) && matrix[row][col]) {
-                for (int k = 0; k < cols; ++k) {
-                    matrix[row][k] ^= matrix[col][k];
+                for (size_t k = 0; k < cols; ++k) {
+                    matrix[row][k] = matrix[row][k] ^ matrix[col][k];
                 }
             }
         }
     }
-
-    return pivots;
 }
 
 // Compute the prime factorization modulo 2
-std::vector<int> factorizationVector(BigInteger num, const std::vector<BigInteger>& primes) {
-    std::vector<int> vec(primes.size(), false);
+std::vector<bool> factorizationVector(BigInteger num, const std::vector<BigInteger>& primes) {
+    std::vector<bool> vec(primes.size(), false);
     for (size_t i = 0; i < primes.size(); ++i) {
-        int count = false;
+        bool count = false;
         while (num % primes[i] == 0) {
             num /= primes[i];
-            ++count;
+            count = !count;
         }
         vec[i] = count;
+    }
+    if (num) {
+        return std::vector<bool>();
     }
 
     return vec;
 }
 
 // Find factor via Gaussian elimination
-BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& smoothNumbers, const std::vector<BigInteger>& primes, BigInteger target) {
+BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& semiSmoothNumbers, const std::vector<BigInteger>& primes, BigInteger target) {
     // Build the factorization matrix
-    std::vector<std::vector<int>> matrix;
-    for (const BigInteger& num : smoothNumbers) {
-        matrix.push_back(factorizationVector(num, primes));
+    std::vector<std::vector<bool>> matrix;
+    std::vector<BigInteger> smoothNumbers;
+    for (const BigInteger& num : semiSmoothNumbers) {
+        const std::vector<bool> r = factorizationVector(num, primes);
+        if (!r.size()) {
+            continue;
+        }
+        matrix.push_back(r);
+        smoothNumbers.push_back(num);
+        if (matrix.size() > primes.size()) {
+            break;
+        }
+    }
+
+    if (matrix.size() < 2U) {
+        return 1U;
     }
 
     // Perform Gaussian elimination
-    std::vector<int> pivots = gaussianElimination(matrix);
+    gaussianElimination(matrix);
 
     // Check for linear dependencies and find a congruence of squares
     for (size_t i = 0; i < matrix.size(); ++i) {
         for (size_t j = i + 1; j < matrix.size(); ++j) {
-            bool dependent = true;
+            bool independent = false;
             for (size_t k = 0; k < primes.size(); ++k) {
                 if (matrix[i][k] != matrix[j][k]) {
-                    dependent = false;
+                    independent = true;
                     break;
                 }
             }
-            if (dependent) {
-                // Compute x and y
-                BigInteger x = (smoothNumbers[i] * smoothNumbers[j]) % target;
-                BigInteger y = modExp(x, target / 2, target);
-                BigInteger factor = gcd(x - y, target);
-                if ((factor != 1U) && (factor < target)) {
-                    return factor;
-                }
+            if (independent) {
+                continue;
+            }
+            // Compute x and y
+            BigInteger x = (smoothNumbers[i] * smoothNumbers[j]) % target;
+            BigInteger y = modExp(x, target / 2, target);
+            BigInteger factor = gcd(x - y, target);
+            if ((factor != 1U) && (factor < target)) {
+                return factor;
             }
         }
     }
@@ -914,9 +931,9 @@ struct Factorizer {
 
     // BigInteger getRandomBatch() {
     //     std::lock_guard<std::mutex> lock(batchMutex);
-    //     batchNumber = (batchNumber + dist(mt)) % toFactor;
+    //     batchNumber = (batchNumber + dist(mt)) % batchBound;
     //     return batchNumber;
-    //}
+    // }
 
     BigInteger bruteForce(std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs)
     {
@@ -948,9 +965,13 @@ struct Factorizer {
                     batchNumber = batchBound;
                     return n;
                 }
-                const BigInteger cgs = makeSmoothNumbers(n, primes, smoothParts);
-                if (cgs > 1U) {
-                    return cgs;
+                smoothParts->push_back(n);
+                if (smoothParts->size() >= primePartBound) {
+                    const BigInteger m = makeSemiSmoothNumbers(primes, smoothParts);
+                    if (m != 1U) {
+                        batchNumber = batchBound;
+                        return m;
+                    }
                 }
             }
         }
@@ -958,63 +979,22 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger checkCongruenceOfSquares(const BigInteger& smoothNumber)
+    BigInteger makeSemiSmoothNumbers(const std::vector<BigInteger>& primes, std::vector<BigInteger>* smoothParts)
     {
-        // The basic idea is "congruence of squares":
-        // a^2 = b^2 mod N
-        // If we're lucky enough that the above is true, for a^2 = smoothNumber and (b^2 mod N) = remainder,
-        // then we can immediately find a factor.
-
-        // Consider a to be equal to "smoothNumber."
-        const BigInteger bSqr = (smoothNumber * smoothNumber) % toFactor;
-        const BigInteger b = sqrt(bSqr);
-        if ((b * b) != bSqr) {
-            return false;
-        }
-
-        BigInteger f1 = gcd(smoothNumber + b, toFactor);
-        BigInteger f2 = gcd(smoothNumber - b, toFactor);
-        BigInteger fmul = f1 * f2;
-        while ((fmul > 1U) && (fmul != toFactor) && ((toFactor % fmul) == 0)) {
-            fmul = f1;
-            f1 = f1 * f2;
-            f2 = toFactor / (fmul * f2);
-            fmul = f1 * f2;
-        }
-        if ((fmul == toFactor) && (f1 > 1U) && (f2 > 1U)) {
-            return f1;
-        }
-
-        return 1U;
-    }
-
-    BigInteger makeSmoothNumbers(const BigInteger& toTest, const std::vector<BigInteger>& primes, std::vector<BigInteger>* smoothParts)
-    {
-        smoothParts->push_back(toTest);
-        if (smoothParts->size() < primePartBound) {
-            return 1U;
-        }
-
         std::shuffle(smoothParts->begin(), smoothParts->end(), rng);
-        BigInteger smoothNumber = 1U;
-        // std::vector<BigInteger> smoothNumbers;
-        // smoothNumbers.reserve(smoothParts->size() >> 1U);
+        BigInteger semiSmoothNumber = 1U;
+        std::vector<BigInteger> semiSmoothNumbers;
+        semiSmoothNumbers.reserve(smoothParts->size() >> 1U);
         for (size_t sp = 0U; sp < smoothParts->size(); ++sp) {
-            smoothNumber *= (*smoothParts)[sp];
-            if (smoothNumber > toFactorSqrt) {
-                // smoothNumbers.push_back(smoothNumber);
-                const BigInteger result = checkCongruenceOfSquares(smoothNumber);
-                if (result != 1U) {
-                    return result;
-                }
-                smoothNumber = 1U;
+            semiSmoothNumber *= (*smoothParts)[sp];
+            if (semiSmoothNumber > toFactorSqrt) {
+                semiSmoothNumbers.push_back(semiSmoothNumber);
+                semiSmoothNumber = 1U;
             }
         }
         smoothParts->clear();
 
-        // Bugged, maybe too much memory per thread:
-        // return findFactorViaGaussianElimination(smoothNumbers, primes, toFactor);
-        return 1U;
+        return findFactorViaGaussianElimination(semiSmoothNumbers, primes, toFactor);
     }
 };
 
@@ -1029,16 +1009,16 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     const BigInteger sqrtFullMaxBase = sqrt(fullMaxBase);
 
     BigInteger result = 1U;
-    std::vector<BigInteger> primes = SegmentedSieveOfEratosthenes(sqrtFullMaxBase);
+    std::vector<BigInteger> primes = SegmentedSieveOfEratosthenes(65536ULL);
     const auto it = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
     std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
     primes.erase(primes.begin(), it);
-    for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result > 1U); primeIndex+=512) {
+    for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result != 1U); primeIndex+=64) {
         dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
-            const uint64_t maxLcv = std::min(primeIndex + 1000U, primes.size());
+            const uint64_t maxLcv = std::min(primeIndex + 64U, primes.size());
             for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
                 const BigInteger currentPrime = primes[primeIndex];
-                if ((toFactor % currentPrime) == 0U) {
+                if ((result != 1U) || ((toFactor % currentPrime) == 0U)) {
                     result = currentPrime;
                     return true;
                 }
@@ -1049,6 +1029,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     if (result > 1U) {
         return boost::lexical_cast<std::string>(result);
     }
+    primes = std::vector<BigInteger>(primes.begin(), primes.begin() + log2(toFactor));
 
     size_t biggestWheel = 1ULL;
     for (const BigInteger& wp : wheelFactorizationPrimes) {
