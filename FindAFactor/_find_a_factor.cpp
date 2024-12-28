@@ -864,6 +864,8 @@ BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& smoot
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct Factorizer {
+    // std::mt19937_64 mt;
+    // std::uniform_int_distribution<uint64_t> dist;
     std::mutex batchMutex;
     std::default_random_engine rng;
     BigInteger toFactorSqr;
@@ -875,8 +877,10 @@ struct Factorizer {
     size_t wheelRatio;
     size_t primePartBound;
 
-    Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr, const size_t& tfsqrtpc = 0U)
+    Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr, const size_t& ppb = 0U)
         : rng({})
+        // , mt(std::random_device{}())
+        // , dist(0ULL, -1LL)
         , toFactorSqr(tfsqr)
         , toFactor(tf)
         , toFactorSqrt(tfsqrt)
@@ -884,7 +888,7 @@ struct Factorizer {
         , batchBound((nodeId + 1U) * range)
         , batchCount(nodeCount * range)
         , wheelRatio(wr)
-        , primePartBound(tfsqrtpc << 3U)
+        , primePartBound(ppb)
     {
     }
 
@@ -898,9 +902,15 @@ struct Factorizer {
         return batchCount - (++batchNumber);
     }
 
+    // BigInteger getRandomBatch() {
+    //     std::lock_guard<std::mutex> lock(batchMutex);
+    //     batchNumber = (batchNumber + dist(mt)) % toFactor;
+    //     return batchNumber;
+    //}
+
     BigInteger bruteForce(std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs)
     {
-        for (BigInteger batchNum = (BigInteger)getNextBatch(); batchNum < batchBound; batchNum = (BigInteger)getNextBatch()) {
+        for (BigInteger batchNum = getNextBatch(); batchNum < batchBound; batchNum = getNextBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
             const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
             for (BigInteger p = batchStart; p < batchEnd;) {
@@ -918,7 +928,7 @@ struct Factorizer {
 
     BigInteger smoothCongruences(const std::vector<BigInteger>& primes, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* smoothParts)
     {
-        for (BigInteger batchNum = (BigInteger)getNextBatch(); batchNum < batchBound; batchNum = (BigInteger)getNextBatch()) {
+        for (BigInteger batchNum = getNextBatch(); batchNum < batchBound; batchNum = getNextBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
             const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
             for (BigInteger p = batchStart; p < batchEnd;) {
@@ -1042,7 +1052,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     // Ratio of biggest vs. smallest wheel;
     const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
     const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
-    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio, primes.size());
+    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio, primes.size() << 3U);
     const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
