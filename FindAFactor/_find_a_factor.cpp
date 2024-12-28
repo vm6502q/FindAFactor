@@ -970,9 +970,6 @@ struct Factorizer {
         smoothParts.clear();
 
         std::lock_guard<std::mutex> lock(*sharedMutex);
-        if (smoothNumberMap->size() < primes.size()) {
-            return 1U;
-        }
 
         return findFactorViaGaussianElimination(primes, toFactor, smoothNumberMap);
     }
@@ -1099,7 +1096,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
     const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
     std::shared_ptr<std::mutex> sharedMutex(new std::mutex);
-    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio, 1ULL << 12U);
+    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio, 1ULL << 14U);
     const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap, sharedMutex] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
