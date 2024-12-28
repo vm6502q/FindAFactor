@@ -861,14 +861,34 @@ BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& prime
                     break;
                 }
             }
+
             if (independent) {
                 continue;
             }
+
             // Compute x and y
-            BigInteger x = (smoothNumbers[i] * smoothNumbers[j]) % target;
-            BigInteger y = modExp(x, target / 2, target);
+            BigInteger x = 1U;
+            BigInteger y = 1U;
+            for (size_t k = 0; k < primes.size(); ++k) {
+                if (matrix[i][k]) {
+                    x *= primes[k];
+                    x %= target;
+                }
+                if (matrix[j][k]) {
+                    y *= primes[k];
+                    y %= target;
+                }
+            }
+
+            // Check congruence of squares
             BigInteger factor = gcd(x - y, target);
-            if ((factor != 1U) && (factor < target)) {
+            if ((factor > 1U) && (factor < target)) {
+                return factor;
+            }
+
+            // Try x + y as well
+            factor = gcd(x + y, target);
+            if ((factor > 1U) && (factor < target)) {
                 return factor;
             }
         }
