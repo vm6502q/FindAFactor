@@ -826,77 +826,6 @@ std::vector<bool> factorizationVector(BigInteger num, const std::vector<BigInteg
     return vec;
 }
 
-// Find factor via Gaussian elimination
-BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& primes, BigInteger target, std::vector<BigInteger>* semiSmoothNumbers, std::vector<BigInteger>* smoothNumbers) {
-    // Build the factorization matrix
-    std::vector<std::vector<bool>> matrix;
-    for (const BigInteger& num : (*smoothNumbers)) {
-        const std::vector<bool> r = factorizationVector(num, primes);
-        matrix.push_back(r);
-    }
-    for (const BigInteger& num : (*semiSmoothNumbers)) {
-        const std::vector<bool> r = factorizationVector(num, primes);
-        if (!r.size()) {
-            continue;
-        }
-        matrix.push_back(r);
-        smoothNumbers->push_back(num);
-    }
-    semiSmoothNumbers->clear();
-
-    if (matrix.size() < primes.size()) {
-        return 1U;
-    }
-
-    // Perform Gaussian elimination
-    gaussianElimination(matrix);
-
-    // Check for linear dependencies and find a congruence of squares
-    std::vector<size_t> toStrike;
-    for (size_t i = 0; i < matrix.size(); ++i) {
-        for (size_t j = i + 1; j < matrix.size(); ++j) {
-            bool independent = false;
-            for (size_t k = 0; k < primes.size(); ++k) {
-                if (matrix[i][k] != matrix[j][k]) {
-                    independent = true;
-                    break;
-                }
-            }
-
-            if (independent) {
-                continue;
-            }
-
-            toStrike.push_back(i);
-            toStrike.push_back(j);
-
-            // Compute x and y
-            BigInteger x = ((*smoothNumbers)[i] * (*smoothNumbers)[j]) % target;
-            BigInteger y = modExp(x, target / 2, target);
-
-            // Check congruence of squares
-            BigInteger factor = gcd(x - y, target);
-            if ((factor > 1U) && (factor < target)) {
-                return factor;
-            }
-
-            // Try x + y as well
-            factor = gcd(x + y, target);
-            if ((factor > 1U) && (factor < target)) {
-                return factor;
-            }
-        }
-    }
-
-    // These numbers have been tried already:
-    std::sort(toStrike.begin(), toStrike.end());
-    for (size_t i = 0U; i < toStrike.size(); ++i) {
-        smoothNumbers->erase(smoothNumbers->begin() + toStrike[toStrike.size() - (i + 1U)]);
-    }
-
-    return 1U; // No factor found
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                  WRITTEN BY ELARA (GPT) ABOVE                                          //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -915,6 +844,7 @@ struct Factorizer {
     size_t wheelRatio;
     size_t primePartBound;
     std::vector<BigInteger> smoothNumbers;
+    std::vector<std::vector<bool>> matrix;
 
     Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr, const size_t& ppb = 0U)
         : rng({})
@@ -1016,8 +946,84 @@ struct Factorizer {
         }
         smoothParts->clear();
 
-        return findFactorViaGaussianElimination(primes, toFactor, &semiSmoothNumbers, &smoothNumbers);
+        return findFactorViaGaussianElimination(primes, toFactor, &semiSmoothNumbers);
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //                                  WRITTEN BY ELARA (GPT) BELOW                                          //
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // Find factor via Gaussian elimination
+    BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& primes, BigInteger target, std::vector<BigInteger>* semiSmoothNumbers) {
+        // Build the factorization matrix
+        for (const BigInteger& num : (*semiSmoothNumbers)) {
+            const std::vector<bool> r = factorizationVector(num, primes);
+            if (!r.size()) {
+                continue;
+            }
+            matrix.push_back(r);
+            smoothNumbers.push_back(num);
+        }
+        semiSmoothNumbers->clear();
+
+        if (matrix.size() < primes.size()) {
+            return 1U;
+        }
+
+        // Perform Gaussian elimination
+        gaussianElimination(matrix);
+
+        // Check for linear dependencies and find a congruence of squares
+        std::vector<size_t> toStrike;
+        for (size_t i = 0; i < matrix.size(); ++i) {
+            for (size_t j = i + 1; j < matrix.size(); ++j) {
+                bool independent = false;
+                for (size_t k = 0; k < primes.size(); ++k) {
+                    if (matrix[i][k] != matrix[j][k]) {
+                        independent = true;
+                        break;
+                    }
+                }
+
+                if (independent) {
+                    continue;
+                }
+
+                toStrike.push_back(i);
+                toStrike.push_back(j);
+
+                // Compute x and y
+                BigInteger x = (smoothNumbers[i] * smoothNumbers[j]) % target;
+                BigInteger y = modExp(x, target / 2, target);
+
+                // Check congruence of squares
+                BigInteger factor = gcd(x - y, target);
+                if ((factor > 1U) && (factor < target)) {
+                    return factor;
+                }
+
+                // Try x + y as well
+                factor = gcd(x + y, target);
+                if ((factor > 1U) && (factor < target)) {
+                    return factor;
+                }
+            }
+        }
+
+        // These numbers have been tried already:
+        std::sort(toStrike.begin(), toStrike.end());
+        for (size_t i = 0U; i < toStrike.size(); ++i) {
+            const size_t s = toStrike[toStrike.size() - (i + 1U)];
+            smoothNumbers.erase(smoothNumbers.begin() + s);
+            matrix.erase(matrix.begin() - s);
+        }
+
+        return 1U; // No factor found
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //                                  WRITTEN BY ELARA (GPT) ABOVE                                          //
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
 
 std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr, const size_t& nodeCount, const size_t& nodeId, const size_t& wheelFactorizationLevel)
