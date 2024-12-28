@@ -968,7 +968,10 @@ struct Factorizer {
             if (!r.size()) {
                 continue;
             }
-            smoothNumberMap[num] = r;
+            auto it = smoothNumberMap.find(num);
+            if (it == smoothNumberMap.end()) {
+                smoothNumberMap[num] = r;
+            }
         }
         semiSmoothNumbers->clear();
 
