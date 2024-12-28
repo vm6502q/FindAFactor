@@ -65,6 +65,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <random>
 #include <stdlib.h>
@@ -783,15 +784,15 @@ BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger& mod) {
 }
 
 // Perform Gaussian elimination on a binary matrix
-void gaussianElimination(std::map<BigInteger, std::vector<bool>>& matrix) {
-    size_t rows = matrix.size();
-    size_t cols = matrix.begin()->second.size();
+void gaussianElimination(std::map<BigInteger, std::vector<bool>>* matrix) {
+    size_t rows = matrix->size();
+    size_t cols = matrix->begin()->second.size();
     std::vector<int> pivots(cols, -1);
     for (size_t col = 0; col < cols; ++col) {
-        auto colIt = matrix.begin();
+        auto colIt = matrix->begin();
         std::advance(colIt, col);
         for (size_t row = col; row < rows; ++row) {
-            auto rowIt = matrix.begin();
+            auto rowIt = matrix->begin();
             std::advance(rowIt, row);
             if (rowIt->second[col]) {
                 std::swap(colIt->second, rowIt->second);
@@ -804,7 +805,7 @@ void gaussianElimination(std::map<BigInteger, std::vector<bool>>& matrix) {
         }
         const std::vector<bool>& c = colIt->second;
         for (size_t row = 0; row < rows; ++row) {
-            auto rowIt = matrix.begin();
+            auto rowIt = matrix->begin();
             std::advance(rowIt, row);
             std::vector<bool>& r = rowIt->second;
             if ((row != col) && r[col]) {
@@ -854,7 +855,6 @@ struct Factorizer {
     BigInteger batchCount;
     size_t wheelRatio;
     size_t primePartBound;
-    std::map<BigInteger, std::vector<bool>> smoothNumberMap;
 
     Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr, const size_t& ppb = 0U)
         : rng({})
@@ -915,7 +915,7 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger smoothCongruences(const std::vector<BigInteger>& primes, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* semiSmoothParts)
+    BigInteger smoothCongruences(std::shared_ptr<std::mutex> sharedMutex, const std::vector<BigInteger>& primes, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, std::vector<bool>>* smoothNumberMap)
     {
         for (BigInteger batchNum = getNextAltBatch(); batchNum < batchBound; batchNum = getNextAltBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
@@ -929,7 +929,7 @@ struct Factorizer {
                 }
                 semiSmoothParts->push_back(n);
                 if (semiSmoothParts->size() >= primePartBound) {
-                    const BigInteger m = makeSmoothNumbers(primes, semiSmoothParts);
+                    const BigInteger m = makeSmoothNumbers(sharedMutex, primes, semiSmoothParts, smoothNumberMap);
                     if (m != 1U) {
                         batchNumber = batchBound;
                         return m;
@@ -941,7 +941,7 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger makeSmoothNumbers(const std::vector<BigInteger>& primes, std::vector<BigInteger>* semiSmoothParts)
+    BigInteger makeSmoothNumbers(std::shared_ptr<std::mutex> sharedMutex, const std::vector<BigInteger>& primes, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, std::vector<bool>>* smoothNumberMap)
     {
         std::vector<BigInteger> smoothParts;
         for (const BigInteger& n : (*semiSmoothParts)) {
@@ -956,16 +956,22 @@ struct Factorizer {
         for (size_t sp = 0U; sp < smoothParts.size(); ++sp) {
             smoothNumber *= smoothParts[sp];
             if (smoothNumber > toFactorSqrt) {
-                auto it = smoothNumberMap.find(smoothNumber);
-                if (it == smoothNumberMap.end()) {
-                    smoothNumberMap[smoothNumber] = factorizationVector(smoothNumber, primes);
+                std::lock_guard<std::mutex> lock(*sharedMutex);
+                auto it = smoothNumberMap->find(smoothNumber);
+                if (it == smoothNumberMap->end()) {
+                    (*smoothNumberMap)[smoothNumber] = factorizationVector(smoothNumber, primes);
                 }
                 smoothNumber = 1U;
             }
         }
         smoothParts.clear();
 
-        return findFactorViaGaussianElimination(primes, toFactor);
+        std::lock_guard<std::mutex> lock(*sharedMutex);
+        if (smoothNumberMap->size() < primes.size()) {
+            return 1U;
+        }
+
+        return findFactorViaGaussianElimination(primes, toFactor, smoothNumberMap);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -973,22 +979,18 @@ struct Factorizer {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Find factor via Gaussian elimination
-    BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& primes, BigInteger target) {
-        if (smoothNumberMap.size() < primes.size()) {
-            return 1U;
-        }
-
+    BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& primes, BigInteger target, std::map<BigInteger, std::vector<bool>>* smoothNumberMap) {
         // Perform Gaussian elimination
         gaussianElimination(smoothNumberMap);
 
         // Check for linear dependencies and find a congruence of squares
         std::vector<size_t> toStrike;
-        for (size_t i = 0; i < smoothNumberMap.size(); ++i) {
-            auto iIt = smoothNumberMap.begin();
+        for (size_t i = 0; i < smoothNumberMap->size(); ++i) {
+            auto iIt = smoothNumberMap->begin();
             std::advance(iIt, i);
             std::vector<bool>& iRow = iIt->second;
-            for (size_t j = i + 1; j < smoothNumberMap.size(); ++j) {
-                auto jIt = smoothNumberMap.begin();
+            for (size_t j = i + 1; j < smoothNumberMap->size(); ++j) {
+                auto jIt = smoothNumberMap->begin();
                 std::advance(jIt, j);
                 std::vector<bool>& jRow = jIt->second;
                 bool independent = false;
@@ -1028,9 +1030,9 @@ struct Factorizer {
         std::sort(toStrike.begin(), toStrike.end());
         for (size_t i = 0U; i < toStrike.size(); ++i) {
             const size_t s = toStrike[i];
-            auto it = smoothNumberMap.begin();
+            auto it = smoothNumberMap->begin();
             std::advance(it, s - i);
-            smoothNumberMap.erase(it);
+            smoothNumberMap->erase(it);
         }
 
         return 1U; // No factor found
@@ -1086,8 +1088,9 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     // Ratio of biggest vs. smallest wheel;
     const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
     const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
+    std::shared_ptr<std::mutex> sharedMutex(new std::mutex);
     Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio, 1ULL << 12U);
-    const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker] {
+    const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker, sharedMutex] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
         for (const auto& b : inc_seqs) {
@@ -1095,7 +1098,9 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
         }
         if (isConOfSqr) {
             std::vector<BigInteger> semiSmoothParts;
-            return worker.smoothCongruences(primes, &inc_seqs_clone, &semiSmoothParts);
+            std::map<BigInteger, std::vector<bool>> smoothNumberMap;
+
+            return worker.smoothCongruences(sharedMutex, primes, &inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
         }
         return worker.bruteForce(&inc_seqs_clone);
     };
