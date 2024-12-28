@@ -827,20 +827,20 @@ std::vector<bool> factorizationVector(BigInteger num, const std::vector<BigInteg
 }
 
 // Find factor via Gaussian elimination
-BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& primes, BigInteger target, std::vector<BigInteger>* semiSmoothNumbers) {
+BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& primes, BigInteger target, std::vector<BigInteger>* semiSmoothNumbers, std::vector<BigInteger>* smoothNumbers) {
     // Build the factorization matrix
     std::vector<std::vector<bool>> matrix;
-    std::vector<BigInteger> smoothNumbers;
+    for (const BigInteger& num : (*smoothNumbers)) {
+        const std::vector<bool> r = factorizationVector(num, primes);
+        matrix.push_back(r);
+    }
     for (const BigInteger& num : (*semiSmoothNumbers)) {
         const std::vector<bool> r = factorizationVector(num, primes);
         if (!r.size()) {
             continue;
         }
         matrix.push_back(r);
-        smoothNumbers.push_back(num);
-        if (matrix.size() > primes.size()) {
-            break;
-        }
+        smoothNumbers->push_back(num);
     }
     semiSmoothNumbers->clear();
 
@@ -914,6 +914,7 @@ struct Factorizer {
     BigInteger batchCount;
     size_t wheelRatio;
     size_t primePartBound;
+    std::vector<BigInteger> smoothNumbers;
 
     Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr, const size_t& ppb = 0U)
         : rng({})
@@ -1015,7 +1016,7 @@ struct Factorizer {
         }
         smoothParts->clear();
 
-        return findFactorViaGaussianElimination(primes, toFactor, &semiSmoothNumbers);
+        return findFactorViaGaussianElimination(primes, toFactor, &semiSmoothNumbers, &smoothNumbers);
     }
 };
 
