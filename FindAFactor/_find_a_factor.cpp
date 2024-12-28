@@ -827,11 +827,11 @@ std::vector<bool> factorizationVector(BigInteger num, const std::vector<BigInteg
 }
 
 // Find factor via Gaussian elimination
-BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& semiSmoothNumbers, const std::vector<BigInteger>& primes, BigInteger target) {
+BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& primes, BigInteger target, std::vector<BigInteger>* semiSmoothNumbers) {
     // Build the factorization matrix
     std::vector<std::vector<bool>> matrix;
     std::vector<BigInteger> smoothNumbers;
-    for (const BigInteger& num : semiSmoothNumbers) {
+    for (const BigInteger& num : (*semiSmoothNumbers)) {
         const std::vector<bool> r = factorizationVector(num, primes);
         if (!r.size()) {
             continue;
@@ -842,6 +842,7 @@ BigInteger findFactorViaGaussianElimination(const std::vector<BigInteger>& semiS
             break;
         }
     }
+    semiSmoothNumbers->clear();
 
     if (matrix.size() < 2U) {
         return 1U;
@@ -994,7 +995,7 @@ struct Factorizer {
         }
         smoothParts->clear();
 
-        return findFactorViaGaussianElimination(semiSmoothNumbers, primes, toFactor);
+        return findFactorViaGaussianElimination(primes, toFactor, &semiSmoothNumbers);
     }
 };
 
@@ -1043,7 +1044,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     // Ratio of biggest vs. smallest wheel;
     const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
     const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
-    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio, primes.size() << 3U);
+    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio, primes.size() << 4U);
     const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
