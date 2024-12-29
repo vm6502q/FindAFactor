@@ -1056,8 +1056,11 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
         dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
             const uint64_t maxLcv = std::min(primeIndex + 64U, primes.size());
             for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
+                if (result != 1U) {
+                    return false;
+                }
                 const BigInteger currentPrime = primes[primeIndex];
-                if ((result != 1U) || !(toFactor % currentPrime)) {
+                if (!(toFactor % currentPrime)) {
                     result = currentPrime;
                     return true;
                 }
