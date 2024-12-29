@@ -948,7 +948,6 @@ struct Factorizer {
         boost::dynamic_bitset<uint64_t> fv(primes.size(), false);
         for (size_t spi = 0U; spi < smoothParts.size(); ++spi) {
             const BigInteger& sp = smoothParts[spi];
-            const boost::dynamic_bitset<uint64_t> mfv = smoothPartsMap[sp];
             fv ^= smoothPartsMap[sp];
             smoothNumber *= sp;
             if (smoothNumber > toFactorSqrt) {
