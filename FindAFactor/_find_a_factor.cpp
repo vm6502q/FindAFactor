@@ -843,8 +843,6 @@ std::vector<bool> factorizationVector(BigInteger num, const std::vector<BigInteg
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct Factorizer {
-    // std::mt19937_64 mt;
-    // std::uniform_int_distribution<uint64_t> dist;
     std::mutex batchMutex;
     std::default_random_engine rng;
     BigInteger toFactorSqr;
@@ -856,10 +854,8 @@ struct Factorizer {
     size_t wheelRatio;
     size_t primePartBound;
 
-    Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeCount, size_t nodeId, size_t wr, const size_t& ppb = 0U)
+    Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeId, size_t wr, const size_t& ppb = 0U)
         : rng({})
-        // , mt(std::random_device{}())
-        // , dist(0ULL, -1LL)
         , toFactorSqr(tfsqr)
         , toFactor(tf)
         , toFactorSqrt(tfsqrt)
@@ -893,12 +889,6 @@ struct Factorizer {
         return batchBound - ((batchNumber & 1U) ? (BigInteger)(batchRange - halfBatchNum) : (BigInteger)(halfBatchNum + 1U));
     }
 
-    // BigInteger getRandomBatch() {
-    //     std::lock_guard<std::mutex> lock(batchMutex);
-    //     batchNumber = (batchNumber + dist(mt)) % batchBound;
-    //     return batchNumber;
-    // }
-
     BigInteger bruteForce(std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs)
     {
         for (BigInteger batchNum = getNextBatch(); batchNum < batchBound; batchNum = getNextBatch()) {
@@ -917,7 +907,7 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger smoothCongruences(std::shared_ptr<std::mutex> sharedMutex, const std::vector<BigInteger>& primes, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, std::vector<bool>>* smoothNumberMap)
+    BigInteger smoothCongruences(std::shared_ptr<std::mutex> smoothNumberMapMutex, const std::vector<BigInteger>& primes, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, std::vector<bool>>* smoothNumberMap)
     {
         for (BigInteger batchNum = getNextAltBatch(); batchNum < batchBound; batchNum = getNextAltBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
@@ -931,7 +921,7 @@ struct Factorizer {
                 }
                 semiSmoothParts->push_back(n);
                 if (semiSmoothParts->size() >= primePartBound) {
-                    const BigInteger m = makeSmoothNumbers(sharedMutex, primes, semiSmoothParts, smoothNumberMap);
+                    const BigInteger m = makeSmoothNumbers(smoothNumberMapMutex, primes, semiSmoothParts, smoothNumberMap);
                     if (m != 1U) {
                         batchNumber = batchBound;
                         return m;
@@ -943,7 +933,7 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger makeSmoothNumbers(std::shared_ptr<std::mutex> sharedMutex, const std::vector<BigInteger>& primes, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, std::vector<bool>>* smoothNumberMap)
+    BigInteger makeSmoothNumbers(std::shared_ptr<std::mutex> smoothNumberMapMutex, const std::vector<BigInteger>& primes, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, std::vector<bool>>* smoothNumberMap)
     {
         std::vector<BigInteger> smoothParts;
         for (const BigInteger& n : (*semiSmoothParts)) {
@@ -958,7 +948,7 @@ struct Factorizer {
         for (size_t sp = 0U; sp < smoothParts.size(); ++sp) {
             smoothNumber *= smoothParts[sp];
             if (smoothNumber > toFactorSqrt) {
-                std::lock_guard<std::mutex> lock(*sharedMutex);
+                std::lock_guard<std::mutex> lock(*smoothNumberMapMutex);
                 auto it = smoothNumberMap->find(smoothNumber);
                 if (it == smoothNumberMap->end()) {
                     (*smoothNumberMap)[smoothNumber] = factorizationVector(smoothNumber, primes);
@@ -968,7 +958,7 @@ struct Factorizer {
         }
         smoothParts.clear();
 
-        std::lock_guard<std::mutex> lock(*sharedMutex);
+        std::lock_guard<std::mutex> lock(*smoothNumberMapMutex);
 
         return findFactorViaGaussianElimination(primes, toFactor, smoothNumberMap);
     }
@@ -1007,18 +997,18 @@ struct Factorizer {
                 toStrike.push_back(j);
 
                 // Compute x and y
-                BigInteger x = (iIt->first * jIt->first) % target;
-                BigInteger y = modExp(x, target / 2, target);
+                const BigInteger x = (iIt->first * jIt->first) % target;
+                const BigInteger y = modExp(x, target / 2, target);
 
                 // Check congruence of squares
                 BigInteger factor = gcd(x - y, target);
-                if ((factor > 1U) && (factor < target)) {
+                if ((factor != 1U) && (factor != target)) {
                     return factor;
                 }
 
                 // Try x + y as well
                 factor = gcd(x + y, target);
-                if ((factor > 1U) && (factor < target)) {
+                if ((factor != 1U) && (factor != target)) {
                     return factor;
                 }
             }
@@ -1075,6 +1065,9 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     }
 
     primes = std::vector<BigInteger>(primes.begin(), primes.begin() + log2(toFactor));
+
+    // Same collection across all threads:
+    std::shared_ptr<std::mutex> smoothNumberMapMutex(new std::mutex);
     std::map<BigInteger, std::vector<bool>> smoothNumberMap;
     for (size_t pid = 0U; pid < primes.size(); ++pid) {
         const BigInteger& p = primes[pid];
@@ -1094,20 +1087,22 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     // Ratio of biggest vs. smallest wheel;
     const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
     const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
-    std::shared_ptr<std::mutex> sharedMutex(new std::mutex);
-    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelRatio, 1ULL << 14U);
-    const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap, sharedMutex] {
+    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, 1ULL << 14U);
+    const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap, smoothNumberMapMutex] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
         for (const auto& b : inc_seqs) {
             inc_seqs_clone.emplace_back(b);
         }
-        if (isConOfSqr) {
-            std::vector<BigInteger> semiSmoothParts;
 
-            return worker.smoothCongruences(sharedMutex, primes, &inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
+        if (!isConOfSqr) {
+            return worker.bruteForce(&inc_seqs_clone);
         }
-        return worker.bruteForce(&inc_seqs_clone);
+
+        // Different collection per thread;
+        std::vector<BigInteger> semiSmoothParts;
+
+        return worker.smoothCongruences(smoothNumberMapMutex, primes, &inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
     };
 
     const unsigned cpuCount = std::thread::hardware_concurrency();
