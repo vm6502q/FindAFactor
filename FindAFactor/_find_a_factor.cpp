@@ -936,24 +936,33 @@ struct Factorizer {
     BigInteger makeSmoothNumbers(std::shared_ptr<std::mutex> smoothNumberMapMutex, const std::vector<BigInteger>& primes, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, std::vector<bool>>* smoothNumberMap)
     {
         std::vector<BigInteger> smoothParts;
+        std::map<BigInteger, std::vector<bool>> smoothPartsMap;
         for (const BigInteger& n : (*semiSmoothParts)) {
             const std::vector<bool> fv = factorizationVector(n, primes);
             if (fv.size()) {
+                smoothPartsMap[n] = fv;
                 smoothParts.push_back(n);
             }
         }
         semiSmoothParts->clear();
         std::shuffle(smoothParts.begin(), smoothParts.end(), rng);
         BigInteger smoothNumber = 1U;
-        for (size_t sp = 0U; sp < smoothParts.size(); ++sp) {
-            smoothNumber *= smoothParts[sp];
+        std::vector<bool> fv(primes.size(), false);
+        for (size_t spi = 0U; spi < smoothParts.size(); ++spi) {
+            const BigInteger& sp = smoothParts[spi];
+            const std::vector<bool> mfv = smoothPartsMap[sp];
+            for (size_t p = 0U; p < primes.size(); ++p) {
+                fv[p] = fv[p] ^ smoothPartsMap[sp][p];
+            }
+            smoothNumber *= sp;
             if (smoothNumber > toFactorSqrt) {
                 std::lock_guard<std::mutex> lock(*smoothNumberMapMutex);
                 auto it = smoothNumberMap->find(smoothNumber);
                 if (it == smoothNumberMap->end()) {
-                    (*smoothNumberMap)[smoothNumber] = factorizationVector(smoothNumber, primes);
+                    (*smoothNumberMap)[smoothNumber] = fv;
                 }
                 smoothNumber = 1U;
+                fv = std::vector<bool>(primes.size(), false);
             }
         }
         smoothParts.clear();
