@@ -1044,13 +1044,11 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     if (fullMaxBase * fullMaxBase == toFactor) {
         return boost::lexical_cast<std::string>(fullMaxBase);
     }
-    const BigInteger sqrtFullMaxBase = sqrt(fullMaxBase);
 
     BigInteger result = 1U;
-    std::vector<BigInteger> primes = SegmentedSieveOfEratosthenes(65536ULL);
+    std::vector<BigInteger> primes = SegmentedSieveOfEratosthenes((65536ULL < fullMaxBase) ? (BigInteger)65536ULL : fullMaxBase);
     const auto it = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
     std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
-    primes.erase(primes.begin(), it);
 
     for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result != 1U); primeIndex+=64) {
         dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
@@ -1072,7 +1070,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
         return boost::lexical_cast<std::string>(result);
     }
 
-    primes = std::vector<BigInteger>(primes.begin(), primes.begin() + log2(toFactor));
+    primes = std::vector<BigInteger>(it, primes.begin() + log2(toFactor));
 
     // Same collection across all threads:
     std::shared_ptr<std::mutex> smoothNumberMapMutex(new std::mutex);
@@ -1094,7 +1092,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
 
     // Ratio of biggest vs. smallest wheel;
     const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
-    const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
+    const BigInteger nodeRange = ((((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio) * wheelRatio;
     Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, 1ULL << 14U);
     const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap, smoothNumberMapMutex] {
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
