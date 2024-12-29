@@ -951,10 +951,13 @@ struct Factorizer {
             fv ^= smoothPartsMap[sp];
             smoothNumber *= sp;
             if (smoothNumber > toFactorSqrt) {
-                std::lock_guard<std::mutex> lock(*smoothNumberMapMutex);
-                auto it = smoothNumberMap->find(smoothNumber);
-                if (it == smoothNumberMap->end()) {
-                    (*smoothNumberMap)[smoothNumber] = fv;
+                // For lock_guard scope
+                if (true) {
+                    std::lock_guard<std::mutex> lock(*smoothNumberMapMutex);
+                    auto it = smoothNumberMap->find(smoothNumber);
+                    if (it == smoothNumberMap->end()) {
+                        (*smoothNumberMap)[smoothNumber] = fv;
+                    }
                 }
                 smoothNumber = 1U;
                 fv = boost::dynamic_bitset<uint64_t>(primes.size(), false);
