@@ -1031,11 +1031,11 @@ struct Factorizer {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
 
-std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr, const size_t& nodeCount, const size_t& nodeId, const size_t& wheelFactorizationLevel)
+std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr, const size_t& nodeCount, const size_t& nodeId, size_t wheelFactorizationLevel)
 {
-    if (wheelFactorizationLevel < 11) {
-        wheelFactorizationLevel = 11;
-        std::cout << "Warning: wheel_factorization_level has defaulted to minimum of 11."
+    if (wheelFactorizationLevel < 11U) {
+        wheelFactorizationLevel = 11U;
+        std::cout << "Warning: wheel_factorization_level has defaulted to minimum of 11.";
     }
 
     BigInteger toFactor(toFactorStr);
