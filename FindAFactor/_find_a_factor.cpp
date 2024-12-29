@@ -850,6 +850,7 @@ struct Factorizer {
     BigInteger toFactorSqr;
     BigInteger toFactor;
     BigInteger toFactorSqrt;
+    BigInteger batchRange;
     BigInteger batchNumber;
     BigInteger batchBound;
     BigInteger batchCount;
@@ -863,9 +864,10 @@ struct Factorizer {
         , toFactorSqr(tfsqr)
         , toFactor(tf)
         , toFactorSqrt(tfsqrt)
-        , batchNumber(nodeId * range)
+        , batchRange(range)
+        , batchNumber(0)
         , batchBound((nodeId + 1U) * range)
-        , batchCount(nodeCount * range)
+        , batchCount(range)
         , wheelRatio(wr)
         , primePartBound(ppb)
     {
@@ -874,23 +876,23 @@ struct Factorizer {
     BigInteger getNextBatch() {
         std::lock_guard<std::mutex> lock(batchMutex);
 
-        if (batchNumber == batchBound) {
+        if (batchNumber == batchRange) {
             return batchBound;
         }
 
-        return batchCount - (++batchNumber);
+        return batchBound - (++batchNumber);
     }
 
     BigInteger getNextAltBatch() {
         std::lock_guard<std::mutex> lock(batchMutex);
 
-        if (batchNumber == batchBound) {
+        if (batchNumber == batchRange) {
             return batchBound;
         }
 
         const BigInteger halfBatchNum = (batchNumber++ >> 1U);
 
-        return (batchNumber & 1U) ? batchCount - (halfBatchNum + 1U) : halfBatchNum;
+        return batchBound - ((batchNumber & 1U) ? (BigInteger)(batchCount - halfBatchNum) : (BigInteger)(halfBatchNum + 1U));
     }
 
     // BigInteger getRandomBatch() {
