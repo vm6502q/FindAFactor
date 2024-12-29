@@ -1054,8 +1054,9 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
         return boost::lexical_cast<std::string>(fullMaxBase);
     }
 
+    const BigInteger primeCeiling = (65536ULL < fullMaxBase) ? (BigInteger)65536ULL : fullMaxBase;
     BigInteger result = 1U;
-    std::vector<BigInteger> primes = SegmentedSieveOfEratosthenes((65536ULL < fullMaxBase) ? (BigInteger)65536ULL : fullMaxBase);
+    std::vector<BigInteger> primes = SegmentedSieveOfEratosthenes(primeCeiling);
     const auto it = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
     std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
 
@@ -1075,7 +1076,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
             return false;
         });
     }
-    if (result != 1U) {
+    if ((result != 1U) || (toFactor <= (primeCeiling * primeCeiling))) {
         return boost::lexical_cast<std::string>(result);
     }
 
