@@ -1119,7 +1119,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     }
 
     for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
-        BigInteger r = futures[cpu].get();
+        const BigInteger r = futures[cpu].get();
         if ((r > result) && (r != toFactor)) {
             result = r;
         }
