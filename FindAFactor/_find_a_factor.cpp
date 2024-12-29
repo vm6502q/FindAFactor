@@ -143,7 +143,7 @@ inline BigInteger sqrt(const BigInteger& toTest)
 
 inline BigInteger gcd(BigInteger n1, BigInteger n2)
 {
-    while (n2 != 0) {
+    while (n2) {
         const BigInteger t = n1;
         n1 = n2;
         n2 = t % n2;
@@ -349,7 +349,7 @@ std::vector<BigInteger> SegmentedSieveOfEratosthenes(BigInteger n)
     if (!(n & 1U)) {
         --n;
     }
-    while (((n % 3U) == 0) || ((n % 5U) == 0)) {
+    while (!(n % 3U) || !(n % 5U)) {
         n -= 2U;
     }
     if (limit >= n) {
@@ -393,7 +393,7 @@ std::vector<BigInteger> SegmentedSieveOfEratosthenes(BigInteger n)
                 if (i < fLo) {
                     i += p;
                 }
-                if ((i & 1U) == 0U) {
+                if (!(i & 1U)) {
                     i += p;
                 }
 
@@ -561,14 +561,14 @@ BigInteger SegmentedCountPrimesTo(BigInteger n)
     if (!(n & 1U)) {
         --n;
     }
-    while (((n % 3U) == 0) || ((n % 5U) == 0)) {
+    while (!(n % 3U) || !(n % 5U)) {
         n -= 2U;
     }
     if (limit >= n) {
         return CountPrimesTo(n);
     }
     BigInteger sqrtnp1 = (sqrt(n) + 1U) | 1U;
-    while (((sqrtnp1 % 3U) == 0U) || ((sqrtnp1 % 5U) == 0U)) {
+    while (!(sqrtnp1 % 3U) || !(sqrtnp1 % 5U)) {
         sqrtnp1 += 2U;
     }
     const BigInteger practicalLimit = (sqrtnp1 < limit) ? sqrtnp1 : limit;
@@ -614,7 +614,7 @@ BigInteger SegmentedCountPrimesTo(BigInteger n)
                 if (i < fLo) {
                     i += p;
                 }
-                if ((i & 1U) == 0U) {
+                if (!(i & 1U)) {
                     i += p;
                 }
 
@@ -703,7 +703,7 @@ inline BigInteger backward(const BigInteger& n) {
 
 inline bool isMultiple(const BigInteger& p, const std::vector<BigInteger>& knownPrimes) {
     for (const BigInteger& prime : knownPrimes) {
-        if ((p % prime) == 0) {
+        if (!(p % prime)) {
             return true;
         }
     }
@@ -723,7 +723,7 @@ boost::dynamic_bitset<size_t> wheel_inc(std::vector<BigInteger> primes, BigInteg
     std::vector<bool> o;
     for (BigInteger i = 1U; i <= radius; ++i) {
         if (!isMultiple(i, primes)) {
-            o.push_back((i % prime) == 0);
+            o.push_back(!(i % prime));
         }
     }
 
@@ -822,7 +822,7 @@ std::vector<bool> factorizationVector(BigInteger num, const std::vector<BigInteg
     std::vector<bool> vec(primes.size(), false);
     for (size_t i = 0U; i < primes.size(); ++i) {
         bool count = false;
-        while (num % primes[i] == 0U) {
+        while (!(num % primes[i])) {
             num /= primes[i];
             count = !count;
         }
@@ -1033,6 +1033,11 @@ struct Factorizer {
 
 std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr, const size_t& nodeCount, const size_t& nodeId, const size_t& wheelFactorizationLevel)
 {
+    if (wheelFactorizationLevel < 11) {
+        wheelFactorizationLevel = 11;
+        std::cout << "Warning: wheel_factorization_level has defaulted to minimum of 11."
+    }
+
     BigInteger toFactor(toFactorStr);
 
     const BigInteger fullMaxBase = sqrt(toFactor);
@@ -1052,7 +1057,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
             const uint64_t maxLcv = std::min(primeIndex + 64U, primes.size());
             for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
                 const BigInteger currentPrime = primes[primeIndex];
-                if ((result != 1U) || ((toFactor % currentPrime) == 0U)) {
+                if ((result != 1U) || !(toFactor % currentPrime)) {
                     result = currentPrime;
                     return true;
                 }
