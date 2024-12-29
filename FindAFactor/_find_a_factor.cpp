@@ -1070,7 +1070,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
         return boost::lexical_cast<std::string>(result);
     }
 
-    primes = std::vector<BigInteger>(it, primes.begin() + log2(toFactor));
+    primes = std::vector<BigInteger>(it, it + log2(toFactor));
 
     // Same collection across all threads:
     std::shared_ptr<std::mutex> smoothNumberMapMutex(new std::mutex);
