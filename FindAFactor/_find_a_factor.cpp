@@ -888,8 +888,7 @@ struct Factorizer {
             return batchBound;
         }
 
-        ++batchNumber;
-        const BigInteger halfBatchNum = (batchNumber >> 1U);
+        const BigInteger halfBatchNum = (batchNumber++ >> 1U);
 
         return (batchNumber & 1U) ? batchCount - (halfBatchNum + 1U) : halfBatchNum;
     }
