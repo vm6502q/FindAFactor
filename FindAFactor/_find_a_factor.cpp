@@ -1060,7 +1060,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
             return false;
         });
     }
-    if (result > 1U) {
+    if (result != 1U) {
         return boost::lexical_cast<std::string>(result);
     }
 
@@ -1115,7 +1115,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
 
     for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
         BigInteger r = futures[cpu].get();
-        if (r > result) {
+        if ((r > result) && (r != toFactor)) {
             result = r;
         }
     }
