@@ -853,7 +853,6 @@ struct Factorizer {
     BigInteger batchRange;
     BigInteger batchNumber;
     BigInteger batchBound;
-    BigInteger batchCount;
     size_t wheelRatio;
     size_t primePartBound;
 
@@ -867,7 +866,6 @@ struct Factorizer {
         , batchRange(range)
         , batchNumber(0)
         , batchBound((nodeId + 1U) * range)
-        , batchCount(range)
         , wheelRatio(wr)
         , primePartBound(ppb)
     {
@@ -892,7 +890,7 @@ struct Factorizer {
 
         const BigInteger halfBatchNum = (batchNumber++ >> 1U);
 
-        return batchBound - ((batchNumber & 1U) ? (BigInteger)(batchCount - halfBatchNum) : (BigInteger)(halfBatchNum + 1U));
+        return batchBound - ((batchNumber & 1U) ? (BigInteger)(batchRange - halfBatchNum) : (BigInteger)(halfBatchNum + 1U));
     }
 
     // BigInteger getRandomBatch() {
