@@ -825,9 +825,6 @@ boost::dynamic_bitset<uint64_t> factorizationVector(BigInteger num, const std::v
             count = !count;
         }
         vec[i] = count;
-        if (num == 1U) {
-            break;
-        }
     }
     if (num != 1U) {
         return boost::dynamic_bitset<uint64_t>();
@@ -930,16 +927,17 @@ struct Factorizer {
                 // Use the "exhaust" to produce smoother numbers.
                 semiSmoothParts->push_back(n);
                 // Batch this work, to reduce contention.
-                if (semiSmoothParts->size() >= primePartBound) {
-                    // Our "smooth parts" are smaller than the square root of toFactor.
-                    // We combine them semi-randomly, to produce numbers just larger than the square root of toFactor.
-                    const BigInteger m = makeSmoothNumbers(semiSmoothParts, smoothNumberMap);
-                    // Check the factor returned.
-                    if (m != 1U) {
-                        // Gaussian elimination found a factor!
-                        batchNumber = batchBound;
-                        return m;
-                    }
+                if (semiSmoothParts->size() < primePartBound) {
+                    continue;
+                }
+                // Our "smooth parts" are smaller than the square root of toFactor.
+                // We combine them semi-randomly, to produce numbers just larger than the square root of toFactor.
+                const BigInteger m = makeSmoothNumbers(semiSmoothParts, smoothNumberMap);
+                // Check the factor returned.
+                if (m != 1U) {
+                    // Gaussian elimination found a factor!
+                    batchNumber = batchBound;
+                    return m;
                 }
             }
         }
@@ -976,19 +974,20 @@ struct Factorizer {
             fv ^= smoothPartsMap[sp];
             smoothNumber *= sp;
             // Check if the number is big enough
-            if (smoothNumber > toFactorSqrt) {
-                // For lock_guard scope
-                if (true) {
-                    std::lock_guard<std::mutex> lock(smoothNumberMapMutex);
-                    auto it = smoothNumberMap->find(smoothNumber);
-                    if (it == smoothNumberMap->end()) {
-                        (*smoothNumberMap)[smoothNumber] = fv;
-                    }
-                }
-                // Reset "smoothNumber" and its factorization vector.
-                smoothNumber = 1U;
-                fv = boost::dynamic_bitset<uint64_t>(primes.size(), false);
+            if (smoothNumber <= toFactorSqrt) {
+                continue;
             }
+            // For lock_guard scope
+            if (true) {
+                std::lock_guard<std::mutex> lock(smoothNumberMapMutex);
+                auto it = smoothNumberMap->find(smoothNumber);
+                if (it == smoothNumberMap->end()) {
+                    (*smoothNumberMap)[smoothNumber] = fv;
+                }
+            }
+            // Reset "smoothNumber" and its factorization vector.
+            smoothNumber = 1U;
+            fv = boost::dynamic_bitset<uint64_t>(primes.size(), false);
         }
         // We're done with smoothParts.
         smoothParts.clear();
@@ -1086,7 +1085,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     // This is simply trial division up to the ceiling.
     for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result != 1U); primeIndex+=64) {
         dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
-            const uint64_t maxLcv = std::min(primeIndex + 64U, primes.size());
+            const uint64_t maxLcv = std::min(primeIndex + 32U, primes.size());
             for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
                 if (result != 1U) {
                     return false;
