@@ -25,7 +25,7 @@ from FindAFactor import find_a_factor
 
 to_factor = 1000
 
-factor = find_a_factor(to_factor, use_congruence_of_squares=True, node_count=1, node_id=0, wheel_factorization_level=17)
+factor = find_a_factor(to_factor, use_congruence_of_squares=True, node_count=1, node_id=0, wheel_factorization_level=17, smoothness_bound_multiplier=1.0)
 ```
 
 The `find_a_factor()` function should return any nontrivial factor of `to_factor` (that is, any factor besides `1` or `to_factor`) if it exists. If a nontrivial factor does _not_ exist (i.e., the number to factor is prime), the function will return `1` or the original `to_factor`.
@@ -34,6 +34,7 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `node_count` (default value: `1`): `FindAFactor` can perform factorization in a _distributed_ manner, across nodes, without network communication! When `node_count` is set higher than `1`, the search space for factors is segmented equally per node. If the number to factor is semiprime, for example, all nodes except the one that happens to contain the (unknown) prime factor less than the square root of `to_factor` will ultimately return `1`, while one node will find and return this factor. For best performance, every node involved in factorization should have roughly the same CPU throughput capacity.
 - `node_id` (default value: `0`): This is the identifier of this node, when performing distributed factorization with `node_count` higher than `1`. `node_id` values start at `0` and go as high as `(node_count - 1)`.
 - `wheel_factorization_level` (default value: `17`): This is the value up to which "wheel factorization" and trial division are used to check factors and optimize "brute force," in general. The default value of `17` includes all prime factors of `17` and below and works well in general, though `19` or higher might be slightly preferred in certain cases.
+- `smoothness_bound_multiplier` (default value: `1.0`): starting with the first prime number after wheel factorization, the congruence of squares approach (with Quadratic Sieve) takes a default "smoothness bound" with as many distinct prime numbers as bits in the number to factor (for default argument of `1.0` multiplier). To increase or decrease this number, consider it multiplied by the value of `smoothness_bound_multiplier`.
 
 ## About 
 This library was originally called ["Qimcifa"](https://github.com/vm6502q/qimcifa) and demonstrated a (Shor's-like) "quantum-inspired" algorithm for integer factoring. It has since been developed into a general factoring algorithm and tool.
