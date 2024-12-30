@@ -15,6 +15,7 @@ def main():
     node_count = 1
     node_id = 0
     wheel_factorization_level = 17
+    smoothness_bound_multiplier = 1.0
 
     if argv_len > 2:
         use_congruence_of_squares = bool(sys.argv[2])
@@ -23,6 +24,8 @@ def main():
         node_id = int(sys.argv[4])
     if argv_len > 5:
         wheel_factorization_level = int(sys.argv[5])
+    if argv_len > 6:
+        smoothness_bound_multiplier = float(sys.argv[6])
 
     start = time.perf_counter()
     result = find_a_factor(
@@ -30,7 +33,8 @@ def main():
         use_congruence_of_squares = use_congruence_of_squares,
         node_count = node_count,
         node_id = node_id,
-        wheel_factorization_level = wheel_factorization_level
+        wheel_factorization_level = wheel_factorization_level,
+        smoothness_bound_multiplier = smoothness_bound_multiplier
     )
     print(time.perf_counter() - start)
     print(str(result) + " * " + str(to_factor // result) + " == " + str(to_factor))
