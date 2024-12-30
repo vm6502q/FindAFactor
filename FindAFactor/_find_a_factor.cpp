@@ -853,9 +853,8 @@ struct Factorizer {
     size_t wheelRatio;
     size_t primePartBound;
     std::vector<BigInteger> primes;
-    std::vector<BigInteger> wheelFactorizationPrimes;
 
-    Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeId, size_t wr, const std::vector<BigInteger>& p, const std::vector<BigInteger>& wfp, const size_t& ppb = 0U)
+    Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeId, size_t wr, const std::vector<BigInteger>& p, const size_t& ppb = 0U)
         : rng({})
         , toFactorSqr(tfsqr)
         , toFactor(tf)
@@ -866,7 +865,6 @@ struct Factorizer {
         , wheelRatio(wr)
         , primePartBound(ppb)
         , primes(p)
-        , wheelFactorizationPrimes(wfp)
     {
     }
 
@@ -1108,7 +1106,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     }
 
     // Set up wheel factorization (or "gear" factorization)
-    const std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
+    std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
     // Primes are only present in range above wheel factorization level
     primes = std::vector<BigInteger>(it, it + log2(toFactor));
     // From 1, this is a period for wheel factorization
@@ -1118,6 +1116,8 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     }
     // These are "gears," for wheel factorization (with a "wheel" already in place up to 11).
     std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<BigInteger>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()), toFactor);
+    // We're done with the lowest primes.
+    wheelFactorizationPrimes.clear();
     // Skip multiples removed by wheel factorization.
     inc_seqs.erase(inc_seqs.begin(), inc_seqs.begin() + MIN_RTD_LEVEL);
 
@@ -1128,7 +1128,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     // Same collection across all threads
     std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothNumberMap;
     // This manages the work per thread
-    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, primes, wheelFactorizationPrimes, 1ULL << 14U);
+    Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, primes, 1ULL << 14U);
 
     const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap] {
         // inc_seq needs to be independent per thread.
