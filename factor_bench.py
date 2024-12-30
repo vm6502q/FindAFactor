@@ -14,7 +14,7 @@ def main():
     use_congruence_of_squares = True
     node_count = 1
     node_id = 0
-    wheel_factorization_level = 17
+    wheel_factorization_level = 13
     smoothness_bound_multiplier = 1.0
 
     if argv_len > 2:
