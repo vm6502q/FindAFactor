@@ -842,6 +842,7 @@ boost::dynamic_bitset<uint64_t> factorizationVector(BigInteger num, const std::v
 
 struct Factorizer {
     std::mutex batchMutex;
+    std::mutex smoothNumberMapMutex;
     std::default_random_engine rng;
     BigInteger toFactorSqr;
     BigInteger toFactor;
@@ -910,7 +911,7 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger smoothCongruences(std::shared_ptr<std::mutex> smoothNumberMapMutex, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>>* smoothNumberMap)
+    BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>>* smoothNumberMap)
     {
         // Up to wheel factorization, try all batches up to the square root of toFactor.
         // Since the largest prime factors of these numbers is relatively small,
@@ -934,7 +935,7 @@ struct Factorizer {
                 if (semiSmoothParts->size() >= primePartBound) {
                     // Our "smooth parts" are smaller than the square root of toFactor.
                     // We combine them semi-randomly, to produce numbers just larger than the square root of toFactor.
-                    const BigInteger m = makeSmoothNumbers(smoothNumberMapMutex, semiSmoothParts, smoothNumberMap);
+                    const BigInteger m = makeSmoothNumbers(semiSmoothParts, smoothNumberMap);
                     // Check the factor returned.
                     if (m != 1U) {
                         // Gaussian elimination found a factor!
@@ -948,7 +949,7 @@ struct Factorizer {
         return 1U;
     }
 
-    BigInteger makeSmoothNumbers(std::shared_ptr<std::mutex> smoothNumberMapMutex, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>>* smoothNumberMap)
+    BigInteger makeSmoothNumbers(std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>>* smoothNumberMap)
     {
         // Factorize all "smooth parts."
         std::vector<BigInteger> smoothParts;
@@ -980,7 +981,7 @@ struct Factorizer {
             if (smoothNumber > toFactorSqrt) {
                 // For lock_guard scope
                 if (true) {
-                    std::lock_guard<std::mutex> lock(*smoothNumberMapMutex);
+                    std::lock_guard<std::mutex> lock(smoothNumberMapMutex);
                     auto it = smoothNumberMap->find(smoothNumber);
                     if (it == smoothNumberMap->end()) {
                         (*smoothNumberMap)[smoothNumber] = fv;
@@ -995,7 +996,7 @@ struct Factorizer {
         smoothParts.clear();
 
         // This entire next section is blocking (for Quadratic Sieve Gaussian elimination).
-        std::lock_guard<std::mutex> lock(*smoothNumberMapMutex);
+        std::lock_guard<std::mutex> lock(smoothNumberMapMutex);
         return findFactorViaGaussianElimination(toFactor, smoothNumberMap);
     }
 
@@ -1125,12 +1126,11 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
     // Range per parallel node
     const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
     // Same collection across all threads
-    std::shared_ptr<std::mutex> smoothNumberMapMutex(new std::mutex);
     std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothNumberMap;
     // This manages the work per thread
     Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, primes, wheelFactorizationPrimes, 1ULL << 14U);
 
-    const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap, smoothNumberMapMutex] {
+    const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap] {
         // inc_seq needs to be independent per thread.
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
@@ -1147,7 +1147,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
         std::vector<BigInteger> semiSmoothParts;
 
         // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
-        return worker.smoothCongruences(smoothNumberMapMutex, &inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
+        return worker.smoothCongruences(&inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
     };
 
     const unsigned cpuCount = std::thread::hardware_concurrency();
