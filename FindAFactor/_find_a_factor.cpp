@@ -889,6 +889,7 @@ struct Factorizer {
 
     BigInteger bruteForce(std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs)
     {
+        // Up to wheel factorization, try all batches up to the square root of toFactor.
         for (BigInteger batchNum = getNextBatch(); batchNum < batchBound; batchNum = getNextBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
             const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
@@ -907,20 +908,32 @@ struct Factorizer {
 
     BigInteger smoothCongruences(std::shared_ptr<std::mutex> smoothNumberMapMutex, const std::vector<BigInteger>& primes, std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>>* smoothNumberMap)
     {
+        // Up to wheel factorization, try all batches up to the square root of toFactor.
+        // Since the largest prime factors of these numbers is relatively small,
+        // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
         for (BigInteger batchNum = getNextAltBatch(); batchNum < batchBound; batchNum = getNextAltBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
             const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
             for (BigInteger p = batchStart; p < batchEnd;) {
+                // Skip increments on the "wheels" (or "gears").
                 p += GetWheelIncrement(inc_seqs);
+                // Brute-force check if the sequential number is a factor.
                 const BigInteger n = gcd(forward(p), toFactor);
+                // If so, terminate this node and return the answer.
                 if (n != 1U) {
                     batchNumber = batchBound;
                     return n;
                 }
+                // Use the "exhaust" to produce smoother numbers.
                 semiSmoothParts->push_back(n);
+                // Batch this work, to reduce contention.
                 if (semiSmoothParts->size() >= primePartBound) {
+                    // Our "smooth parts" are smaller than the square root of toFactor.
+                    // We combine them semi-randomly, to produce numbers just larger than the square root of toFactor.
                     const BigInteger m = makeSmoothNumbers(smoothNumberMapMutex, primes, semiSmoothParts, smoothNumberMap);
+                    // Check the factor returned.
                     if (m != 1U) {
+                        // Gaussian elimination found a factor!
                         batchNumber = batchBound;
                         return m;
                     }
@@ -933,6 +946,7 @@ struct Factorizer {
 
     BigInteger makeSmoothNumbers(std::shared_ptr<std::mutex> smoothNumberMapMutex, const std::vector<BigInteger>& primes, std::vector<BigInteger>* semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>>* smoothNumberMap)
     {
+        // Factorize all "smooth parts."
         std::vector<BigInteger> smoothParts;
         std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothPartsMap;
         for (const BigInteger& n : (*semiSmoothParts)) {
@@ -942,14 +956,23 @@ struct Factorizer {
                 smoothParts.push_back(n);
             }
         }
+        // We can clear the thread's buffer vector.
         semiSmoothParts->clear();
+
+        // This is the only nondeterminism in the algorithm.
         std::shuffle(smoothParts.begin(), smoothParts.end(), rng);
+
+        // Now that smooth parts have been shuffled, just multiply down
+        // the list until they are larger than square root of toFactor.
         BigInteger smoothNumber = 1U;
         boost::dynamic_bitset<uint64_t> fv(primes.size(), false);
         for (size_t spi = 0U; spi < smoothParts.size(); ++spi) {
             const BigInteger& sp = smoothParts[spi];
+            // This multiplies together the factorizations of the smooth parts
+            // (producing the overall factorization of their multiplication)
             fv ^= smoothPartsMap[sp];
             smoothNumber *= sp;
+            // Check if the number is big enough
             if (smoothNumber > toFactorSqrt) {
                 // For lock_guard scope
                 if (true) {
@@ -959,14 +982,16 @@ struct Factorizer {
                         (*smoothNumberMap)[smoothNumber] = fv;
                     }
                 }
+                // Reset "smoothNumber" and its factorization vector.
                 smoothNumber = 1U;
                 fv = boost::dynamic_bitset<uint64_t>(primes.size(), false);
             }
         }
+        // We're done with smoothParts.
         smoothParts.clear();
 
+        // This entire next section is blocking (for Quadratic Sieve Gaussian elimination).
         std::lock_guard<std::mutex> lock(*smoothNumberMapMutex);
-
         return findFactorViaGaussianElimination(primes, toFactor, smoothNumberMap);
     }
 
@@ -1032,24 +1057,30 @@ struct Factorizer {
 
 std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr, const size_t& nodeCount, const size_t& nodeId, size_t wheelFactorizationLevel)
 {
+    // (At least) level 11 wheel factorization is baked into basic functions.
     if (wheelFactorizationLevel < 11U) {
         wheelFactorizationLevel = 11U;
         std::cout << "Warning: wheel_factorization_level has defaulted to minimum of 11.";
     }
 
+    // Convert from string.
     BigInteger toFactor(toFactorStr);
 
+    // The largest possible discrete factor of "toFactor" is its square root (as with any integer).
     const BigInteger fullMaxBase = sqrt(toFactor);
     if (fullMaxBase * fullMaxBase == toFactor) {
         return boost::lexical_cast<std::string>(fullMaxBase);
     }
 
+    // We only need to try trial division about as high as would be necessary for 4096 bits of semiprime.
     const BigInteger primeCeiling = (65536ULL < fullMaxBase) ? (BigInteger)65536ULL : fullMaxBase;
     BigInteger result = 1U;
+    // This uses very little memory and time, to find primes.
     std::vector<BigInteger> primes = SegmentedSieveOfEratosthenes(primeCeiling);
+    // "it" is the end-of-list iterator for a list up-to-and-including wheelFactorizationLevel.
     const auto it = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
-    std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
 
+    // This is simply trial division up to the ceiling.
     for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result != 1U); primeIndex+=64) {
         dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
             const uint64_t maxLcv = std::min(primeIndex + 64U, primes.size());
@@ -1066,41 +1097,46 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
             return false;
         });
     }
+    // If we've checked all primes below the square root of toFactor, then it's prime.
     if ((result != 1U) || (toFactor <= (primeCeiling * primeCeiling))) {
         return boost::lexical_cast<std::string>(result);
     }
 
+    // Set up wheel factorization (or "gear" factorization)
+    std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
+    // Primes are only present in range above wheel factorization level
     primes = std::vector<BigInteger>(it, it + log2(toFactor));
-
-    // Same collection across all threads:
-    std::shared_ptr<std::mutex> smoothNumberMapMutex(new std::mutex);
-    std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothNumberMap;
-    for (size_t pid = 0U; pid < primes.size(); ++pid) {
-        const BigInteger& p = primes[pid];
-        smoothNumberMap[p] = boost::dynamic_bitset<uint64_t>(primes.size(), false);
-        smoothNumberMap[p][pid] = true;
-    }
-
+    // From 1, this is a period for wheel factorization
     size_t biggestWheel = 1ULL;
     for (const BigInteger& wp : wheelFactorizationPrimes) {
         biggestWheel *= (size_t)wp;
     }
-
+    // These are "gears," for wheel factorization (with a "wheel" already in place up to 11).
     std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<BigInteger>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()), toFactor);
+    // Skip multiples removed by wheel factorization.
     inc_seqs.erase(inc_seqs.begin(), inc_seqs.begin() + MIN_RTD_LEVEL);
+    // We can free memory.
     wheelFactorizationPrimes.clear();
 
-    // Ratio of biggest vs. smallest wheel;
+    // Ratio of biggest vs. smallest wheel, for periodicity
     const size_t wheelRatio = biggestWheel / SMALLEST_WHEEL;
+    // Range per parallel node
     const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
+    // Same collection across all threads
+    std::shared_ptr<std::mutex> smoothNumberMapMutex(new std::mutex);
+    std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothNumberMap;
+    // This manages the work per thread
     Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, 1ULL << 14U);
+
     const auto workerFn = [&toFactor, &primes, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap, smoothNumberMapMutex] {
+        // inc_seq needs to be independent per thread.
         std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
         inc_seqs_clone.reserve(inc_seqs.size());
         for (const auto& b : inc_seqs) {
             inc_seqs_clone.emplace_back(b);
         }
 
+        // "Brute force" includes extensive wheel multiplication and can be faster.
         if (!isConOfSqr) {
             return worker.bruteForce(&inc_seqs_clone);
         }
@@ -1108,6 +1144,7 @@ std::string find_a_factor(const std::string& toFactorStr, const bool& isConOfSqr
         // Different collection per thread;
         std::vector<BigInteger> semiSmoothParts;
 
+        // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
         return worker.smoothCongruences(smoothNumberMapMutex, primes, &inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
     };
 
