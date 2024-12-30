@@ -849,6 +849,7 @@ struct Factorizer {
     BigInteger batchBound;
     size_t wheelRatio;
     size_t primePartBound;
+    bool isIncomplete;
     std::vector<BigInteger> primes;
 
     Factorizer(const BigInteger& tfsqr, const BigInteger tf, const BigInteger& tfsqrt, const BigInteger& range, size_t nodeId, size_t wr, const std::vector<BigInteger>& p, const size_t& ppb = 0U)
@@ -861,6 +862,7 @@ struct Factorizer {
         , batchBound((nodeId + 1U) * range)
         , wheelRatio(wr)
         , primePartBound(ppb)
+        , isIncomplete(true)
         , primes(p)
     {
     }
@@ -869,6 +871,7 @@ struct Factorizer {
         std::lock_guard<std::mutex> lock(batchMutex);
 
         if (batchNumber == batchRange) {
+            isIncomplete = false;
             return batchBound;
         }
 
@@ -879,6 +882,7 @@ struct Factorizer {
         std::lock_guard<std::mutex> lock(batchMutex);
 
         if (batchNumber == batchRange) {
+            isIncomplete = false;
             return batchBound;
         }
 
@@ -890,7 +894,7 @@ struct Factorizer {
     BigInteger bruteForce(std::vector<boost::dynamic_bitset<uint64_t>>* inc_seqs)
     {
         // Up to wheel factorization, try all batches up to the square root of toFactor.
-        for (BigInteger batchNum = getNextBatch(); batchNum < batchBound; batchNum = getNextBatch()) {
+        for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
             const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
             for (BigInteger p = batchStart; p < batchEnd;) {
@@ -911,7 +915,7 @@ struct Factorizer {
         // Up to wheel factorization, try all batches up to the square root of toFactor.
         // Since the largest prime factors of these numbers is relatively small,
         // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
-        for (BigInteger batchNum = getNextAltBatch(); batchNum < batchBound; batchNum = getNextAltBatch()) {
+        for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
             const BigInteger batchStart = batchNum * wheelRatio;
             const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
             for (BigInteger p = batchStart; p < batchEnd;) {
