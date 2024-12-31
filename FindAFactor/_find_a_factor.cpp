@@ -1029,7 +1029,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Set up wheel factorization (or "gear" factorization)
   std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), it);
   // Primes are only present in range above wheel factorization level
-  primes = std::vector<BigInteger>(it, primes.begin() + std::min(primes.size(), (size_t)(smoothnessBoundMultiplier * (wheelFactorizationPrimes.size() + log2(toFactor)))));
+  primes = std::vector<BigInteger>(it, primes.begin() + std::min(primes.size(), wheelFactorizationPrimes.size() + (size_t)(smoothnessBoundMultiplier * log2(toFactor))));
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
   for (const BigInteger &wp : wheelFactorizationPrimes) {
