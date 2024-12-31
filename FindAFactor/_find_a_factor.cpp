@@ -750,8 +750,9 @@ boost::dynamic_bitset<uint64_t> factorizationVector(BigInteger num, const std::v
   boost::dynamic_bitset<uint64_t> vec(primes.size(), false);
   for (size_t i = 0U; i < primes.size(); ++i) {
     bool count = false;
-    while (!(num % primes[i])) {
-      num /= primes[i];
+    const BigInteger& p = primes[i];
+    while (!(num % p)) {
+      num /= p;
       count = !count;
     }
     vec[i] = count;
@@ -820,7 +821,7 @@ struct Factorizer {
         p += GetWheelIncrement(inc_seqs);
         const BigInteger n = gcd(forward(p), toFactor);
         if (n != 1U) {
-          batchNumber = batchBound;
+          isIncomplete = false;
           return n;
         }
       }
@@ -844,7 +845,7 @@ struct Factorizer {
         const BigInteger n = gcd(forward(p), toFactor);
         // If so, terminate this node and return the answer.
         if (n != 1U) {
-          batchNumber = batchBound;
+          isIncomplete = false;
           return n;
         }
         // Use the "exhaust" to produce smoother numbers.
@@ -859,7 +860,7 @@ struct Factorizer {
         // Check the factor returned.
         if (m != 1U) {
           // Gaussian elimination found a factor!
-          batchNumber = batchBound;
+          isIncomplete = false;
           return m;
         }
       }
