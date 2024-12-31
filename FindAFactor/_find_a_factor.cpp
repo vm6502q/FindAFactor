@@ -821,8 +821,7 @@ void gaussianElimination(
     auto colIt = matrix->begin();
     std::advance(colIt, col);
 
-    auto rowIt = matrix->begin();
-    std::advance(rowIt, col);
+    auto rowIt = colIt;
     for (size_t row = col; row < rows; ++row) {
       if (rowIt->second[col]) {
         std::swap(colIt->second, rowIt->second);
@@ -1053,11 +1052,9 @@ struct Factorizer {
 
     // Check for linear dependencies and find a congruence of squares
     std::vector<size_t> toStrike;
+    auto iIt = smoothNumberMap->begin();
     for (size_t i = 0U; i < smoothNumberMap->size(); ++i) {
-      auto iIt = smoothNumberMap->begin();
-      std::advance(iIt, i);
       boost::dynamic_bitset<uint64_t> &iRow = iIt->second;
-
       auto jIt = iIt;
       for (size_t j = i + 1U; j < smoothNumberMap->size(); ++j) {
         ++jIt;
@@ -1085,6 +1082,7 @@ struct Factorizer {
           return factor;
         }
       }
+      ++iIt;
     }
 
     // These numbers have been tried already:
