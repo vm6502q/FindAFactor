@@ -778,7 +778,7 @@ GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
   size_t wheelIncrement = 0U;
   bool is_wheel_multiple = false;
   do {
-    for (size_t i = 0; i < inc_seqs->size(); ++i) {
+    for (size_t i = 0U; i < inc_seqs->size(); ++i) {
       boost::dynamic_bitset<size_t> &wheel = (*inc_seqs)[i];
       is_wheel_multiple = wheel.test(0U);
       wheel >>= 1U;
@@ -817,30 +817,31 @@ void gaussianElimination(
   size_t rows = matrix->size();
   size_t cols = matrix->begin()->second.size();
   std::vector<int> pivots(cols, -1);
-  for (size_t col = 0; col < cols; ++col) {
-    auto colIt = matrix->begin();
-    std::advance(colIt, col);
+  auto colIt = matrix->begin();
+  for (size_t col = 0U; col < cols; ++col) {
+    auto rowIt = colIt;
     for (size_t row = col; row < rows; ++row) {
-      auto rowIt = matrix->begin();
-      std::advance(rowIt, row);
       if (rowIt->second[col]) {
         std::swap(colIt->second, rowIt->second);
         pivots[col] = row;
         break;
       }
+      ++rowIt;
     }
     if (pivots[col] == -1) {
+      ++colIt;
       continue;
     }
     const boost::dynamic_bitset<uint64_t> &c = colIt->second;
-    for (size_t row = 0; row < rows; ++row) {
-      auto rowIt = matrix->begin();
-      std::advance(rowIt, row);
+    rowIt = matrix->begin();
+    for (size_t row = 0U; row < rows; ++row) {
       boost::dynamic_bitset<uint64_t> &r = rowIt->second;
       if ((row != col) && r[col]) {
         r ^= c;
       }
+      ++rowIt;
     }
+    ++colIt;
   }
 }
 
@@ -887,7 +888,7 @@ struct Factorizer {
              size_t wr, const std::vector<BigInteger> &p,
              const size_t &ppb = 0U)
       : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt),
-        batchRange(range), batchNumber(0), batchBound((nodeId + 1U) * range),
+        batchRange(range), batchNumber(0U), batchBound((nodeId + 1U) * range),
         wheelRatio(wr), primePartBound(ppb), isIncomplete(true), primes(p) {}
 
   BigInteger getNextBatch() {
@@ -1049,13 +1050,13 @@ struct Factorizer {
 
     // Check for linear dependencies and find a congruence of squares
     std::vector<size_t> toStrike;
-    for (size_t i = 0; i < smoothNumberMap->size(); ++i) {
-      auto iIt = smoothNumberMap->begin();
-      std::advance(iIt, i);
+    auto iIt = smoothNumberMap->begin();
+    for (size_t i = 0U; i < smoothNumberMap->size(); ++i) {
       boost::dynamic_bitset<uint64_t> &iRow = iIt->second;
-      for (size_t j = i + 1; j < smoothNumberMap->size(); ++j) {
-        auto jIt = smoothNumberMap->begin();
-        std::advance(jIt, j);
+      auto jIt = iIt;
+      for (size_t j = i + 1U; j < smoothNumberMap->size(); ++j) {
+        ++jIt;
+
         boost::dynamic_bitset<uint64_t> &jRow = jIt->second;
         if (iRow != jRow) {
           continue;
@@ -1079,6 +1080,7 @@ struct Factorizer {
           return factor;
         }
       }
+      ++iIt;
     }
 
     // These numbers have been tried already:
