@@ -817,9 +817,12 @@ void gaussianElimination(
   size_t rows = matrix->size();
   size_t cols = matrix->begin()->second.size();
   std::vector<int> pivots(cols, -1);
-  auto colIt = matrix->begin();
   for (size_t col = 0U; col < cols; ++col) {
-    auto rowIt = colIt;
+    auto colIt = matrix->begin();
+    std::advance(colIt, col);
+
+    auto rowIt = matrix->begin();
+    std::advance(rowIt, col);
     for (size_t row = col; row < rows; ++row) {
       if (rowIt->second[col]) {
         std::swap(colIt->second, rowIt->second);
@@ -828,10 +831,11 @@ void gaussianElimination(
       }
       ++rowIt;
     }
+
     if (pivots[col] == -1) {
-      ++colIt;
       continue;
     }
+
     const boost::dynamic_bitset<uint64_t> &c = colIt->second;
     rowIt = matrix->begin();
     for (size_t row = 0U; row < rows; ++row) {
@@ -841,7 +845,6 @@ void gaussianElimination(
       }
       ++rowIt;
     }
-    ++colIt;
   }
 }
 
@@ -1050,9 +1053,11 @@ struct Factorizer {
 
     // Check for linear dependencies and find a congruence of squares
     std::vector<size_t> toStrike;
-    auto iIt = smoothNumberMap->begin();
     for (size_t i = 0U; i < smoothNumberMap->size(); ++i) {
+      auto iIt = smoothNumberMap->begin();
+      std::advance(iIt, i);
       boost::dynamic_bitset<uint64_t> &iRow = iIt->second;
+
       auto jIt = iIt;
       for (size_t j = i + 1U; j < smoothNumberMap->size(); ++j) {
         ++jIt;
@@ -1080,7 +1085,6 @@ struct Factorizer {
           return factor;
         }
       }
-      ++iIt;
     }
 
     // These numbers have been tried already:
