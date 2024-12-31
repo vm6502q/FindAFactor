@@ -637,13 +637,10 @@ inline bool isMultiple(const BigInteger &p, const std::vector<BigInteger> &known
   return false;
 }
 
-boost::dynamic_bitset<size_t> wheel_inc(std::vector<BigInteger> primes, BigInteger limit) {
+boost::dynamic_bitset<size_t> wheel_inc(std::vector<BigInteger> primes) {
   BigInteger radius = 1U;
   for (const BigInteger &i : primes) {
     radius *= i;
-  }
-  if (limit < radius) {
-    radius = limit;
   }
   const BigInteger prime = primes.back();
   primes.pop_back();
@@ -653,22 +650,17 @@ boost::dynamic_bitset<size_t> wheel_inc(std::vector<BigInteger> primes, BigInteg
       o.push_back(!(i % prime));
     }
   }
+  o >>= 1U;
 
-  boost::dynamic_bitset<size_t> output(o.size());
-  for (size_t i = 0U; i < o.size(); ++i) {
-    output[i] = o[i];
-  }
-  output >>= 1U;
-
-  return output;
+  return o;
 }
 
-std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<BigInteger> &primes, BigInteger limit) {
+std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<BigInteger> &primes) {
   std::vector<boost::dynamic_bitset<size_t>> output;
   std::vector<BigInteger> wheelPrimes;
   for (const BigInteger &p : primes) {
     wheelPrimes.push_back(p);
-    output.push_back(wheel_inc(wheelPrimes, limit));
+    output.push_back(wheel_inc(wheelPrimes));
   }
   return output;
 }
@@ -1037,7 +1029,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     biggestWheel *= (size_t)wp;
   }
   // These are "gears," for wheel factorization (with a "wheel" already in place up to 11).
-  std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<BigInteger>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()), toFactor);
+  std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<BigInteger>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()));
   // We're done with the lowest primes.
   wheelFactorizationPrimes.clear();
   // Skip multiples removed by wheel factorization.
