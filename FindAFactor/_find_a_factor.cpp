@@ -782,8 +782,8 @@ struct Factorizer {
   bool isIncomplete;
   std::vector<BigInteger> primes;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t wr, const std::vector<BigInteger> &p,
-             const size_t &ppb = 0U)
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t wr, const std::vector<BigInteger> &p,
+             size_t ppb = 0U)
       : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchBound((nodeId + 1U) * range), wheelRatio(wr), primePartBound(ppb),
         isIncomplete(true), primes(p) {}
 
@@ -923,7 +923,7 @@ struct Factorizer {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Find factor via Gaussian elimination
-  BigInteger findFactorViaGaussianElimination(BigInteger target, std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
+  BigInteger findFactorViaGaussianElimination(const BigInteger& target, std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
     // Perform Gaussian elimination
     gaussianElimination(smoothNumberMap);
 
