@@ -873,8 +873,8 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<uint64_t>> *inc_seqs, std::vector<uint64_t> *semiSmoothParts,
-                               std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
+  BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<uint64_t>> *inc_seqs, uint64_t *semiSmoothParts,
+                               std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap, size_t *ssp) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     // Since the largest prime factors of these numbers is relatively small,
     // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
@@ -893,13 +893,15 @@ struct Factorizer {
         }
         // Use the "exhaust" to produce smoother numbers.
         for (size_t i = 0U; i < smoothBatchWidth; ++i) {
-            semiSmoothParts->push_back((uint64_t)n);
+            semiSmoothParts[(*ssp) * smoothBatchWidth + i] = (uint64_t)n;
             n >>= 64U;
         }
+        ++(*ssp);
         // Batch this work, to reduce contention.
-        if (semiSmoothParts->size() < smoothBatchBound) {
+        if ((*ssp) < smoothBatchBound) {
           continue;
         }
+        (*ssp) = 0U;
         // Our "smooth parts" are smaller than the square root of toFactor.
         // We combine them semi-randomly, to produce numbers just larger than toFactor^(1/2).
         const BigInteger m = makeSmoothNumbers(semiSmoothParts, smoothNumberMap);
@@ -915,7 +917,7 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger makeSmoothNumbers(std::vector<uint64_t> *semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
+  BigInteger makeSmoothNumbers(uint64_t *semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
     // Factorize all "smooth parts."
     // We have to reserve the kernel, because its argument hooks are unique. The same kernel therefore can't be used by
     // other QEngineOCL instances, until we're done queueing it.
@@ -929,8 +931,7 @@ struct Factorizer {
       OCLDeviceCall ocl = deviceContext->Reserve(OCL_API_FACTORIZE_SMOOTH);
 
       const size_t wordCount = smoothBatchWidth * smoothBatchBound;
-      std::unique_ptr<uint64_t[]> numbers(new uint64_t[wordCount]);
-      cl_int error = queue.enqueueWriteBuffer(*numbersBuf, CL_TRUE, 0U, sizeof(uint64_t) * wordCount, &((*semiSmoothParts)[0U]), NULL);
+      cl_int error = queue.enqueueWriteBuffer(*numbersBuf, CL_TRUE, 0U, sizeof(uint64_t) * wordCount, semiSmoothParts, NULL);
       if (error != CL_SUCCESS) {
           throw std::runtime_error("Failed to enqueue buffer write, error code: " + std::to_string(error));
       }
@@ -976,7 +977,7 @@ struct Factorizer {
         smoothParts.emplace_back(0U);
         for (size_t j = 0U; j < smoothBatchWidth; ++j) {
             smoothParts.back() <<= 64U;
-            smoothParts.back() |= (*semiSmoothParts)[numRow + j];
+            smoothParts.back() |= semiSmoothParts[numRow + j];
         }
 
         const size_t facRow = i * smoothBatchFactorWidth;
@@ -991,9 +992,6 @@ struct Factorizer {
         }
         it->second.resize(smoothBatchFactorBits);
     }
-
-    // We can clear the thread's buffer vector.
-    semiSmoothParts->clear();
 
     // This is the only nondeterminism in the algorithm.
     std::shuffle(smoothParts.begin(), smoothParts.end(), rng);
@@ -1210,10 +1208,12 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     }
 
     // Different collection per thread;
-    std::vector<uint64_t> semiSmoothParts;
+    const size_t wordCount = smoothBatchWidth * smoothBatchBound;
+    std::unique_ptr<uint64_t[]> semiSmoothParts(new uint64_t[wordCount]);
+    size_t ssp = 0U;
 
     // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
-    return worker.smoothCongruences(&inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
+    return worker.smoothCongruences(&inc_seqs_clone, semiSmoothParts.get(), &smoothNumberMap, &ssp);
   };
 
   const unsigned cpuCount = std::thread::hardware_concurrency();
