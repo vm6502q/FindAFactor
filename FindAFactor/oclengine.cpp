@@ -78,7 +78,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "    BIG_INTEGER_WORD bits[BIG_INTEGER_WORD_SIZE];\n" +
         "} BigInteger;\n" +
         "\n" +
-        "inline set(const BigInteger& o, BigInteger* n)\n" +
+        "inline void set(const BigInteger& o, BigInteger* n)\n" +
         "{\n" +
         "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
         "        n->bits[i] = o.bits[i];\n" +
