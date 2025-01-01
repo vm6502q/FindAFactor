@@ -11,16 +11,17 @@ with open(README_PATH) as readme_file:
 ext_modules = [
     Extension(
         '_find_a_factor',
-        ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp"],
+        ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp", "FindAFactor/oclengine.cpp"],
         include_dirs=['FindAFactor/include', 'pybind11/include'],
         language='c++',
         extra_compile_args = cpp_args,
+        libraries=["OpenCL"]
     ),
 ]
 
 setup(
     name='FindAFactor',
-    version='1.3.4',
+    version='1.4.0',
     author='Dan Strano',
     author_email='dan@unitary.fund',
     description='Find any nontrivial factor of a number',

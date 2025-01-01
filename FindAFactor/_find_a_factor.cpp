@@ -39,6 +39,7 @@
 // https://www.gnu.org/licenses/lgpl-3.0.en.html for details.
 
 #include "dispatchqueue.hpp"
+#include "oclengine.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -65,12 +66,61 @@
 namespace Qimcifa {
 
 typedef boost::multiprecision::cpp_int BigInteger;
+typedef std::shared_ptr<cl::Buffer> BufferPtr;
 
 // Make this a multiple of 2, 3, 5, 7, or 11.
 constexpr int SMALLEST_WHEEL = 2310;
 constexpr int MIN_RTD_LEVEL = 5;
 
+size_t groupSize;
+size_t groupCount;
+size_t smoothBatchBound = 1ULL << 14U;
+size_t smoothBatchWidth = 1U;
+size_t smoothBatchFactorWidth = 1U;
+size_t smoothBatchFactorBits = 64U;
+DeviceContextPtr deviceContext;
+BufferPtr numbersBuf;
+BufferPtr primesBuf;
+BufferPtr resultsBuf;
+BufferPtr factorVecBuf;
+
 DispatchQueue dispatch(std::thread::hardware_concurrency());
+
+class bad_alloc : public std::bad_alloc {
+private:
+    std::string m;
+
+public:
+    bad_alloc(std::string message)
+        : m(message)
+    {
+        // Intentionally left blank.
+    }
+
+    const char* what() const noexcept { return m.c_str(); }
+};
+
+typedef std::shared_ptr<cl::Buffer> BufferPtr;
+
+BufferPtr MakeBuffer(const cl::Context& context, cl_mem_flags flags, size_t size, void* host_ptr = NULL)
+{
+    cl_int error;
+    BufferPtr toRet = std::make_shared<cl::Buffer>(context, flags, size, host_ptr, &error);
+    if (error != CL_SUCCESS) {
+        if (error == CL_MEM_OBJECT_ALLOCATION_FAILURE) {
+            throw bad_alloc("CL_MEM_OBJECT_ALLOCATION_FAILURE in QEngineOCL::MakeBuffer()");
+        }
+        if (error == CL_OUT_OF_HOST_MEMORY) {
+            throw bad_alloc("CL_OUT_OF_HOST_MEMORY in QEngineOCL::MakeBuffer()");
+        }
+        if (error == CL_INVALID_BUFFER_SIZE) {
+            throw bad_alloc("CL_INVALID_BUFFER_SIZE in QEngineOCL::MakeBuffer()");
+        }
+        throw std::runtime_error("OpenCL error code on buffer allocation attempt: " + std::to_string(error));
+    }
+
+    return toRet;
+}
 
 // See https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
 BigInteger ipow(BigInteger base, unsigned exp) {
@@ -637,14 +687,14 @@ inline bool isMultiple(const BigInteger &p, const std::vector<uint16_t> &knownPr
   return false;
 }
 
-boost::dynamic_bitset<size_t> wheel_inc(std::vector<uint16_t> primes) {
+boost::dynamic_bitset<uint64_t> wheel_inc(std::vector<uint16_t> primes) {
   BigInteger radius = 1U;
   for (const uint16_t &i : primes) {
     radius *= i;
   }
   const uint16_t prime = primes.back();
   primes.pop_back();
-  boost::dynamic_bitset<size_t> o;
+  boost::dynamic_bitset<uint64_t> o;
   for (BigInteger i = 1U; i <= radius; ++i) {
     if (!isMultiple(i, primes)) {
       o.push_back(!(i % prime));
@@ -655,8 +705,8 @@ boost::dynamic_bitset<size_t> wheel_inc(std::vector<uint16_t> primes) {
   return o;
 }
 
-std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<uint16_t> &primes) {
-  std::vector<boost::dynamic_bitset<size_t>> output;
+std::vector<boost::dynamic_bitset<uint64_t>> wheel_gen(const std::vector<uint16_t> &primes) {
+  std::vector<boost::dynamic_bitset<uint64_t>> output;
   std::vector<uint16_t> wheelPrimes;
   for (const uint16_t &p : primes) {
     wheelPrimes.push_back(p);
@@ -665,12 +715,12 @@ std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<uint16_t>
   return output;
 }
 
-inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
+inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<uint64_t>> *inc_seqs) {
   size_t wheelIncrement = 0U;
   bool is_wheel_multiple = false;
   do {
     for (size_t i = 0U; i < inc_seqs->size(); ++i) {
-      boost::dynamic_bitset<size_t> &wheel = (*inc_seqs)[i];
+      boost::dynamic_bitset<uint64_t> &wheel = (*inc_seqs)[i];
       is_wheel_multiple = wheel.test(0U);
       wheel >>= 1U;
       if (is_wheel_multiple) {
@@ -703,7 +753,7 @@ BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod) {
 }
 
 // Perform Gaussian elimination on a binary matrix
-void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *matrix) {
+void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *matrix) {
   size_t rows = matrix->size();
   size_t cols = matrix->begin()->second.size();
   std::vector<int> pivots(cols, -1);
@@ -725,10 +775,10 @@ void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *ma
       continue;
     }
 
-    const boost::dynamic_bitset<size_t> &c = colIt->second;
+    const boost::dynamic_bitset<uint64_t> &c = colIt->second;
     rowIt = matrix->begin();
     for (size_t row = 0U; row < rows; ++row) {
-      boost::dynamic_bitset<size_t> &r = rowIt->second;
+      boost::dynamic_bitset<uint64_t> &r = rowIt->second;
       if ((row != col) && r[col]) {
         r ^= c;
       }
@@ -738,8 +788,8 @@ void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *ma
 }
 
 // Compute the prime factorization modulo 2
-boost::dynamic_bitset<size_t> factorizationVector(BigInteger num, const std::vector<uint16_t> &primes) {
-  boost::dynamic_bitset<size_t> vec(primes.size(), false);
+boost::dynamic_bitset<uint64_t> factorizationVector(BigInteger num, const std::vector<uint16_t> &primes) {
+  boost::dynamic_bitset<uint64_t> vec(primes.size(), false);
   for (size_t i = 0U; i < primes.size(); ++i) {
     bool count = false;
     const uint16_t& p = primes[i];
@@ -753,7 +803,7 @@ boost::dynamic_bitset<size_t> factorizationVector(BigInteger num, const std::vec
     }
   }
   if (num != 1U) {
-    return boost::dynamic_bitset<size_t>();
+    return boost::dynamic_bitset<uint64_t>();
   }
 
   return vec;
@@ -774,14 +824,12 @@ struct Factorizer {
   BigInteger batchNumber;
   BigInteger batchBound;
   size_t wheelRatio;
-  size_t primePartBound;
   bool isIncomplete;
   std::vector<uint16_t> primes;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t wr, const std::vector<uint16_t> &p,
-             size_t ppb = 0U)
-      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchBound((nodeId + 1U) * range), wheelRatio(wr), primePartBound(ppb),
-        isIncomplete(true), primes(p) {}
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t wr, const std::vector<uint16_t> &p)
+      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchBound((nodeId + 1U) * range), wheelRatio(wr), isIncomplete(true),
+      primes(p) {}
 
   BigInteger getNextBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
@@ -807,7 +855,7 @@ struct Factorizer {
     return batchBound - ((batchNumber & 1U) ? (BigInteger)(batchRange - halfBatchNum) : (BigInteger)(halfBatchNum + 1U));
   }
 
-  BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
+  BigInteger bruteForce(std::vector<boost::dynamic_bitset<uint64_t>> *inc_seqs) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
       const BigInteger batchStart = batchNum * wheelRatio;
@@ -825,8 +873,8 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs, std::vector<BigInteger> *semiSmoothParts,
-                               std::map<BigInteger, boost::dynamic_bitset<size_t>> *smoothNumberMap) {
+  BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<uint64_t>> *inc_seqs, std::vector<uint64_t> *semiSmoothParts,
+                               std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     // Since the largest prime factors of these numbers is relatively small,
     // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
@@ -837,16 +885,19 @@ struct Factorizer {
         // Skip increments on the "wheels" (or "gears").
         p += GetWheelIncrement(inc_seqs);
         // Brute-force check if the sequential number is a factor.
-        const BigInteger n = gcd(forward(p), toFactor);
+        BigInteger n = gcd(forward(p), toFactor);
         // If so, terminate this node and return the answer.
         if (n != 1U) {
           isIncomplete = false;
           return n;
         }
         // Use the "exhaust" to produce smoother numbers.
-        semiSmoothParts->push_back(n);
+        for (size_t i = 0U; i < smoothBatchWidth; ++i) {
+            semiSmoothParts->push_back((uint64_t)n);
+            n >>= 64U;
+        }
         // Batch this work, to reduce contention.
-        if (semiSmoothParts->size() < primePartBound) {
+        if (semiSmoothParts->size() < smoothBatchBound) {
           continue;
         }
         // Our "smooth parts" are smaller than the square root of toFactor.
@@ -864,17 +915,83 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger makeSmoothNumbers(std::vector<BigInteger> *semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<size_t>> *smoothNumberMap) {
+  BigInteger makeSmoothNumbers(std::vector<uint64_t> *semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
     // Factorize all "smooth parts."
+    // We have to reserve the kernel, because its argument hooks are unique. The same kernel therefore can't be used by
+    // other QEngineOCL instances, until we're done queueing it.
+    std::unique_ptr<bool[]> results(new bool[smoothBatchBound]());
+    std::unique_ptr<uint64_t[]> factors(new uint64_t[smoothBatchFactorWidth * smoothBatchBound]());
     std::vector<BigInteger> smoothParts;
-    std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothPartsMap;
-    for (const BigInteger &n : (*semiSmoothParts)) {
-      const boost::dynamic_bitset<size_t> fv = factorizationVector(n, primes);
-      if (fv.size()) {
-        smoothPartsMap[n] = fv;
-        smoothParts.push_back(n);
+    std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothPartsMap;
+    if (true) {
+      const cl::Context context = deviceContext->context;
+      const cl::CommandQueue queue = deviceContext->queue;
+      OCLDeviceCall ocl = deviceContext->Reserve(OCL_API_FACTORIZE_SMOOTH);
+
+      const size_t wordCount = smoothBatchWidth * smoothBatchBound;
+      std::unique_ptr<uint64_t[]> numbers(new uint64_t[wordCount]);
+      cl_int error = queue.enqueueWriteBuffer(*numbersBuf, CL_TRUE, 0U, sizeof(uint64_t) * wordCount, &((*semiSmoothParts)[0U]), NULL);
+      if (error != CL_SUCCESS) {
+          throw std::runtime_error("Failed to enqueue buffer write, error code: " + std::to_string(error));
+      }
+      error = queue.enqueueWriteBuffer(*resultsBuf, CL_TRUE, 0U, sizeof(bool) * smoothBatchBound, results.get(), NULL);
+      if (error != CL_SUCCESS) {
+          throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
+      }
+      error = queue.enqueueWriteBuffer(*factorVecBuf, CL_TRUE, 0U, sizeof(uint64_t) * smoothBatchFactorWidth * smoothBatchBound, factors.get(), NULL);
+      if (error != CL_SUCCESS) {
+          throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
+      }
+
+      cl::Event kernelEvent;
+      error = queue.enqueueNDRangeKernel(ocl.call, cl::NullRange, // kernel, offset
+          cl::NDRange(groupCount), // global number of work items
+          cl::NDRange(groupSize), // local number (per group)
+          NULL, // vector of events to wait for
+          &kernelEvent); // handle to wait for the kernel
+
+      if (error != CL_SUCCESS) {
+          throw std::runtime_error("Failed to enqueue kernel, error code: " + std::to_string(error));
+      }
+
+      kernelEvent.wait();
+      // std::cout << "Finished batch." << std::endl;
+
+      error = queue.enqueueReadBuffer(*resultsBuf, CL_TRUE, 0U, sizeof(bool) * smoothBatchBound, results.get(), NULL);
+      if (error != CL_SUCCESS) {
+          throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
+      }
+      error = queue.enqueueReadBuffer(*factorVecBuf, CL_TRUE, 0U, sizeof(uint64_t) * smoothBatchFactorWidth * smoothBatchBound, factors.get(), NULL);
+      if (error != CL_SUCCESS) {
+          throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
       }
     }
+
+    for (size_t i = 0U; i < smoothBatchBound; i++) {
+        if (!results.get()[i]) {
+          continue;
+        }
+
+        const size_t numRow = i * smoothBatchWidth;
+        smoothParts.emplace_back(0U);
+        for (size_t j = 0U; j < smoothBatchWidth; ++j) {
+            smoothParts.back() <<= 64U;
+            smoothParts.back() |= (*semiSmoothParts)[numRow + j];
+        }
+
+        const size_t facRow = i * smoothBatchFactorWidth;
+        smoothPartsMap[smoothParts.back()] = boost::dynamic_bitset<uint64_t>(64U * smoothBatchFactorWidth);
+        const auto it = smoothPartsMap.find(smoothParts.back());
+        for (size_t j = 0U; j < smoothBatchFactorWidth; ++j) {
+          it->second <<= 64U;
+          const uint64_t word = factors.get()[facRow + j];
+          for (size_t k = 0U; k < 64U; ++k) {
+              it->second[j * 64U + k] = (word >> k) & 1U;
+          }
+        }
+        it->second.resize(smoothBatchFactorBits);
+    }
+
     // We can clear the thread's buffer vector.
     semiSmoothParts->clear();
 
@@ -883,7 +1000,7 @@ struct Factorizer {
 
     // Now that smooth parts have been shuffled, just multiply down the list until they are larger than square root of toFactor.
     BigInteger smoothNumber = 1U;
-    boost::dynamic_bitset<size_t> fv(primes.size(), false);
+    boost::dynamic_bitset<uint64_t> fv(primes.size(), false);
     for (size_t spi = 0U; spi < smoothParts.size(); ++spi) {
       const BigInteger &sp = smoothParts[spi];
       // This multiplies together the factorizations of the smooth parts
@@ -904,7 +1021,7 @@ struct Factorizer {
       }
       // Reset "smoothNumber" and its factorization vector.
       smoothNumber = 1U;
-      fv = boost::dynamic_bitset<size_t>(primes.size(), false);
+      fv = boost::dynamic_bitset<uint64_t>(primes.size(), false);
     }
     // We're done with smoothParts.
     smoothParts.clear();
@@ -919,7 +1036,7 @@ struct Factorizer {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Find factor via Gaussian elimination
-  BigInteger findFactorViaGaussianElimination(const BigInteger& target, std::map<BigInteger, boost::dynamic_bitset<size_t>> *smoothNumberMap) {
+  BigInteger findFactorViaGaussianElimination(const BigInteger& target, std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
     // Perform Gaussian elimination
     gaussianElimination(smoothNumberMap);
 
@@ -927,12 +1044,12 @@ struct Factorizer {
     std::vector<size_t> toStrike;
     auto iIt = smoothNumberMap->begin();
     for (size_t i = 0U; i < smoothNumberMap->size(); ++i) {
-      boost::dynamic_bitset<size_t> &iRow = iIt->second;
+      boost::dynamic_bitset<uint64_t> &iRow = iIt->second;
       auto jIt = iIt;
       for (size_t j = i + 1U; j < smoothNumberMap->size(); ++j) {
         ++jIt;
 
-        boost::dynamic_bitset<size_t> &jRow = jIt->second;
+        boost::dynamic_bitset<uint64_t> &jRow = jIt->second;
         if (iRow != jRow) {
           continue;
         }
@@ -1026,17 +1143,20 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     return boost::lexical_cast<std::string>(result);
   }
 
+  // Count of bits in number to factor
+  const size_t bitCount = (size_t)log2(toFactor);
   // Set up wheel factorization (or "gear" factorization)
   std::vector<uint16_t> wheelFactorizationPrimes(primes.begin(), it);
   // Primes are only present in range above wheel factorization level
-  primes = std::vector<uint16_t>(it, primes.begin() + std::min(primes.size(), wheelFactorizationPrimes.size() + (size_t)(smoothnessBoundMultiplier * log2(toFactor))));
+  smoothBatchFactorBits = (size_t)(smoothnessBoundMultiplier * bitCount);
+  primes = std::vector<uint16_t>(it, primes.begin() + std::min(primes.size(), wheelFactorizationPrimes.size() + smoothBatchFactorBits));
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
   for (const uint16_t &wp : wheelFactorizationPrimes) {
     biggestWheel *= (size_t)wp;
   }
   // These are "gears," for wheel factorization (with a "wheel" already in place up to 11).
-  std::vector<boost::dynamic_bitset<size_t>> inc_seqs = wheel_gen(std::vector<uint16_t>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()));
+  std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs = wheel_gen(std::vector<uint16_t>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()));
   // We're done with the lowest primes.
   wheelFactorizationPrimes.clear();
   // Skip multiples removed by wheel factorization.
@@ -1047,13 +1167,38 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Range per parallel node
   const BigInteger nodeRange = (((backward(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
   // Same collection across all threads
-  std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
+  std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothNumberMap;
   // This manages the work per thread
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, primes, 1ULL << 14U);
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, primes);
+
+  deviceContext = OCLEngine::Instance().GetDeviceContextPtr(-1);
+  const cl::Context context = deviceContext->context;
+  const cl::CommandQueue queue = deviceContext->queue;
+
+  groupSize = deviceContext->GetPreferredSizeMultiple();
+  groupCount = deviceContext->GetPreferredConcurrency();
+  smoothBatchBound = groupSize * groupCount;
+  smoothBatchWidth = bitCount / 64U + !!(bitCount % 64);
+  smoothBatchFactorWidth = smoothBatchFactorBits / 64U + !!(smoothBatchFactorBits % 64);
+  
+  numbersBuf = MakeBuffer(context, CL_MEM_READ_ONLY, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound);
+  primesBuf = MakeBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(uint16_t) * primes.size(), (void *)&(primes[0U]));
+  resultsBuf = MakeBuffer(context, CL_MEM_WRITE_ONLY, sizeof(bool) * smoothBatchBound, NULL);
+  factorVecBuf = MakeBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint64_t) * smoothBatchFactorWidth * smoothBatchBound, NULL);
+
+  if (true) {
+    // Set the kernel argument hooks, and they won't change.
+    OCLDeviceCall ocl = deviceContext->Reserve(OCL_API_FACTORIZE_SMOOTH);
+    ocl.call.setArg(0, *numbersBuf);
+    ocl.call.setArg(1, *primesBuf);
+    ocl.call.setArg(2, *resultsBuf);
+    ocl.call.setArg(3, *factorVecBuf);
+    ocl.call.setArg(4, smoothBatchBound);
+  }
 
   const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap] {
     // inc_seq needs to be independent per thread.
-    std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
+    std::vector<boost::dynamic_bitset<uint64_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
     for (const auto &b : inc_seqs) {
       inc_seqs_clone.emplace_back(b);
@@ -1065,7 +1210,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     }
 
     // Different collection per thread;
-    std::vector<BigInteger> semiSmoothParts;
+    std::vector<uint64_t> semiSmoothParts;
 
     // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
     return worker.smoothCongruences(&inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
