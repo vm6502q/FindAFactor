@@ -76,39 +76,25 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "\n" +
         "typedef struct BigInteger {\n" +
         "    BIG_INTEGER_WORD bits[BIG_INTEGER_WORD_SIZE];\n" +
-        "\n" +
-        "    inline BigInteger()\n" +
-        "    {\n" +
-        "        // Intentionally left blank.\n" +
-        "    }\n" +
-        "\n" +
-        "    inline BigInteger(const BigInteger& val)\n" +
-        "    {\n" +
-        "        for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
-        "            bits[i] = val.bits[i];\n" +
-        "        }\n" +
-        "    }\n" +
-        "\n" +
-        "    inline BigInteger(const BIG_INTEGER_WORD& val)\n" +
-        "    {\n" +
-        "        bits[0] = val;\n" +
-        "        for (int i = 1; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
-        "            bits[i] = 0U;\n" +
-        "        }\n" +
-        "    }\n" +
-        "\n" +
-        "    inline void set_0()\n" +
-        "    {\n" +
-        "        for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
-        "            bits[i] = 0U;\n" +
-        "        }\n" +
-        "    }\n" +
-        "\n" +
-        "    inline void xor_bit(const BIG_INTEGER_HALF_WORD& b) {\n" +
-        "        bits[b % BIG_INTEGER_WORD_BITS] ^= (1ULL << (b / BIG_INTEGER_WORD_BITS));\n" +
-        "    }\n" +
         "} BigInteger;\n" +
         "\n" +
+        "inline set(const BigInteger& o, BigInteger* n)\n" +
+        "{\n" +
+        "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
+        "        n->bits[i] = o.bits[i];\n" +
+        "    }\n" +
+        "}\n" +
+        "\n" +
+        "inline void set_0(BigInteger* n)\n" +
+        "{\n" +
+        "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
+        "        n->bits[i] = 0U;\n" +
+        "    }\n" +
+        "}\n" +
+        "\n" +
+        "inline void xor_bit(const BIG_INTEGER_HALF_WORD& b, BigInteger* o) {\n" +
+        "    o->bits[b % BIG_INTEGER_WORD_BITS] ^= (1ULL << (b / BIG_INTEGER_WORD_BITS));\n" +
+        "}\n" +
         "inline int bi_compare_1(const BigInteger& left)\n" +
         "{\n" +
         "    for (int i = BIG_INTEGER_MAX_WORD_INDEX; i > 0; --i) {\n" +
@@ -144,7 +130,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "{\n" +
         "    BIG_INTEGER_WORD carry = 0U;\n" +
         "    if (quotient) {\n" +
-        "        quotient.set_0();\n" +
+        "        set_0(quotient);\n" +
         "        for (int i = BIG_INTEGER_HALF_WORD_SIZE - 1; i >= 0; --i) {\n" +
         "            const int i2 = i >> 1;\n" +
         "            carry <<= BIG_INTEGER_HALF_WORD_BITS;\n" +
@@ -181,28 +167,29 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "    const int primeCount                                   // Number of primes in the array\n" +
         ") {\n" +
         "    int gid = get_global_id(0);                            // Get the index of this work item\n" +
-        "    BigInteger number = numbers[gid];                      // The number to check\n" +
-        "    BigInteger factor_vector = 0U;                         // Initialize the factor vector as 0\n" +
-        "    BigInteger q;                                          // For quotient\n" +
+        "    BigInteger number, factor_vector, q;\n" +
+        "    set(numbers[gid], &number);                            // The number to check\n" +
+        "    set_0(&factor_vector);                                 // Initialize the factor vector as 0\n" +
         "\n" +
         "    // Test divisibility by each prime\n" +
         "    for (int i = 0; i < primeCount; ++i) {\n" +
-        "        const int& p = primes[i];\n" +
+        "        const uint p = (uint)primes[i];\n" +
         "        do {\n" +
         "            unsigned int r = 0U;\n" +
-        "            bi_div_mod_small(number, primes[i], &q, &r);\n" +
-        "            if (!r) {\n" +
-        "                number = q;\n" +
-        "                factor_vector.xor_bit(i);                  // Flip the corresponding bit\n" +
+        "            bi_div_mod_small(number, p, &q, &r);\n" +
+        "            if (r) {\n" +
+        "                break;"
         "            }\n" +
-        "        } while (bi_compare(number, p) >= 0)\n" +
+        "            set(q, &number);\n" +
+        "            xor_bit(i, &factor_vector);                    // Flip the corresponding bit\n" +
+        "        } while (true)\n" +
         "    }\n" +
         "\n" +
         "    // If number is reduced to 1, it is smooth\n" +
         "    results[gid] = bi_compare_1(number) == 0;\n" +
         "\n" +
         "    // Store the factor vector\n" +
-        "    factor_vectors[gid] = factor_vector;\n" +
+        "    set(factor_vector, &(factor_vectors[gid]));\n" +
         "}\n";
 
     cl::Program::Sources sources;

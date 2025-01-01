@@ -76,7 +76,6 @@ size_t groupSize;
 size_t groupCount;
 size_t smoothBatchBound = 1ULL << 14U;
 size_t smoothBatchWidth = 1U;
-size_t smoothBatchFactorWidth = 1U;
 size_t smoothBatchFactorBits = 64U;
 DeviceContextPtr deviceContext;
 BufferPtr numbersBuf;
@@ -922,7 +921,7 @@ struct Factorizer {
     // We have to reserve the kernel, because its argument hooks are unique. The same kernel therefore can't be used by
     // other QEngineOCL instances, until we're done queueing it.
     std::unique_ptr<bool[]> results(new bool[smoothBatchBound]());
-    std::unique_ptr<uint64_t[]> factors(new uint64_t[smoothBatchFactorWidth * smoothBatchBound]());
+    std::unique_ptr<uint64_t[]> factors(new uint64_t[smoothBatchWidth * smoothBatchBound]());
     std::vector<BigInteger> smoothParts;
     std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothPartsMap;
     if (true) {
@@ -939,7 +938,7 @@ struct Factorizer {
       if (error != CL_SUCCESS) {
           throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
       }
-      error = queue.enqueueWriteBuffer(*factorVecBuf, CL_TRUE, 0U, sizeof(uint64_t) * smoothBatchFactorWidth * smoothBatchBound, factors.get(), NULL);
+      error = queue.enqueueWriteBuffer(*factorVecBuf, CL_TRUE, 0U, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound, factors.get(), NULL);
       if (error != CL_SUCCESS) {
           throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
       }
@@ -962,7 +961,7 @@ struct Factorizer {
       if (error != CL_SUCCESS) {
           throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
       }
-      error = queue.enqueueReadBuffer(*factorVecBuf, CL_TRUE, 0U, sizeof(uint64_t) * smoothBatchFactorWidth * smoothBatchBound, factors.get(), NULL);
+      error = queue.enqueueReadBuffer(*factorVecBuf, CL_TRUE, 0U, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound, factors.get(), NULL);
       if (error != CL_SUCCESS) {
           throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
       }
@@ -980,10 +979,10 @@ struct Factorizer {
             smoothParts.back() |= semiSmoothParts[numRow + j];
         }
 
-        const size_t facRow = i * smoothBatchFactorWidth;
-        smoothPartsMap[smoothParts.back()] = boost::dynamic_bitset<uint64_t>(64U * smoothBatchFactorWidth);
+        const size_t facRow = i * smoothBatchWidth;
+        smoothPartsMap[smoothParts.back()] = boost::dynamic_bitset<uint64_t>(64U * smoothBatchWidth);
         const auto it = smoothPartsMap.find(smoothParts.back());
-        for (size_t j = 0U; j < smoothBatchFactorWidth; ++j) {
+        for (size_t j = 0U; j < smoothBatchWidth; ++j) {
           it->second <<= 64U;
           const uint64_t word = factors.get()[facRow + j];
           for (size_t k = 0U; k < 64U; ++k) {
@@ -1176,13 +1175,12 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   groupSize = deviceContext->GetPreferredSizeMultiple();
   groupCount = deviceContext->GetPreferredConcurrency();
   smoothBatchBound = groupSize * groupCount;
-  smoothBatchWidth = bitCount / 64U + !!(bitCount % 64);
-  smoothBatchFactorWidth = smoothBatchFactorBits / 64U + !!(smoothBatchFactorBits % 64);
+  smoothBatchWidth = (bitCount < smoothBatchFactorBits) ? smoothBatchFactorBits / 64U + !!(smoothBatchFactorBits % 64) : (bitCount / 64U + !!(bitCount % 64));
   
   numbersBuf = MakeBuffer(context, CL_MEM_READ_ONLY, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound);
   primesBuf = MakeBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(uint16_t) * primes.size(), (void *)&(primes[0U]));
   resultsBuf = MakeBuffer(context, CL_MEM_WRITE_ONLY, sizeof(bool) * smoothBatchBound, NULL);
-  factorVecBuf = MakeBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint64_t) * smoothBatchFactorWidth * smoothBatchBound, NULL);
+  factorVecBuf = MakeBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound, NULL);
 
   if (true) {
     // Set the kernel argument hooks, and they won't change.
