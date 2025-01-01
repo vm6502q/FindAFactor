@@ -53,11 +53,11 @@ void OCLEngine::SetDeviceContextPtrVector(std::vector<DeviceContextPtr> vec, Dev
 
 void OCLEngine::SetDefaultDeviceContext(DeviceContextPtr dcp) { default_device_context = dcp; }
 
-cl::Program OCLEngine::MakeProgram(std::shared_ptr<OCLDeviceContext> devCntxt)
+cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDeviceContext> devCntxt)
 {
     // Load and build kernel
     std::string kernelSourceStr =
-        "#define BCAPPOW " + std::string(getenv("BCAPPOW")) + "\n" +
+        "#define BCAPPOW " + std::to_string(bitPow) + "\n" +
         "#define BIG_INTEGER_WORD_BITS 64U\n" +
         "#define BIG_INTEGER_WORD_POWER 6U\n" +
         "#define BIG_INTEGER_WORD ulong\n" +
@@ -246,8 +246,11 @@ void OCLEngine::SaveBinary(cl::Program program, std::string path, std::string fi
     fclose(clBinFile);
 }
 
-InitOClResult OCLEngine::InitOCL(std::vector<int64_t> maxAllocVec)
+InitOClResult OCLEngine::InitOCL(const size_t bitPow, std::vector<int64_t> maxAllocVec)
 {
+    if (!bitPow) {
+        throw std::runtime_error("Cannot InitOCL with default of 0 bits!");
+    }
     // get all platforms (drivers), e.g. NVIDIA
 
     std::vector<cl::Platform> all_platforms;
@@ -350,7 +353,7 @@ InitOClResult OCLEngine::InitOCL(std::vector<int64_t> maxAllocVec)
                 plat_id, maxAllocVec[i % maxAllocVec.size()], all_devices_is_gpu[i], all_devices_is_cpu[i], useHostRam);
 
         std::cout << "Device #" << i << ", ";
-        cl::Program program = MakeProgram(devCntxt);
+        cl::Program program = MakeProgram(bitPow, devCntxt);
 
         cl_int buildError =
             program.build({ all_devices[i] }, "-cl-strict-aliasing -cl-denorms-are-zero -cl-fast-relaxed-math");
@@ -396,48 +399,10 @@ InitOClResult OCLEngine::InitOCL(std::vector<int64_t> maxAllocVec)
     return InitOClResult(all_dev_contexts, default_dev_context);
 }
 
-OCLEngine::OCLEngine()
+OCLEngine::OCLEngine(const size_t bitPow)
     : maxActiveAllocSizes(1U, -1)
 {
-    if (getenv("FINDAFACTOR_MAX_ALLOC_MB")) {
-        std::string devListStr = std::string(getenv("FINDAFACTOR_MAX_ALLOC_MB"));
-        maxActiveAllocSizes.clear();
-        if (devListStr.compare("")) {
-            std::stringstream devListStr_stream(devListStr);
-            // See
-            // https://stackoverflow.com/questions/7621727/split-a-string-into-words-by-multiple-delimiters#answer-58164098
-            std::regex re("[.]");
-            while (devListStr_stream.good()) {
-                std::string term;
-                getline(devListStr_stream, term, ',');
-                // the '-1' is what makes the regex split (-1 := what was not matched)
-                std::sregex_token_iterator first{ term.begin(), term.end(), re, -1 }, last;
-                std::vector<std::string> tokens{ first, last };
-                if (tokens.size() == 1U) {
-                    maxActiveAllocSizes.push_back(stoi(term));
-                    if (maxActiveAllocSizes.back() >= 0) {
-                        maxActiveAllocSizes.back() = maxActiveAllocSizes.back() << 20U;
-                    }
-                    continue;
-                }
-                const unsigned maxI = stoi(tokens[0U]);
-                std::vector<int64_t> limits(tokens.size() - 1U);
-                for (unsigned i = 1U; i < tokens.size(); ++i) {
-                    limits[i - 1U] = stoi(tokens[i]);
-                }
-                for (unsigned i = 0U; i < maxI; ++i) {
-                    for (unsigned j = 0U; j < limits.size(); ++j) {
-                        maxActiveAllocSizes.push_back(limits[j]);
-                        if (maxActiveAllocSizes.back() >= 0) {
-                            maxActiveAllocSizes.back() = maxActiveAllocSizes.back() << 20U;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    InitOClResult initResult = InitOCL(maxActiveAllocSizes);
+    InitOClResult initResult = InitOCL(bitPow, maxActiveAllocSizes);
     SetDeviceContextPtrVector(initResult.all_dev_contexts, initResult.default_dev_context);
     activeAllocSizes = std::vector<size_t>(initResult.all_dev_contexts.size());
 }

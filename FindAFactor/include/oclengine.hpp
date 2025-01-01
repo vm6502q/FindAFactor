@@ -217,15 +217,15 @@ class OCLEngine {
 public:
     // See https://stackoverflow.com/questions/1008019/c-singleton-design-pattern
     /// Get a pointer to the Instance of the singleton. (The instance will be instantiated, if it does not exist yet.)
-    static OCLEngine& Instance()
+    static OCLEngine& Instance(const size_t bitPow = 0U)
     {
-        static OCLEngine instance;
+        static OCLEngine instance(bitPow);
         return instance;
     }
     /// Initialize the OCL environment, with the option to save the generated binaries. Binaries will be saved/loaded
     /// from the folder path "home". This returns a Qrack::OCLInitResult object which should be passed to
     /// SetDeviceContextPtrVector().
-    static InitOClResult InitOCL(std::vector<int64_t> maxAllocVec = { -1 });
+    static InitOClResult InitOCL(const size_t bitPow = 0U, std::vector<int64_t> maxAllocVec = { -1 });
 
     /// Get a pointer one of the available OpenCL contexts, by its index in the list of all contexts.
     DeviceContextPtr GetDeviceContextPtr(const int64_t& dev = -1);
@@ -312,10 +312,10 @@ private:
     std::vector<DeviceContextPtr> all_device_contexts;
     DeviceContextPtr default_device_context;
 
-    OCLEngine(); // Private so that it can  not be called
+    OCLEngine(const size_t bitPow); // Private so that it can  not be called
 
     /// Make the program, from either source or binary
-    static cl::Program MakeProgram(std::shared_ptr<OCLDeviceContext> devCntxt);
+    static cl::Program MakeProgram(const size_t bitPow, std::shared_ptr<OCLDeviceContext> devCntxt);
     /// Save the program binary:
     static void SaveBinary(cl::Program program, std::string path, std::string fileName);
 };

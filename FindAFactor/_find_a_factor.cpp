@@ -1143,7 +1143,6 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
   // Count of bits in number to factor
   const size_t bitCount = (size_t)log2(toFactor);
-  setenv("BCAPPOW", std::to_string(bitCount).c_str(), 1);
   // Set up wheel factorization (or "gear" factorization)
   std::vector<uint16_t> wheelFactorizationPrimes(primes.begin(), it);
   // Primes are only present in range above wheel factorization level
@@ -1170,7 +1169,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // This manages the work per thread
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, primes);
 
-  deviceContext = OCLEngine::Instance().GetDeviceContextPtr(-1);
+  deviceContext = OCLEngine::Instance((size_t)(log2(bitCount))).GetDeviceContextPtr(-1);
   const cl::Context context = deviceContext->context;
   const cl::CommandQueue queue = deviceContext->queue;
 
