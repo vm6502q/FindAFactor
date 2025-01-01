@@ -81,7 +81,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "inline void set(const BigInteger* o, BigInteger* n)\n" +
         "{\n" +
         "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
-        "        n->bits[i] = o.bits[i];\n" +
+        "        n->bits[i] = o->bits[i];\n" +
         "    }\n" +
         "}\n" +
         "\n" +
@@ -171,7 +171,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "            }\n" +
         "            set(&q, &number);\n" +
         "            xor_bit(i, &factor_vector);                    // Flip the corresponding bit\n" +
-        "        } while (true)\n" +
+        "        } while (true);\n" +
         "    }\n" +
         "\n" +
         "    // If number is reduced to 1, it is smooth\n" +
