@@ -56,20 +56,129 @@ void OCLEngine::SetDefaultDeviceContext(DeviceContextPtr dcp) { default_device_c
 cl::Program OCLEngine::MakeProgram(std::shared_ptr<OCLDeviceContext> devCntxt)
 {
     // Load and build kernel
-    FILE *kernelFile = fopen("factorization_smooth_numbers.cl", "r");
-    fseek(kernelFile, 0, SEEK_END);
-    size_t kernelSize = ftell(kernelFile);
-    rewind(kernelFile);
-    char *kernelSource = (char *)malloc(kernelSize + 1);
-    fread(kernelSource, 1, kernelSize, kernelFile);
-    fclose(kernelFile);
-    kernelSource[kernelSize] = '\0';
-
-    std::string configStr = "#define BCAPPOW " + std::string(getenv("BCAPPOW"));
+    std::string kernelSourceStr =
+        "#define BCAPPOW " + std::string(getenv("BCAPPOW")) + "\n" +
+        "#define BIG_INTEGER_WORD_BITS 64U\n" +
+        "#define BIG_INTEGER_WORD_POWER 6U\n" +
+        "#define BIG_INTEGER_WORD uint64_t\n" +
+        "#define BIG_INTEGER_HALF_WORD uint32_t\n" +
+        "#define BIG_INTEGER_HALF_WORD_MASK 0xFFFFFFFFULL\n" +
+        "#define BIG_INTEGER_HALF_WORD_MASK_NOT 0xFFFFFFFF00000000ULL\n" +
+        "\n" +
+        "// This can be any power of 2 greater than (or equal to) 64:\n" +
+        "const size_t BIG_INTEGER_BITS = (1 << BCAPPOW);\n" +
+        "const int BIG_INTEGER_WORD_SIZE = BIG_INTEGER_BITS / BIG_INTEGER_WORD_BITS;\n" +
+        "\n" +
+        "// The rest of the constants need to be consistent with the one above:\n" +
+        "const size_t BIG_INTEGER_HALF_WORD_BITS = BIG_INTEGER_WORD_BITS >> 1U;\n" +
+        "const int BIG_INTEGER_HALF_WORD_SIZE = BIG_INTEGER_WORD_SIZE << 1U;\n" +
+        "const int BIG_INTEGER_MAX_WORD_INDEX = BIG_INTEGER_WORD_SIZE - 1U;\n" +
+        "\n" +
+        "typedef struct BigInteger {\n" +
+        "    BIG_INTEGER_WORD bits[BIG_INTEGER_WORD_SIZE];\n" +
+        "\n" +
+        "    inline BigInteger()\n" +
+        "    {\n" +
+        "        // Intentionally left blank.\n" +
+        "    }\n" +
+        "\n" +
+        "    inline BigInteger(const BigInteger& val)\n" +
+        "    {\n" +
+        "        for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
+        "            bits[i] = val.bits[i];\n" +
+        "        }\n" +
+        "    }\n" +
+        "\n" +
+        "    inline BigInteger(const BIG_INTEGER_WORD& val)\n" +
+        "    {\n" +
+        "        bits[0] = val;\n" +
+        "        for (int i = 1; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
+        "            bits[i] = 0U;\n" +
+        "        }\n" +
+        "    }\n" +
+        "\n" +
+        "    inline void set_0()\n" +
+        "    {\n" +
+        "        for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
+        "            bits[i] = 0U;\n" +
+        "        }\n" +
+        "    }\n" +
+        "\n" +
+        "    inline void xor_bit(const BIG_INTEGER_HALF_WORD& b) {\n" +
+        "        bits[b % BIG_INTEGER_WORD_BITS] ^= (1ULL << (b / BIG_INTEGER_WORD_BITS));\n" +
+        "    }\n" +
+        "} BigInteger;\n" +
+        "\n" +
+        "// \"Schoolbook division\" (on half words)\n" +
+        "// Complexity - O(x^2)\n" +
+        "void bi_div_mod_small(\n" +
+        "    const BigInteger& left, BIG_INTEGER_HALF_WORD right, BigInteger* quotient, BIG_INTEGER_HALF_WORD* rmndr)\n" +
+        "{\n" +
+        "    BIG_INTEGER_WORD carry = 0U;\n" +
+        "    if (quotient) {\n" +
+        "        quotient.set_0();\n" +
+        "        for (int i = BIG_INTEGER_HALF_WORD_SIZE - 1; i >= 0; --i) {\n" +
+        "            const int i2 = i >> 1;\n" +
+        "            carry <<= BIG_INTEGER_HALF_WORD_BITS;\n" +
+        "            if (i & 1) {\n" +
+        "                carry |= left.bits[i2] >> BIG_INTEGER_HALF_WORD_BITS;\n" +
+        "                quotient->bits[i2] |= (carry / right) << BIG_INTEGER_HALF_WORD_BITS;\n" +
+        "            } else {\n" +
+        "                carry |= left.bits[i2] & BIG_INTEGER_HALF_WORD_MASK;\n" +
+        "                quotient->bits[i2] |= (carry / right);\n" +
+        "            }\n" +
+        "            carry %= right;\n" +
+        "        }\n" +
+        "    } else {\n" +
+        "        for (int i = BIG_INTEGER_HALF_WORD_SIZE - 1; i >= 0; --i) {\n" +
+        "            const int i2 = i >> 1;\n" +
+        "            carry <<= BIG_INTEGER_HALF_WORD_BITS;\n" +
+        "            if (i & 1) {\n" +
+        "                carry |= left.bits[i2] >> BIG_INTEGER_HALF_WORD_BITS;\n" +
+        "            } else {\n" +
+        "                carry |= left.bits[i2] & BIG_INTEGER_HALF_WORD_MASK;\n" +
+        "            }\n" +
+        "            carry %= right;\n" +
+        "        }\n" +
+        "    }\n" +
+        "\n" +
+        "    *rmndr = carry;\n" +
+        "}\n" +
+        "\n" +
+        "__kernel void factorize(\n" +
+        "    __global const BigInteger *numbers,                    // Array of numbers to check\n" +
+        "    __global const int *primes,                            // Array of small primes for smoothness\n" +
+        "    __global bool *results,                                // Output: 1 if smooth, 0 if not\n" +
+        "    __global const BigInteger *factor_vectors,             // Output: Factorization vectors as bitmasks\n" +
+        "    const int primeCount                                   // Number of primes in the array\n" +
+        ") {\n" +
+        "    int gid = get_global_id(0);                            // Get the index of this work item\n" +
+        "    BigInteger number = numbers[gid];                      // The number to check\n" +
+        "    BigInteger factor_vector = 0U;                         // Initialize the factor vector as 0\n" +
+        "    BigInteger q;                                          // For quotient\n" +
+        "\n" +
+        "    // Test divisibility by each prime\n" +
+        "    for (int i = 0; i < primeCount; ++i) {\n" +
+        "        const int& p = primes[i];\n" +
+        "        do {\n" +
+        "            unsigned int r = 0U;\n" +
+        "            bi_div_mod_small(number, primes[i], &q, &r);\n" +
+        "            if (!r) {\n" +
+        "                number = q;\n" +
+        "                factor_vector.xor_bit(i);                  // Flip the corresponding bit\n" +
+        "            }\n" +
+        "        } while (number >= p)\n" +
+        "    }\n" +
+        "\n" +
+        "    // If number is reduced to 1, it is smooth\n" +
+        "    results[gid] = (number == 1);\n" +
+        "\n" +
+        "    // Store the factor vector\n" +
+        "    factor_vectors[gid] = factor_vector;\n" +
+        "}\n";
 
     cl::Program::Sources sources;
-    sources.push_back({ (const char*)configStr.c_str(), (long unsigned int)(configStr.size() + 1U) });
-    sources.push_back({ (const char*)kernelSource, (long unsigned int)kernelSize });
+    sources.push_back({(const char*)kernelSourceStr.c_str(), (long unsigned int)(kernelSourceStr.size() + 1U) });
 
     cl::Program program = cl::Program(devCntxt->context, sources);
     std::cout << "Building JIT." << std::endl;
