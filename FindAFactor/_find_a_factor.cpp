@@ -943,6 +943,12 @@ struct Factorizer {
           throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
       }
 
+      ocl.call.setArg(0, *numbersBuf);
+      ocl.call.setArg(1, *primesBuf);
+      ocl.call.setArg(2, *resultsBuf);
+      ocl.call.setArg(3, *factorVecBuf);
+      ocl.call.setArg(4, primes.size());
+
       cl::Event kernelEvent;
       error = queue.enqueueNDRangeKernel(ocl.call, cl::NullRange, // kernel, offset
           cl::NDRange(groupCount), // global number of work items
@@ -1182,16 +1188,6 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   primesBuf = MakeBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(uint16_t) * primes.size(), (void *)&(primes[0U]));
   resultsBuf = MakeBuffer(context, CL_MEM_WRITE_ONLY, sizeof(bool) * smoothBatchBound, NULL);
   factorVecBuf = MakeBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound, NULL);
-
-  if (true) {
-    // Set the kernel argument hooks, and they won't change.
-    OCLDeviceCall ocl = deviceContext->Reserve(OCL_API_FACTORIZE_SMOOTH);
-    ocl.call.setArg(0, *numbersBuf);
-    ocl.call.setArg(1, *primesBuf);
-    ocl.call.setArg(2, *resultsBuf);
-    ocl.call.setArg(3, *factorVecBuf);
-    ocl.call.setArg(4, smoothBatchBound);
-  }
 
   const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap] {
     // inc_seq needs to be independent per thread.
