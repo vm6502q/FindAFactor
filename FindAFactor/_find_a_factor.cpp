@@ -1168,7 +1168,8 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // This manages the work per thread
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, primes);
 
-  deviceContext = OCLEngine::Instance((size_t)(log2(bitCount))).GetDeviceContextPtr(-1);
+  const size_t bitPow = (size_t)(log2(bitCount));
+  deviceContext = OCLEngine::Instance((bitCount == (1ULL << bitPow)) ? bitPow : (bitPow + 1U)).GetDeviceContextPtr(-1);
   const cl::Context context = deviceContext->context;
   const cl::CommandQueue queue = deviceContext->queue;
 

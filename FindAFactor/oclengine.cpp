@@ -78,7 +78,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "    BIG_INTEGER_WORD bits[BIG_INTEGER_WORD_SIZE];\n" +
         "} BigInteger;\n" +
         "\n" +
-        "inline void set(const BigInteger& o, BigInteger* n)\n" +
+        "inline void set(const BigInteger* o, BigInteger* n)\n" +
         "{\n" +
         "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
         "        n->bits[i] = o.bits[i];\n" +
@@ -92,41 +92,30 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "    }\n" +
         "}\n" +
         "\n" +
-        "inline void xor_bit(const BIG_INTEGER_HALF_WORD& b, BigInteger* o) {\n" +
+        "inline void xor_bit(const BIG_INTEGER_HALF_WORD b, BigInteger* o) {\n" +
         "    o->bits[b % BIG_INTEGER_WORD_BITS] ^= (1ULL << (b / BIG_INTEGER_WORD_BITS));\n" +
         "}\n" +
-        "inline int bi_compare_1(const BigInteger& left)\n" +
+        "inline int bi_compare_1(const BigInteger* left)\n" +
         "{\n" +
         "    for (int i = BIG_INTEGER_MAX_WORD_INDEX; i > 0; --i) {\n" +
-        "        if (left.bits[i]) {\n" +
+        "        if (left->bits[i]) {\n" +
         "            return 1;\n" +
         "        }\n" +
         "    }\n" +
-        "    if (left.bits[0] > 1U) {\n" +
+        "    if (left->bits[0] > 1U) {\n" +
         "        return 1;\n" +
         "    }\n" +
-        "    if (left.bits[0] < 1U) {\n" +
+        "    if (left->bits[0] < 1U) {\n" +
         "        return -1;\n" +
         "    }\n" +
         "\n" +
         "    return 0;\n" +
         "}\n" +
         "\n" +
-        "inline int bi_compare(const BigInteger& left, const int& right)\n" +
-        "{\n" +
-        "    for (int i = BIG_INTEGER_MAX_WORD_INDEX; i > 0; --i) {\n" +
-        "        if (left.bits[i]) {\n" +
-        "            return 1;\n" +
-        "        }\n" +
-        "    }\n" +
-        "\n" +
-        "    return (left.bits[0U] > right) ? 1 : ((left.bits[0U] < right) ? -1 : 0);\n" +
-        "}\n" +
-        "\n" +
         "// \"Schoolbook division\" (on half words)\n" +
         "// Complexity - O(x^2)\n" +
         "void bi_div_mod_small(\n" +
-        "    const BigInteger& left, BIG_INTEGER_HALF_WORD right, BigInteger* quotient, BIG_INTEGER_HALF_WORD* rmndr)\n" +
+        "    const BigInteger* left, BIG_INTEGER_HALF_WORD right, BigInteger* quotient, BIG_INTEGER_HALF_WORD* rmndr)\n" +
         "{\n" +
         "    BIG_INTEGER_WORD carry = 0U;\n" +
         "    if (quotient) {\n" +
@@ -135,10 +124,10 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "            const int i2 = i >> 1;\n" +
         "            carry <<= BIG_INTEGER_HALF_WORD_BITS;\n" +
         "            if (i & 1) {\n" +
-        "                carry |= left.bits[i2] >> BIG_INTEGER_HALF_WORD_BITS;\n" +
+        "                carry |= left->bits[i2] >> BIG_INTEGER_HALF_WORD_BITS;\n" +
         "                quotient->bits[i2] |= (carry / right) << BIG_INTEGER_HALF_WORD_BITS;\n" +
         "            } else {\n" +
-        "                carry |= left.bits[i2] & BIG_INTEGER_HALF_WORD_MASK;\n" +
+        "                carry |= left->bits[i2] & BIG_INTEGER_HALF_WORD_MASK;\n" +
         "                quotient->bits[i2] |= (carry / right);\n" +
         "            }\n" +
         "            carry %= right;\n" +
@@ -148,9 +137,9 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "            const int i2 = i >> 1;\n" +
         "            carry <<= BIG_INTEGER_HALF_WORD_BITS;\n" +
         "            if (i & 1) {\n" +
-        "                carry |= left.bits[i2] >> BIG_INTEGER_HALF_WORD_BITS;\n" +
+        "                carry |= left->bits[i2] >> BIG_INTEGER_HALF_WORD_BITS;\n" +
         "            } else {\n" +
-        "                carry |= left.bits[i2] & BIG_INTEGER_HALF_WORD_MASK;\n" +
+        "                carry |= left->bits[i2] & BIG_INTEGER_HALF_WORD_MASK;\n" +
         "            }\n" +
         "            carry %= right;\n" +
         "        }\n" +
@@ -168,7 +157,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         ") {\n" +
         "    int gid = get_global_id(0);                            // Get the index of this work item\n" +
         "    BigInteger number, factor_vector, q;\n" +
-        "    set(numbers[gid], &number);                            // The number to check\n" +
+        "    set(&numbers[gid], &number);                           // The number to check\n" +
         "    set_0(&factor_vector);                                 // Initialize the factor vector as 0\n" +
         "\n" +
         "    // Test divisibility by each prime\n" +
@@ -176,20 +165,20 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "        const uint p = (uint)primes[i];\n" +
         "        do {\n" +
         "            unsigned int r = 0U;\n" +
-        "            bi_div_mod_small(number, p, &q, &r);\n" +
+        "            bi_div_mod_small(&number, p, &q, &r);\n" +
         "            if (r) {\n" +
         "                break;"
         "            }\n" +
-        "            set(q, &number);\n" +
+        "            set(&q, &number);\n" +
         "            xor_bit(i, &factor_vector);                    // Flip the corresponding bit\n" +
         "        } while (true)\n" +
         "    }\n" +
         "\n" +
         "    // If number is reduced to 1, it is smooth\n" +
-        "    results[gid] = bi_compare_1(number) == 0;\n" +
+        "    results[gid] = bi_compare_1(&number) == 0;\n" +
         "\n" +
         "    // Store the factor vector\n" +
-        "    set(factor_vector, &(factor_vectors[gid]));\n" +
+        "    set(&factor_vector, &(factor_vectors[gid]));\n" +
         "}\n";
 
     cl::Program::Sources sources;
