@@ -748,6 +748,9 @@ boost::dynamic_bitset<uint64_t> factorizationVector(BigInteger num, const std::v
       count = !count;
     }
     vec[i] = count;
+    if (num < p) {
+      break;
+    }
   }
   if (num != 1U) {
     return boost::dynamic_bitset<uint64_t>();
