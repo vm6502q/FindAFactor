@@ -1005,9 +1005,9 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
 
   // This is simply trial division up to the ceiling.
-  for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result != 1U); primeIndex += 64) {
+  for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result != 1U); primeIndex += 64U) {
     dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
-      const uint64_t maxLcv = std::min(primeIndex + 32U, primes.size());
+      const uint64_t maxLcv = std::min(primeIndex + 64U, primes.size());
       for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
         if (result != 1U) {
           return false;
