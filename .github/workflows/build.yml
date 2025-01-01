@@ -22,7 +22,7 @@ jobs:
       - name: Prepare Build Environment (Linux)
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pybind11 libboost-dev
+          sudo apt-get install -y python3-pybind11 libboost-dev ocl-icd-opencl-dev
 
       - name: Install Python Dependencies
         run: |
@@ -56,7 +56,7 @@ jobs:
       - name: Prepare Build Environment (Linux)
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pybind11 libboost-dev
+          sudo apt-get install -y python3-pybind11 libboost-dev ocl-icd-opencl-dev
 
       - name: Install Python Dependencies
         run: |
@@ -90,7 +90,7 @@ jobs:
       - name: Prepare Build Environment (Linux)
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pybind11 libboost-dev
+          sudo apt-get install -y python3-pybind11 libboost-dev ocl-icd-opencl-dev
 
       - name: Install Python Dependencies
         run: |
