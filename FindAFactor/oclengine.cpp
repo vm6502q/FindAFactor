@@ -60,8 +60,8 @@ cl::Program OCLEngine::MakeProgram(std::shared_ptr<OCLDeviceContext> devCntxt)
         "#define BCAPPOW " + std::string(getenv("BCAPPOW")) + "\n" +
         "#define BIG_INTEGER_WORD_BITS 64U\n" +
         "#define BIG_INTEGER_WORD_POWER 6U\n" +
-        "#define BIG_INTEGER_WORD uint64_t\n" +
-        "#define BIG_INTEGER_HALF_WORD uint32_t\n" +
+        "#define BIG_INTEGER_WORD ulong\n" +
+        "#define BIG_INTEGER_HALF_WORD uint\n" +
         "#define BIG_INTEGER_HALF_WORD_MASK 0xFFFFFFFFULL\n" +
         "#define BIG_INTEGER_HALF_WORD_MASK_NOT 0xFFFFFFFF00000000ULL\n" +
         "\n" +
@@ -108,6 +108,34 @@ cl::Program OCLEngine::MakeProgram(std::shared_ptr<OCLDeviceContext> devCntxt)
         "        bits[b % BIG_INTEGER_WORD_BITS] ^= (1ULL << (b / BIG_INTEGER_WORD_BITS));\n" +
         "    }\n" +
         "} BigInteger;\n" +
+        "\n" +
+        "inline int bi_compare_1(const BigInteger& left)\n" +
+        "{\n" +
+        "    for (int i = BIG_INTEGER_MAX_WORD_INDEX; i > 0; --i) {\n" +
+        "        if (left.bits[i]) {\n" +
+        "            return 1;\n" +
+        "        }\n" +
+        "    }\n" +
+        "    if (left.bits[0] > 1U) {\n" +
+        "        return 1;\n" +
+        "    }\n" +
+        "    if (left.bits[0] < 1U) {\n" +
+        "        return -1;\n" +
+        "    }\n" +
+        "\n" +
+        "    return 0;\n" +
+        "}\n" +
+        "\n" +
+        "inline int bi_compare(const BigInteger& left, const int& right)\n" +
+        "{\n" +
+        "    for (int i = BIG_INTEGER_MAX_WORD_INDEX; i > 0; --i) {\n" +
+        "        if (left.bits[i]) {\n" +
+        "            return 1;\n" +
+        "        }\n" +
+        "    }\n" +
+        "\n" +
+        "    return (left.bits[0U] > right) ? 1 : ((left.bits[0U] < right) ? -1 : 0);\n" +
+        "}\n" +
         "\n" +
         "// \"Schoolbook division\" (on half words)\n" +
         "// Complexity - O(x^2)\n" +
@@ -167,11 +195,11 @@ cl::Program OCLEngine::MakeProgram(std::shared_ptr<OCLDeviceContext> devCntxt)
         "                number = q;\n" +
         "                factor_vector.xor_bit(i);                  // Flip the corresponding bit\n" +
         "            }\n" +
-        "        } while (number >= p)\n" +
+        "        } while (bi_compare(number, p) >= 0)\n" +
         "    }\n" +
         "\n" +
         "    // If number is reduced to 1, it is smooth\n" +
-        "    results[gid] = (number == 1);\n" +
+        "    results[gid] = bi_compare_1(number) == 0;\n" +
         "\n" +
         "    // Store the factor vector\n" +
         "    factor_vectors[gid] = factor_vector;\n" +
