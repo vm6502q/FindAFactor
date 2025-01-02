@@ -149,8 +149,8 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "}\n" +
         "\n" +
         "__kernel void factorize(\n" +
-        "    __global const BigInteger *numbers,                    // Array of numbers to check\n" +
-        "    __global const int *primes,                            // Array of small primes for smoothness\n" +
+        "    __constant const BigInteger *numbers,                  // Array of numbers to check\n" +
+        "    __constant int *primes,                                // Array of small primes for smoothness\n" +
         "    __global bool *results,                                // Output: 1 if smooth, 0 if not\n" +
         "    __global const BigInteger *factor_vectors,             // Output: Factorization vectors as bitmasks\n" +
         "    const int primeCount                                   // Number of primes in the array\n" +
