@@ -92,7 +92,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "    }\n" +
         "}\n" +
         "\n" +
-        "inline void set_from_global(__constant BigInteger* o, BigInteger* n)\n" +
+        "inline void set_from_global(__global const BigInteger* o, BigInteger* n)\n" +
         "{\n" +
         "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
         "        n->bits[i] = o->bits[i];\n" +
@@ -163,7 +163,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "}\n" +
         "\n" +
         "__kernel void factorize(\n" +
-        "    __constant BigInteger *numbers,                        // Array of numbers to check\n" +
+        "    __global const BigInteger *numbers,                    // Array of numbers to check\n" +
         "    __constant int *primes,                                // Array of small primes for smoothness\n" +
         "    __global bool *results,                                // Output: 1 if smooth, 0 if not\n" +
         "    __global BigInteger *factor_vectors,                   // Output: Factorization vectors as bitmasks\n" +
