@@ -107,9 +107,6 @@ BufferPtr numbersBuf;
 BufferPtr primesBuf;
 BufferPtr resultsBuf;
 BufferPtr factorVecBuf;
-std::unique_ptr<bool[]> resultsArray;
-std::unique_ptr<uint64_t[]> numbersArray;
-std::unique_ptr<uint64_t[]> factorsArray;
 
 DispatchQueue dispatch(std::thread::hardware_concurrency());
 
@@ -938,114 +935,100 @@ struct Factorizer {
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t wr, const std::vector<uint16_t> &p,
       ForwardFn fn)
       : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchBound((nodeId + 1U) * range), wheelRatio(wr), isIncomplete(true),
-      primes(p) {}
+      primes(p), forwardFn(fn) {}
 
   BigInteger getNextBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
 
-    const BigInteger batch = batchBound - (batchNumber + 1);
-
-    if (batch < 0) {
+    if (batchNumber == batchRange) {
       isIncomplete = false;
       return batchBound;
     }
 
-    batchNumber += smoothBatchBound;
-
-    return batch;
+    return batchBound - (++batchNumber);
   }
 
-  BigInteger bruteForceBody(BigInteger p, std::vector<boost::dynamic_bitset<uint64_t>> *inc_seqs) {
-    for (size_t i = 0U; i < smoothBatchBound; ++i) {
-      // Skip increments on the "wheels" (or "gears").
-      p += GetWheelIncrement(inc_seqs);
-      // Use the "exhaust" to produce smoother numbers.
-      BigInteger n = p;
-      for (size_t j = 0U; j < smoothBatchWidth; ++j) {
-          numbersArray.get()[i * smoothBatchWidth + j] = (uint64_t)n;
-          n >>= 64U;
-      }
-    }
-    const cl::Context context = deviceContext->context;
-    const cl::CommandQueue queue = deviceContext->queue;
-    OCLDeviceCall ocl = deviceContext->Reserve(OCL_API_TRIAL_DIVISION);
+  BigInteger getNextAltBatch() {
+    std::lock_guard<std::mutex> lock(batchMutex);
 
-    const size_t wordCount = smoothBatchWidth * smoothBatchBound;
-    cl_int error = queue.enqueueWriteBuffer(*numbersBuf, CL_TRUE, 0U, sizeof(uint64_t) * wordCount, numbersArray.get(), NULL);
-    if (error != CL_SUCCESS) {
-        throw std::runtime_error("Failed to enqueue buffer write, error code: " + std::to_string(error));
+    if (batchNumber == batchRange) {
+      isIncomplete = false;
+      return batchBound;
     }
 
-    cl::Event kernelEvent;
-    error = queue.enqueueNDRangeKernel(ocl.call, cl::NullRange, // kernel, offset
-        cl::NDRange(groupCount), // global number of work items
-        cl::NDRange(groupSize), // local number (per group)
-        NULL, // vector of events to wait for
-        &kernelEvent); // handle to wait for the kernel
+    const BigInteger halfBatchNum = (batchNumber++ >> 1U);
 
-    if (error != CL_SUCCESS) {
-        throw std::runtime_error("Failed to enqueue kernel, error code: " + std::to_string(error));
-    }
-
-    kernelEvent.wait();
-    // std::cout << "Finished batch." << std::endl;
-
-    error = queue.enqueueReadBuffer(*resultsBuf, CL_TRUE, 0U, sizeof(bool) * smoothBatchBound, resultsArray.get(), NULL);
-    if (error != CL_SUCCESS) {
-        throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
-    }
-
-    for (size_t i = 0U; i < smoothBatchBound; ++i) {
-      if (resultsArray.get()[i]) {
-          return numbersArray.get()[i];
-      }
-    }
-
-    return 1U;
+    return batchBound - ((batchNumber & 1U) ? (BigInteger)(batchRange - halfBatchNum) : (BigInteger)(halfBatchNum + 1U));
   }
 
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<uint64_t>> *inc_seqs) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
-      const BigInteger n = bruteForceBody(batchNum * wheelRatio, inc_seqs);
-      if (n != 1U) {
-        isIncomplete = false;
-        return n;
+      const BigInteger batchStart = batchNum * wheelRatio;
+      const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
+      for (BigInteger p = batchStart; p < batchEnd;) {
+        p += GetWheelIncrement(inc_seqs);
+        const BigInteger n = gcd(forwardFn(p), toFactor);
+        if (n != 1U) {
+          isIncomplete = false;
+          return n;
+        }
       }
     }
 
     return 1U;
   }
 
-  BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<uint64_t>> *inc_seqs, std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
+  BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<uint64_t>> *inc_seqs, uint64_t *semiSmoothParts,
+                               std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap, size_t *ssp) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     // Since the largest prime factors of these numbers is relatively small,
     // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
-    for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
-      const BigInteger n = bruteForceBody(batchNum * wheelRatio, inc_seqs);
-      if (n != 1U) {
-        isIncomplete = false;
-        return n;
-      }
-
-      // Our "smooth parts" are smaller than the square root of toFactor.
-      // We combine them semi-randomly, to produce numbers just larger than toFactor^(1/2).
-      const BigInteger m = makeSmoothNumbers(smoothNumberMap);
-      // Check the factor returned.
-      if (m != 1U) {
-        // Gaussian elimination found a factor!
-        isIncomplete = false;
-        return m;
+    for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
+      const BigInteger batchStart = batchNum * wheelRatio;
+      const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
+      for (BigInteger p = batchStart; p < batchEnd;) {
+        // Skip increments on the "wheels" (or "gears").
+        p += GetWheelIncrement(inc_seqs);
+        // Brute-force check if the sequential number is a factor.
+        BigInteger n = gcd(forwardFn(p), toFactor);
+        // If so, terminate this node and return the answer.
+        if (n != 1U) {
+          isIncomplete = false;
+          return n;
+        }
+        // Use the "exhaust" to produce smoother numbers.
+        for (size_t i = 0U; i < smoothBatchWidth; ++i) {
+            semiSmoothParts[(*ssp) * smoothBatchWidth + i] = (uint64_t)n;
+            n >>= 64U;
+        }
+        ++(*ssp);
+        // Batch this work, to reduce contention.
+        if ((*ssp) < smoothBatchBound) {
+          continue;
+        }
+        (*ssp) = 0U;
+        // Our "smooth parts" are smaller than the square root of toFactor.
+        // We combine them semi-randomly, to produce numbers just larger than toFactor^(1/2).
+        const BigInteger m = makeSmoothNumbers(semiSmoothParts, smoothNumberMap);
+        // Check the factor returned.
+        if (m != 1U) {
+          // Gaussian elimination found a factor!
+          isIncomplete = false;
+          return m;
+        }
       }
     }
 
     return 1U;
   }
 
-  BigInteger makeSmoothNumbers(std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
+  BigInteger makeSmoothNumbers(uint64_t *semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<uint64_t>> *smoothNumberMap) {
     // Factorize all "smooth parts."
     // We have to reserve the kernel, because its argument hooks are unique. The same kernel therefore can't be used by
     // other QEngineOCL instances, until we're done queueing it.
+    std::unique_ptr<bool[]> results(new bool[smoothBatchBound]());
+    std::unique_ptr<uint64_t[]> factors(new uint64_t[smoothBatchWidth * smoothBatchBound]());
     std::vector<BigInteger> smoothParts;
     std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothPartsMap;
     if (true) {
@@ -1053,8 +1036,14 @@ struct Factorizer {
       const cl::CommandQueue queue = deviceContext->queue;
       OCLDeviceCall ocl = deviceContext->Reserve(OCL_API_FACTORIZE_SMOOTH);
 
+      const size_t wordCount = smoothBatchWidth * smoothBatchBound;
+      cl_int error = queue.enqueueWriteBuffer(*numbersBuf, CL_TRUE, 0U, sizeof(uint64_t) * wordCount, semiSmoothParts, NULL);
+      if (error != CL_SUCCESS) {
+          throw std::runtime_error("Failed to enqueue buffer write, error code: " + std::to_string(error));
+      }
+
       cl::Event kernelEvent;
-      cl_int error = queue.enqueueNDRangeKernel(ocl.call, cl::NullRange, // kernel, offset
+      error = queue.enqueueNDRangeKernel(ocl.call, cl::NullRange, // kernel, offset
           cl::NDRange(groupCount), // global number of work items
           cl::NDRange(groupSize), // local number (per group)
           NULL, // vector of events to wait for
@@ -1067,18 +1056,18 @@ struct Factorizer {
       kernelEvent.wait();
       // std::cout << "Finished batch." << std::endl;
 
-      error = queue.enqueueReadBuffer(*resultsBuf, CL_TRUE, 0U, sizeof(bool) * smoothBatchBound, resultsArray.get(), NULL);
+      error = queue.enqueueReadBuffer(*resultsBuf, CL_TRUE, 0U, sizeof(bool) * smoothBatchBound, results.get(), NULL);
       if (error != CL_SUCCESS) {
           throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
       }
-      error = queue.enqueueReadBuffer(*factorVecBuf, CL_TRUE, 0U, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound, factorsArray.get(), NULL);
+      error = queue.enqueueReadBuffer(*factorVecBuf, CL_TRUE, 0U, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound, factors.get(), NULL);
       if (error != CL_SUCCESS) {
           throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
       }
     }
 
     for (size_t i = 0U; i < smoothBatchBound; i++) {
-        if (!resultsArray.get()[i]) {
+        if (!results.get()[i]) {
           continue;
         }
 
@@ -1086,7 +1075,7 @@ struct Factorizer {
         smoothParts.emplace_back(0U);
         for (size_t j = 0U; j < smoothBatchWidth; ++j) {
             smoothParts.back() <<= 64U;
-            smoothParts.back() |= numbersArray.get()[numRow + j];
+            smoothParts.back() |= semiSmoothParts[numRow + j];
         }
 
         const size_t facRow = i * smoothBatchWidth;
@@ -1094,7 +1083,7 @@ struct Factorizer {
         const auto it = smoothPartsMap.find(smoothParts.back());
         for (size_t j = 0U; j < smoothBatchWidth; ++j) {
           it->second <<= 64U;
-          const uint64_t word = factorsArray.get()[facRow + j];
+          const uint64_t word = factors.get()[facRow + j];
           for (size_t k = 0U; k < 64U; ++k) {
               it->second[j * 64U + k] = (word >> k) & 1U;
           }
@@ -1305,19 +1294,6 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   resultsBuf = MakeBuffer(context, CL_MEM_WRITE_ONLY, sizeof(bool) * smoothBatchBound, NULL);
   factorVecBuf = MakeBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound, NULL);
 
-  const size_t wordCount = smoothBatchWidth * smoothBatchBound;
-  std::unique_ptr<bool[]> resultsArray(new bool[smoothBatchBound]());
-  std::unique_ptr<uint64_t[]> numbersArray(new uint64_t[wordCount]());
-  std::unique_ptr<uint64_t[]> factorsArray(new uint64_t[wordCount]());
-
-  if (true) {
-    // Set the kernel argument hooks, and they won't change.
-    OCLDeviceCall ocl = deviceContext->Reserve(OCL_API_TRIAL_DIVISION);
-    ocl.call.setArg(0, *numbersBuf);
-    ocl.call.setArg(1, *resultsBuf);
-    ocl.call.setArg(2, toFactor);
-  }
-
   if (true) {
     // Set the kernel argument hooks, and they won't change.
     OCLDeviceCall ocl = deviceContext->Reserve(OCL_API_FACTORIZE_SMOOTH);
@@ -1341,13 +1317,28 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
       return worker.bruteForce(&inc_seqs_clone);
     }
 
+    // Different collection per thread;
+    const size_t wordCount = smoothBatchWidth * smoothBatchBound;
+    std::unique_ptr<uint64_t[]> semiSmoothParts(new uint64_t[wordCount]);
+    size_t ssp = 0U;
+
     // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
-    return worker.smoothCongruences(&inc_seqs_clone, &smoothNumberMap);
+    return worker.smoothCongruences(&inc_seqs_clone, semiSmoothParts.get(), &smoothNumberMap, &ssp);
   };
 
-  const BigInteger r = workerFn();
-  if ((r > result) && (r != toFactor)) {
-    result = r;
+  const unsigned cpuCount = std::thread::hardware_concurrency();
+  std::vector<std::future<BigInteger>> futures;
+  futures.reserve(cpuCount);
+
+  for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
+    futures.push_back(std::async(std::launch::async, workerFn));
+  }
+
+  for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
+    const BigInteger r = futures[cpu].get();
+    if ((r > result) && (r != toFactor)) {
+      result = r;
+    }
   }
 
   return boost::lexical_cast<std::string>(result);

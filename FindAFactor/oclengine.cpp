@@ -35,7 +35,6 @@ DeviceContextPtr OCLEngine::GetDeviceContextPtr(const int64_t& dev)
 
 // clang-format off
 const std::vector<OCLKernelHandle> OCLEngine::kernelHandles{
-    OCLKernelHandle(OCL_API_TRIAL_DIVISION, "trial_division"),
     OCLKernelHandle(OCL_API_FACTORIZE_SMOOTH, "factorize")
 };
 // clang-format on
@@ -110,17 +109,6 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "inline void xor_bit(const BIG_INTEGER_HALF_WORD b, BigInteger* o) {\n" +
         "    o->bits[b % BIG_INTEGER_WORD_BITS] ^= (1ULL << (b / BIG_INTEGER_WORD_BITS));\n" +
         "}\n" +
-        "inline int bi_compare_0(const BigInteger* left)\n" +
-        "{\n" +
-        "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
-        "        if (left->bits[i]) {\n" +
-        "            return 1;\n" +
-        "        }\n" +
-        "    }\n" +
-        "\n" +
-        "    return 0;\n" +
-        "}\n" +
-        "\n" +
         "inline int bi_compare_1(const BigInteger* left)\n" +
         "{\n" +
         "    for (int i = BIG_INTEGER_MAX_WORD_INDEX; i > 0; --i) {\n" +
@@ -174,21 +162,9 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "    *rmndr = carry;\n" +
         "}\n" +
         "\n" +
-        "__kernel void trial_division(\n" +
-        "    __global const BigInteger *numbers,                    // Array of numbers to check\n" +
-        "    __global bool *results,                                // Output: 1 if factor, 0 if not\n" +
-        "    const BigInteger toFactor                              // Number of primes in the array\n" +
-        ") {\n" +
-        "    int gid = get_global_id(0);                            // Get the index of this work item\n" +
-        "    BigInteger n, q, r;                                    // Quotient and remainder\n" +
-        "    set_from_global(&numbers[gid], &n);                    // The number to check\n" +
-        "    bi_div_mod_small(&n, p, &q, &r);\n" +
-        "\n" +
-        "    results[gid] = bi_compare_0(&r);"
-        "}\n" +
         "__kernel void factorize(\n" +
         "    __global const BigInteger *numbers,                    // Array of numbers to check\n" +
-        "    __constant ushort *primes,                             // Array of small primes for smoothness\n" +
+        "    __constant int *primes,                                // Array of small primes for smoothness\n" +
         "    __global bool *results,                                // Output: 1 if smooth, 0 if not\n" +
         "    __global BigInteger *factor_vectors,                   // Output: Factorization vectors as bitmasks\n" +
         "    const int primeCount                                   // Number of primes in the array\n" +
@@ -200,7 +176,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "\n" +
         "    // Test divisibility by each prime\n" +
         "    for (int i = 0; i < primeCount; ++i) {\n" +
-        "        const ushort p = primes[i];\n" +
+        "        const uint p = (uint)primes[i];\n" +
         "        do {\n" +
         "            unsigned int r = 0U;\n" +
         "            bi_div_mod_small(&number, p, &q, &r);\n" +
