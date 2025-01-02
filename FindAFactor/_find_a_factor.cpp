@@ -1041,14 +1041,6 @@ struct Factorizer {
       if (error != CL_SUCCESS) {
           throw std::runtime_error("Failed to enqueue buffer write, error code: " + std::to_string(error));
       }
-      error = queue.enqueueWriteBuffer(*resultsBuf, CL_TRUE, 0U, sizeof(bool) * smoothBatchBound, results.get(), NULL);
-      if (error != CL_SUCCESS) {
-          throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
-      }
-      error = queue.enqueueWriteBuffer(*factorVecBuf, CL_TRUE, 0U, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound, factors.get(), NULL);
-      if (error != CL_SUCCESS) {
-          throw std::runtime_error("Failed to enqueue buffer read, error code: " + std::to_string(error));
-      }
 
       cl::Event kernelEvent;
       error = queue.enqueueNDRangeKernel(ocl.call, cl::NullRange, // kernel, offset
