@@ -37,6 +37,14 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `wheel_factorization_level` (default value: `11`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that usually work best when the "wheel" is one prime smaller than the largest "gear." (In other words, as `11` and `13` are consecutive primes, "wheels" and "gears" tend to work best with consecutive limits.) Optimized implementation for wheels is only available up to 11.
 - `smoothness_bound_multiplier` (default value: `1.0`): starting with the first prime number after wheel factorization, the congruence of squares approach (with Quadratic Sieve) takes a default "smoothness bound" with as many distinct prime numbers as bits in the number to factor (for default argument of `1.0` multiplier). To increase or decrease this number, consider it multiplied by the value of `smoothness_bound_multiplier`.
 
+All variables defaults can also be controlled by environment variables:
+- `FINDAFACTOR_USE_CONGRUENCE_OF_SQUARES`
+- `FINDAFACTOR_NODE_COUNT`
+- `FINDAFACTOR_NODE_ID`
+- `FINDAFACTOR_GEAR_FACTORIZATION_LEVEL`
+- `FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL`
+- `FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER`
+
 ## About 
 This library was originally called ["Qimcifa"](https://github.com/vm6502q/qimcifa) and demonstrated a (Shor's-like) "quantum-inspired" algorithm for integer factoring. It has since been developed into a general factoring algorithm and tool.
 

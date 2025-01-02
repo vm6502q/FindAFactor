@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 
@@ -11,12 +12,12 @@ def main():
         return 1
 
     to_factor = int(sys.argv[1])
-    use_congruence_of_squares = True
-    node_count = 1
-    node_id = 0
-    gear_factorization_level = 13
-    wheel_factorization_level = 11
-    smoothness_bound_multiplier = 1.0
+    use_congruence_of_squares = bool(os.environ.get('FINDAFACTOR_USE_CONGRUENCE_OF_SQUARES')) if os.environ.get('FINDAFACTOR_USE_CONGRUENCE_OF_SQUARES') else True
+    node_count = int(os.environ.get('FINDAFACTOR_NODE_COUNT')) if os.environ.get('FINDAFACTOR_NODE_COUNT') else 1
+    node_id = int(os.environ.get('FINDAFACTOR_NODE_ID')) if os.environ.get('FINDAFACTOR_NODE_ID') else 0
+    gear_factorization_level = int(os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL') else 13
+    wheel_factorization_level = int(os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL') else 11
+    smoothness_bound_multiplier = float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0
 
     if argv_len > 2:
         use_congruence_of_squares = bool(sys.argv[2])
