@@ -32,7 +32,8 @@ namespace Qimcifa {
 
 enum OCLAPI {
     OCL_API_UNKNOWN = 0,
-    OCL_API_FACTORIZE_SMOOTH = 1
+    OCL_API_TRIAL_DIVISION = 1,
+    OCL_API_FACTORIZE_SMOOTH = 2,
 };
 
 class OCLDeviceCall;
@@ -160,7 +161,7 @@ public:
         return preferredSizeMultiple
             ? preferredSizeMultiple
             : preferredSizeMultiple =
-                  calls[OCL_API_FACTORIZE_SMOOTH].getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(
+                  calls[OCL_API_TRIAL_DIVISION].getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(
                       device);
     }
 
