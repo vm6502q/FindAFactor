@@ -194,14 +194,15 @@ inline BigInteger forward5(const size_t &p) {
   return m[p % 8U] + (p / 8U) * 30U;
 }
 
+constexpr unsigned char wheel5[8U] = {1U, 7U, 11U, 13U, 17U, 19U, 23U, 29U};
+
 inline BigInteger forward5(const BigInteger &p) {
-  constexpr unsigned char m[8U] = {1U, 7U, 11U, 13U, 17U, 19U, 23U, 29U};
-  return m[(size_t)(p % 8U)] + (p / 8U) * 30U;
+  return wheel5[(size_t)(p % 8U)] + (p / 8U) * 30U;
 }
 
-inline BigInteger backward5(const BigInteger &n) { return (((((n + 1U) << 2U) / 5U + 1U) << 1U) / 3U + 1U) >> 1U; }
+inline BigInteger backward5(const BigInteger &n) { return std::distance(wheel5, std::lower_bound(wheel5, wheel5 + 8U, n % 30U)) + 8U * (n / 30U) + 1U; }
 
-inline size_t _backward5(const BigInteger &n) { return (size_t)(((((n + 1U) << 2U) / 5U + 1U) << 1U) / 3U + 1U) >> 1U; }
+inline size_t _backward5(const BigInteger &n) { return (size_t)(std::distance(wheel5, std::lower_bound(wheel5, wheel5 + 8U, n % 30U)) + 8U * (n / 30U) + 1U); }
 
 constexpr unsigned char wheel7[48U] = {1U,   11U,  13U,  17U,  19U,  23U,  29U,  31U,  37U,  41U,  43U,  47U,  53U,  59U,  61U,  67U,
                                        71U,  73U,  79U,  83U,  89U,  97U,  101U, 103U, 107U, 109U, 113U, 121U, 127U, 131U, 137U, 139U,
