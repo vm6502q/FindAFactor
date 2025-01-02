@@ -255,15 +255,15 @@ typedef BigInteger (*ForwardFn)(const BigInteger&);
 inline ForwardFn forward(const Wheel &w) {
   switch (w) {
   case WHEEL2:
-    return [](const BigInteger& n) -> BigInteger { return forward2(n); };
+    return forward2;
   case WHEEL3:
-    return [](const BigInteger& n) -> BigInteger { return forward3(n); };
+    return forward3;
   case WHEEL5:
-    return [](const BigInteger& n) -> BigInteger { return forward5(n); };
+    return forward5;
   case WHEEL7:
-    return [](const BigInteger& n) -> BigInteger { return forward7(n); };
+    return forward7;
   case WHEEL11:
-    return [](const BigInteger& n) -> BigInteger { return forward11(n); };
+    return forward11;
   case WHEEL1:
   default:
     return [](const BigInteger& n) -> BigInteger { return n; };
@@ -273,15 +273,15 @@ inline ForwardFn forward(const Wheel &w) {
 inline ForwardFn backward(const Wheel& w) {
   switch (w) {
   case WHEEL2:
-    return [](const BigInteger& n) -> BigInteger { return backward2(n); };
+    return backward2;
   case WHEEL3:
-    return [](const BigInteger& n) -> BigInteger { return backward3(n); };
+    return backward3;
   case WHEEL5:
-    return [](const BigInteger& n) -> BigInteger { return backward5(n); };
+    return backward5;
   case WHEEL7:
-    return [](const BigInteger& n) -> BigInteger { return backward7(n); };
+    return backward7;
   case WHEEL11:
-    return [](const BigInteger& n) -> BigInteger { return backward11(n); };
+    return backward11;
   case WHEEL1:
   default:
     return [](const BigInteger& n) -> BigInteger { return n; };
