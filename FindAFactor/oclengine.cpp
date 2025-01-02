@@ -78,7 +78,21 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "    BIG_INTEGER_WORD bits[BIG_INTEGER_WORD_SIZE];\n" +
         "} BigInteger;\n" +
         "\n" +
-        "inline void set(const BigInteger* o, BigInteger* n)\n" +
+        "inline void set_to_global(const BigInteger* o, BigInteger* n)\n" +
+        "{\n" +
+        "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
+        "        n->bits[i] = o->bits[i];\n" +
+        "    }\n" +
+        "}\n" +
+        "\n" +
+        "inline void set_to_global(const BigInteger* o, __global BigInteger* n)\n" +
+        "{\n" +
+        "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
+        "        n->bits[i] = o->bits[i];\n" +
+        "    }\n" +
+        "}\n" +
+        "\n" +
+        "inline void set_from_global(__constant BigInteger* o, BigInteger* n)\n" +
         "{\n" +
         "    for (int i = 0; i < BIG_INTEGER_WORD_SIZE; ++i) {\n" +
         "        n->bits[i] = o->bits[i];\n" +
@@ -149,15 +163,15 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "}\n" +
         "\n" +
         "__kernel void factorize(\n" +
-        "    __constant BigInteger *numbers,                  // Array of numbers to check\n" +
+        "    __constant BigInteger *numbers,                        // Array of numbers to check\n" +
         "    __constant int *primes,                                // Array of small primes for smoothness\n" +
         "    __global bool *results,                                // Output: 1 if smooth, 0 if not\n" +
-        "    __global const BigInteger *factor_vectors,             // Output: Factorization vectors as bitmasks\n" +
+        "    __global BigInteger *factor_vectors,                   // Output: Factorization vectors as bitmasks\n" +
         "    const int primeCount                                   // Number of primes in the array\n" +
         ") {\n" +
         "    int gid = get_global_id(0);                            // Get the index of this work item\n" +
         "    BigInteger number, factor_vector, q;\n" +
-        "    set(&numbers[gid], &number);                           // The number to check\n" +
+        "    set_from_global(&numbers[gid], &number);               // The number to check\n" +
         "    set_0(&factor_vector);                                 // Initialize the factor vector as 0\n" +
         "\n" +
         "    // Test divisibility by each prime\n" +
@@ -178,7 +192,7 @@ cl::Program OCLEngine::MakeProgram(const size_t bitPow, std::shared_ptr<OCLDevic
         "    results[gid] = bi_compare_1(&number) == 0;\n" +
         "\n" +
         "    // Store the factor vector\n" +
-        "    set(&factor_vector, &(factor_vectors[gid]));\n" +
+        "    set_to_global(&factor_vector, &(factor_vectors[gid]));\n" +
         "}\n";
 
     cl::Program::Sources sources;
