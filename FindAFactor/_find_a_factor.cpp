@@ -1121,7 +1121,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
 
   // This is simply trial division up to the ceiling.
-  for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) || (result != 1U); primeIndex += 64U) {
+  for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
     dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
       const uint64_t maxLcv = std::min(primeIndex + 64U, primes.size());
       for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
@@ -1137,6 +1137,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
       return false;
     });
   }
+  dispatch.finish();
   // If we've checked all primes below the square root of toFactor, then it's prime.
   if ((result != 1U) || (toFactor <= (primeCeiling * primeCeiling))) {
     return boost::lexical_cast<std::string>(result);
