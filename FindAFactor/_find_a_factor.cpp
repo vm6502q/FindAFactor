@@ -1081,11 +1081,20 @@ struct Factorizer {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
 
-std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr, const size_t &nodeCount, const size_t &nodeId, size_t wheelFactorizationLevel,
-                          double smoothnessBoundMultiplier) {
+std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr, const size_t &nodeCount, const size_t &nodeId, size_t gearFactorizationLevel,
+                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier) {
   // (At least) level 11 wheel factorization is baked into basic functions.
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
+  } else if (wheelFactorizationLevel > 11U) {
+    wheelFactorizationLevel = 11U;
+    std::cout << "Warning: Wheel factorization limit is 11. (Parameter will be ignored and default to 11.)";
+  }
+  if (!gearFactorizationLevel) {
+    gearFactorizationLevel = 1U;
+  } else if (gearFactorizationLevel < wheelFactorizationLevel) {
+    gearFactorizationLevel = wheelFactorizationLevel;
+    std::cout << "Warning: Gear factorization level must be at least as high as wheel level. (Parameter will be ignored and default to wheel level.)";
   }
 
   // Convert from string.
@@ -1106,7 +1115,9 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   std::vector<uint16_t> primes(bigPrimes.size());
   std::transform(bigPrimes.begin(), bigPrimes.end(), primes.begin(), [](const BigInteger& p) { return (uint16_t)p; });
   // "it" is the end-of-list iterator for a list up-to-and-including wheelFactorizationLevel.
-  const auto it = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
+  const auto itw = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
+  const auto itg = std::upper_bound(primes.begin(), primes.end(), gearFactorizationLevel);
+  const size_t wgDiff = std::distance(itw, itg);
 
 
   // This is simply trial division up to the ceiling.
@@ -1132,22 +1143,22 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   }
 
   // Set up wheel factorization (or "gear" factorization)
-  std::vector<uint16_t> wheelFactorizationPrimes(primes.begin(), it);
+  std::vector<uint16_t> gearFactorizationPrimes(primes.begin(), itg);
   // Primes are only present in range above wheel factorization level
-  primes = std::vector<uint16_t>(it, primes.begin() + std::min(primes.size(), wheelFactorizationPrimes.size() + (size_t)(smoothnessBoundMultiplier * log2(toFactor))));
+  primes = std::vector<uint16_t>(itg, primes.begin() + std::min(primes.size(), gearFactorizationPrimes.size() + (size_t)(smoothnessBoundMultiplier * log2(toFactor))));
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
-  for (const uint16_t &wp : wheelFactorizationPrimes) {
+  for (const uint16_t &wp : gearFactorizationPrimes) {
     biggestWheel *= (size_t)wp;
   }
   // These are "gears," for wheel factorization (with a "wheel" already in place up to 11).
-  std::vector<boost::dynamic_bitset<size_t>> inc_seqs = wheel_gen(std::vector<uint16_t>(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end()));
+  std::vector<boost::dynamic_bitset<size_t>> inc_seqs = wheel_gen(std::vector<uint16_t>(gearFactorizationPrimes.begin(), gearFactorizationPrimes.end()));
   // We're done with the lowest primes.
-  const size_t MIN_RTD_LEVEL = std::min((size_t)5U, wheelFactorizationPrimes.size() - 1U);
+  const size_t MIN_RTD_LEVEL = gearFactorizationPrimes.size() - wgDiff;
   const Wheel SMALLEST_WHEEL = wheelByPrimeCardinal(MIN_RTD_LEVEL);
-  wheelFactorizationPrimes.clear();
   // Skip multiples removed by wheel factorization.
-  inc_seqs.erase(inc_seqs.begin(), inc_seqs.begin() + MIN_RTD_LEVEL);
+  inc_seqs.erase(inc_seqs.begin(), inc_seqs.end() - wgDiff);
+  gearFactorizationPrimes.clear();
 
   // Ratio of biggest vs. smallest wheel, for periodicity
   const size_t wheelRatio = biggestWheel / (size_t)SMALLEST_WHEEL;
