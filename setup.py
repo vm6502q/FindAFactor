@@ -20,7 +20,7 @@ ext_modules = [
 
 setup(
     name='FindAFactor',
-    version='1.6.4',
+    version='1.6.5',
     author='Dan Strano',
     author_email='dan@unitary.fund',
     description='Find any nontrivial factor of a number',
