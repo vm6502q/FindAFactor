@@ -121,6 +121,7 @@ inline uint64_t log2(BigInteger n) {
   }
   return pow;
 }
+
 inline BigInteger gcd(BigInteger n1, BigInteger n2) {
   while (n2) {
     const BigInteger t = n1;
@@ -131,7 +132,7 @@ inline BigInteger gcd(BigInteger n1, BigInteger n2) {
   return n1;
 }
 
-inline BigInteger sqrt(const BigInteger &toTest) {
+BigInteger sqrt(const BigInteger &toTest) {
   // Otherwise, find b = sqrt(b^2).
   BigInteger start = 1U, end = toTest >> 1U, ans = 0U;
   do {
@@ -171,9 +172,9 @@ inline size_t backward3(const BigInteger& n) { return (size_t)((~(~n | 1U)) / 3U
 constexpr unsigned char wheel5[8U] = { 1U, 7U, 11U, 13U, 17U, 19U, 23U, 29U };
 
 // Make this NOT a multiple of 2, 3, or 5.
-inline BigInteger forward5(const size_t& p) { return wheel5[p % 8U] + (p / 8U) * 30U; }
+BigInteger forward5(const size_t& p) { return wheel5[p % 8U] + (p / 8U) * 30U; }
 
-inline size_t backward5(const BigInteger &n) {
+size_t backward5(const BigInteger &n) {
     return std::distance(wheel5, std::lower_bound(wheel5, wheel5 + 8U, (size_t)(n % 30U))) + 8U * (size_t)(n / 30U) + 1U;
 }
 
@@ -184,9 +185,9 @@ constexpr unsigned char wheel7[48U] = {
 };
 
 // Make this NOT a multiple of 2, 3, 5, or 7.
-inline BigInteger forward7(const size_t& p) { return wheel7[p % 48U] + (p / 48U) * 210U; }
+BigInteger forward7(const size_t& p) { return wheel7[p % 48U] + (p / 48U) * 210U; }
 
-inline size_t backward7(const BigInteger& n) {
+size_t backward7(const BigInteger& n) {
     return std::distance(wheel7, std::lower_bound(wheel7, wheel7 + 48U, (size_t)(n % 210U))) + 48U * (size_t)(n / 210U) + 1U;
 }
 
@@ -213,9 +214,9 @@ constexpr unsigned short wheel11[480U] = {
     2203U, 2207U, 2209U, 2213U, 2221U, 2227U, 2231U, 2237U, 2239U, 2243U, 2249U, 2251U, 2257U, 2263U, 2267U, 2269U, 2273U, 2279U, 2281U, 2287U, 2291U, 2293U, 2297U, 2309U};
 
 // Make this NOT a multiple of 2, 3, 5, 7, or 11.
-inline BigInteger forward11(const size_t &p) { return wheel11[p % 480U] + (p / 480U) * 2310U; }
+BigInteger forward11(const size_t &p) { return wheel11[p % 480U] + (p / 480U) * 2310U; }
 
-inline size_t backward11(const BigInteger &n) {
+size_t backward11(const BigInteger &n) {
     return std::distance(wheel11, std::lower_bound(wheel11, wheel11 + 480U, (size_t)(n % 2310U))) + 480U * (size_t)(n / 2310U) + 1U;
 }
 
@@ -227,19 +228,19 @@ inline BigInteger _forward3(const BigInteger &p) { return (p << 1U) + (~(~p | 1U
 
 inline BigInteger _backward3(const BigInteger &n) { return ((~(~n | 1U)) / 3U) + 1U; }
 
-inline BigInteger _forward5(const BigInteger &p) { return wheel5[(size_t)(p % 8U)] + (p / 8U) * 30U; }
+BigInteger _forward5(const BigInteger &p) { return wheel5[(size_t)(p % 8U)] + (p / 8U) * 30U; }
 
-inline BigInteger _backward5(const BigInteger &n) {
+BigInteger _backward5(const BigInteger &n) {
     return std::distance(wheel5, std::lower_bound(wheel5, wheel5 + 8U, (size_t)(n % 30U))) + 8U * (n / 30U) + 1U;
 }
 
-inline BigInteger _forward7(const BigInteger &p) { return wheel7[(size_t)(p % 48U)] + (p / 48U) * 210U; }
+BigInteger _forward7(const BigInteger &p) { return wheel7[(size_t)(p % 48U)] + (p / 48U) * 210U; }
 
-inline BigInteger _backward7(const BigInteger &n) { return std::distance(wheel7, std::lower_bound(wheel7, wheel7 + 48U, n % 210U)) + 48U * (n / 210U) + 1U; }
+BigInteger _backward7(const BigInteger &n) { return std::distance(wheel7, std::lower_bound(wheel7, wheel7 + 48U, n % 210U)) + 48U * (n / 210U) + 1U; }
 
-inline BigInteger _forward11(const BigInteger &p) { return wheel11[(size_t)(p % 480U)] + (p / 480U) * 2310U; }
+BigInteger _forward11(const BigInteger &p) { return wheel11[(size_t)(p % 480U)] + (p / 480U) * 2310U; }
 
-inline BigInteger _backward11(const BigInteger &n) { return std::distance(wheel11, std::lower_bound(wheel11, wheel11 + 480U, (size_t)(n % 2310U))) + 480U * (n / 2310U) + 1U; }
+BigInteger _backward11(const BigInteger &n) { return std::distance(wheel11, std::lower_bound(wheel11, wheel11 + 480U, (size_t)(n % 2310U))) + 480U * (n / 2310U) + 1U; }
 
 typedef BigInteger (*ForwardFn)(const BigInteger&);
 inline ForwardFn forward(const Wheel &w) {
