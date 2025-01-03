@@ -114,8 +114,8 @@ BigInteger ipow(BigInteger base, unsigned exp) {
   return result;
 }
 
-inline uint64_t log2(BigInteger n) {
-  uint64_t pow = 0U;
+inline size_t log2(BigInteger n) {
+  size_t pow = 0U;
   while (n >>= 1U) {
     ++pow;
   }
@@ -795,10 +795,10 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
 
   // This is simply trial division up to the ceiling.
-  for (uint64_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
+  for (size_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
     dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
-      const uint64_t maxLcv = std::min(primeIndex + 64U, primes.size());
-      for (uint64_t pi = primeIndex; pi < maxLcv; ++pi) {
+      const size_t maxLcv = std::min(primeIndex + 64U, primes.size());
+      for (size_t pi = primeIndex; pi < maxLcv; ++pi) {
         if (result != 1U) {
           return false;
         }
