@@ -89,8 +89,6 @@ Wheel wheelByPrimeCardinal(int i) {
   }
 }
 
-DispatchQueue dispatch(std::thread::hardware_concurrency());
-
 // See https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
 BigInteger ipow(BigInteger base, unsigned exp) {
   BigInteger result = 1U;
@@ -1036,6 +1034,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   const size_t wgDiff = std::distance(itw, itg);
 
   // This is simply trial division up to the ceiling.
+  DispatchQueue dispatch(std::thread::hardware_concurrency());
   for (size_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
     dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
       const size_t maxLcv = std::min(primeIndex + 64U, primes.size());
