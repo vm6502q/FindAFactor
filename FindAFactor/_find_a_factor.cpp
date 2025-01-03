@@ -420,6 +420,7 @@ std::vector<BigInteger> SieveOfEratosthenes(const BigInteger &n) {
   return knownPrimes;
 }
 
+#if 0
 std::vector<BigInteger> SegmentedSieveOfEratosthenes(BigInteger n) {
   // TODO: This should scale to the system.
   // Assume the L1/L2 cache limit is 2048 KB.
@@ -504,6 +505,7 @@ std::vector<BigInteger> SegmentedSieveOfEratosthenes(BigInteger n) {
 
   return knownPrimes;
 }
+#endif
 
 inline bool isMultiple(const BigInteger &p, const std::vector<uint16_t> &knownPrimes) {
   for (const uint16_t &prime : knownPrimes) {
@@ -882,7 +884,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   const BigInteger primeCeiling = (65536ULL < fullMaxBase) ? (BigInteger)65536ULL : fullMaxBase;
   BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
-  std::vector<BigInteger> bigPrimes = SegmentedSieveOfEratosthenes(primeCeiling);
+  std::vector<BigInteger> bigPrimes = SieveOfEratosthenes(primeCeiling);
   // All of our primes are necessarily less than 16-bit
   std::vector<uint16_t> primes(bigPrimes.size());
   std::transform(bigPrimes.begin(), bigPrimes.end(), primes.begin(), [](const BigInteger& p) { return (uint16_t)p; });
