@@ -789,15 +789,15 @@ struct Factorizer {
   BigInteger batchRange;
   BigInteger batchNumber;
   BigInteger batchOffset;
-  size_t wheelRatio;
+  size_t wheelEntryCount;
   size_t primePartBound;
   bool isIncomplete;
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t wr, size_t ppb, const std::vector<uint16_t> &p,
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t w, size_t ppb, const std::vector<uint16_t> &p,
              ForwardFn fn)
-      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), wheelRatio(wr), primePartBound(ppb),
+      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), wheelEntryCount(w), primePartBound(ppb),
         isIncomplete(true), primes(p), forwardFn(fn) {}
 
   BigInteger getNextBatch() {
@@ -807,7 +807,7 @@ struct Factorizer {
       isIncomplete = false;
     }
 
-    return batchOffset + (batchRange - ++batchNumber);
+    return batchOffset + batchRange - ++batchNumber;
   }
 
   BigInteger getNextAltBatch() {
@@ -825,15 +825,15 @@ struct Factorizer {
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
-      const BigInteger batchStart = batchNum * wheelRatio;
-      const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
+      const BigInteger batchStart = batchNum * wheelEntryCount;
+      const BigInteger batchEnd = batchStart + wheelEntryCount;
       for (BigInteger p = batchStart; p < batchEnd;) {
-        p += GetWheelIncrement(inc_seqs);
         const BigInteger n = forwardFn(p);
         if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
           return n;
         }
+        p += GetWheelIncrement(inc_seqs);
       }
     }
 
@@ -846,11 +846,9 @@ struct Factorizer {
     // Since the largest prime factors of these numbers is relatively small,
     // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
     for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
-      const BigInteger batchStart = batchNum * wheelRatio;
-      const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
+      const BigInteger batchStart = batchNum * wheelEntryCount;
+      const BigInteger batchEnd = batchStart + wheelEntryCount;
       for (BigInteger p = batchStart; p < batchEnd;) {
-        // Skip increments on the "wheels" (or "gears").
-        p += GetWheelIncrement(inc_seqs);
         // Brute-force check if the sequential number is a factor.
         const BigInteger n = forwardFn(p);
         // If so, terminate this node and return the answer.
@@ -862,6 +860,8 @@ struct Factorizer {
         semiSmoothParts->push_back(n);
         // Batch this work, to reduce contention.
         if (semiSmoothParts->size() < primePartBound) {
+          // Skip increments on the "wheels" (or "gears").
+          p += GetWheelIncrement(inc_seqs);
           continue;
         }
         // Our "smooth parts" are smaller than the square root of toFactor.
@@ -873,6 +873,8 @@ struct Factorizer {
           isIncomplete = false;
           return m;
         }
+        // Skip increments on the "wheels" (or "gears").
+        p += GetWheelIncrement(inc_seqs);
       }
     }
 
@@ -1049,12 +1051,19 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
   // Set up wheel factorization (or "gear" factorization)
   std::vector<uint16_t> gearFactorizationPrimes(primes.begin(), itg);
+  std::vector<uint16_t> wheelFactorizationPrimes(primes.begin(), itw);
   // Primes are only present in range above wheel factorization level
   primes = std::vector<uint16_t>(itg, primes.begin() + std::min(primes.size(), gearFactorizationPrimes.size() + (size_t)(smoothnessBoundMultiplier * log2(toFactor))));
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
   for (const uint16_t &wp : gearFactorizationPrimes) {
     biggestWheel *= (size_t)wp;
+  }
+  size_t wheelEntryCount = 0U;
+  for (size_t i = 0U; i < biggestWheel; ++i) {
+    if (!isMultiple(i, wheelFactorizationPrimes)) {
+      ++wheelEntryCount;
+    }
   }
   // These are "gears," for wheel factorization (with a "wheel" already in place up to 11).
   std::vector<boost::dynamic_bitset<size_t>> inc_seqs = wheel_gen(std::vector<uint16_t>(gearFactorizationPrimes.begin(), gearFactorizationPrimes.end()));
@@ -1065,14 +1074,12 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   inc_seqs.erase(inc_seqs.begin(), inc_seqs.end() - wgDiff);
   gearFactorizationPrimes.clear();
 
-  // Ratio of biggest vs. smallest wheel, for periodicity
-  const size_t wheelRatio = biggestWheel / (size_t)SMALLEST_WHEEL;
   // Range per parallel node
-  const BigInteger nodeRange = (((backward(SMALLEST_WHEEL)(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelRatio - 1U) / wheelRatio;
+  const BigInteger nodeRange = (((backward(SMALLEST_WHEEL)(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
   // Same collection across all threads
   std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
   // This manages the work per thread
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelRatio, 1ULL << 14U, primes, forward(SMALLEST_WHEEL));
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, 1ULL << 14U, primes, forward(SMALLEST_WHEEL));
 
   const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap] {
     // inc_seq needs to be independent per thread.

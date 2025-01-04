@@ -5,15 +5,15 @@
 # Driver Code
 if __name__ == '__main__':
     # Should only contain the primes in the wheel
-    primes = [2, 3, 5, 7, 11, 13]
+    primes = [2, 3, 5, 7, 11]
 
     # This is the set of wheel level primes multiplied out.
     # wheel_size = 2
     # wheel_size = 6 # (2 * 3)
     # wheel_size = 30 # (2 * 3 * 5)
     # wheel_size = 210 # (2 * 3 * 5 * 7)
-    # wheel_size = 2310 # (2 * 3 * 5 * 7 * 11)
-    wheel_size = 30030 # (2 * 3 * 5 * 7 * 11 * 13)
+    wheel_size = 2310 # (2 * 3 * 5 * 7 * 11)
+    # wheel_size = 30030 # (2 * 3 * 5 * 7 * 11 * 13)
     # Include whatever primes are in the wheel, in wheel_size.
 
     count = 0
