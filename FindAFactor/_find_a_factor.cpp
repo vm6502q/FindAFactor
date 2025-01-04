@@ -831,8 +831,8 @@ struct Factorizer {
       const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
       for (BigInteger p = batchStart; p < batchEnd;) {
         p += GetWheelIncrement(inc_seqs);
-        const BigInteger n = gcd(toFactor, forwardFn(p));
-        if (n != 1U) {
+        const BigInteger n = forwardFn(p);
+        if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
           return n;
         }
@@ -854,9 +854,9 @@ struct Factorizer {
         // Skip increments on the "wheels" (or "gears").
         p += GetWheelIncrement(inc_seqs);
         // Brute-force check if the sequential number is a factor.
-        const BigInteger n = gcd(toFactor, forwardFn(p));
+        const BigInteger n = forwardFn(p);
         // If so, terminate this node and return the answer.
-        if (n != 1U) {
+        if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
           return n;
         }
@@ -976,12 +976,8 @@ struct Factorizer {
     }
 
     // These numbers have been tried already:
-    std::sort(toStrike.begin(), toStrike.end());
     for (size_t i = 0U; i < toStrike.size(); ++i) {
-      const size_t s = toStrike[i];
-      auto it = smoothNumberMap->begin();
-      std::advance(it, s - i);
-      smoothNumberMap->erase(it);
+      smoothNumberMap->erase(toStrike[i]);
     }
 
     return 1U; // No factor found
