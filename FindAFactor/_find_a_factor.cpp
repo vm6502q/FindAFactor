@@ -810,18 +810,6 @@ struct Factorizer {
     return batchOffset + batchRange - ++batchNumber;
   }
 
-  BigInteger getNextAltBatch() {
-    std::lock_guard<std::mutex> lock(batchMutex);
-
-    if (batchNumber >= batchRange) {
-      isIncomplete = false;
-    }
-
-    const BigInteger halfBatchNum = batchNumber++;
-
-    return batchOffset + ((batchNumber & 1U) ? (BigInteger)halfBatchNum : (BigInteger)(batchRange - (halfBatchNum + 1U)));
-  }
-
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
@@ -845,7 +833,7 @@ struct Factorizer {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     // Since the largest prime factors of these numbers is relatively small,
     // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
-    for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
+    for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
       const BigInteger batchEnd = batchStart + wheelEntryCount;
       for (BigInteger p = batchStart; p < batchEnd;) {
@@ -966,6 +954,10 @@ struct Factorizer {
           return factor;
         }
 
+        if (x == y) {
+          continue;
+        }
+
         // Try x - y as well
         factor = gcd(target, x - y);
         if ((factor != 1U) && (factor != target)) {
@@ -1081,7 +1073,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Same collection across all threads
   std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
   // This manages the work per thread
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, 1ULL << 14U, primes, forward(SMALLEST_WHEEL));
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, 1ULL << 32U, primes, forward(SMALLEST_WHEEL));
 
   const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap] {
     // inc_seq needs to be independent per thread.
