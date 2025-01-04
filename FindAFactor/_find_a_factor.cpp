@@ -115,11 +115,11 @@ inline size_t log2(BigInteger n) {
 }
 
 inline BigInteger gcd(BigInteger n1, BigInteger n2) {
-  while (n2) {
+  do {
     const BigInteger t = n1;
     n1 = n2;
     n2 = t % n2;
-  }
+  } while (n2);
 
   return n1;
 }
@@ -834,7 +834,7 @@ struct Factorizer {
       const BigInteger batchEnd = (batchNum + 1U) * wheelRatio;
       for (BigInteger p = batchStart; p < batchEnd;) {
         p += GetWheelIncrement(inc_seqs);
-        const BigInteger n = gcd(forwardFn(p), toFactor);
+        const BigInteger n = gcd(toFactor, forwardFn(p));
         if (n != 1U) {
           isIncomplete = false;
           return n;
@@ -857,7 +857,7 @@ struct Factorizer {
         // Skip increments on the "wheels" (or "gears").
         p += GetWheelIncrement(inc_seqs);
         // Brute-force check if the sequential number is a factor.
-        const BigInteger n = gcd(forwardFn(p), toFactor);
+        const BigInteger n = gcd(toFactor, forwardFn(p));
         // If so, terminate this node and return the answer.
         if (n != 1U) {
           isIncomplete = false;
