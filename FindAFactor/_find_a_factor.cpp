@@ -1059,12 +1059,14 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   for (const uint16_t &wp : gearFactorizationPrimes) {
     biggestWheel *= (size_t)wp;
   }
+  // Wheel entry count per largest "gear" scales our brute-force range.
   size_t wheelEntryCount = 0U;
   for (size_t i = 0U; i < biggestWheel; ++i) {
     if (!isMultiple(i, wheelFactorizationPrimes)) {
       ++wheelEntryCount;
     }
   }
+  wheelFactorizationPrimes.clear();
   // These are "gears," for wheel factorization (with a "wheel" already in place up to 11).
   std::vector<boost::dynamic_bitset<size_t>> inc_seqs = wheel_gen(std::vector<uint16_t>(gearFactorizationPrimes.begin(), gearFactorizationPrimes.end()));
   // We're done with the lowest primes.
