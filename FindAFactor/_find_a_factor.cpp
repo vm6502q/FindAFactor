@@ -1044,8 +1044,10 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Set up wheel factorization (or "gear" factorization)
   std::vector<uint16_t> gearFactorizationPrimes(primes.begin(), itg);
   std::vector<uint16_t> wheelFactorizationPrimes(primes.begin(), itw);
+  // Keep as many "smooth" primes as bits in number to factor.
+  const size_t toFactorBits = (size_t)log2(toFactor);
   // Primes are only present in range above wheel factorization level
-  primes = std::vector<uint16_t>(itg, primes.begin() + std::min(primes.size(), gearFactorizationPrimes.size() + (size_t)(smoothnessBoundMultiplier * log2(toFactor))));
+  primes = std::vector<uint16_t>(itg, primes.begin() + std::min(primes.size(), gearFactorizationPrimes.size() + (size_t)(smoothnessBoundMultiplier * toFactorBits)));
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
   for (const uint16_t &wp : gearFactorizationPrimes) {
@@ -1073,7 +1075,9 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Same collection across all threads
   std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
   // This manages the work per thread
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, 1ULL << 26U, primes, forward(SMALLEST_WHEEL));
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, 1ULL << (29U - (uint16_t)log2(toFactorBits)), primes, forward(SMALLEST_WHEEL));
+  // 1ULL << (29U - (uint16_t)log2(toFactorBits) should allocate ~16 GB.
+  // Increment 29U up or down to proceed by factors of 2 or 1/2.
 
   const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap] {
     // inc_seq needs to be independent per thread.
