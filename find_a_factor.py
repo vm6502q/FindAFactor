@@ -12,7 +12,7 @@ def main():
         return 1
 
     to_factor = int(sys.argv[1])
-    use_congruence_of_squares = bool(os.environ.get('FINDAFACTOR_USE_CONGRUENCE_OF_SQUARES')) if os.environ.get('FINDAFACTOR_USE_CONGRUENCE_OF_SQUARES') else False
+    use_congruence_of_squares = True if os.environ.get('FINDAFACTOR_USE_CONGRUENCE_OF_SQUARES') else False
     node_count = int(os.environ.get('FINDAFACTOR_NODE_COUNT')) if os.environ.get('FINDAFACTOR_NODE_COUNT') else 1
     node_id = int(os.environ.get('FINDAFACTOR_NODE_ID')) if os.environ.get('FINDAFACTOR_NODE_ID') else 0
     gear_factorization_level = int(os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL') else 13
@@ -20,7 +20,7 @@ def main():
     smoothness_bound_multiplier = float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0
 
     if argv_len > 2:
-        use_congruence_of_squares = bool(sys.argv[2])
+        use_congruence_of_squares = ((sys.argv[2] != "False") and (sys.argv[2] != "0"))
     if argv_len > 4:
         node_count = int(sys.argv[3])
         node_id = int(sys.argv[4])
