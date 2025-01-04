@@ -114,14 +114,11 @@ inline size_t log2(BigInteger n) {
   return pow;
 }
 
-inline BigInteger gcd(BigInteger n1, BigInteger n2) {
-  do {
-    const BigInteger t = n1;
-    n1 = n2;
-    n2 = t % n2;
-  } while (n2);
-
-  return n1;
+inline BigInteger gcd(const BigInteger& n1, const BigInteger& n2) {
+  if(!n2) {
+    return n1;
+  }
+  return gcd(n2, n1 % n2);
 }
 
 BigInteger sqrt(const BigInteger &toTest) {
@@ -964,13 +961,13 @@ struct Factorizer {
         const BigInteger y = modExp(x, target / 2, target);
 
         // Check congruence of squares
-        BigInteger factor = gcd(x - y, target);
+        BigInteger factor = gcd(target, x + y);
         if ((factor != 1U) && (factor != target)) {
           return factor;
         }
 
-        // Try x + y as well
-        factor = gcd(x + y, target);
+        // Try x - y as well
+        factor = gcd(target, x - y);
         if ((factor != 1U) && (factor != target)) {
           return factor;
         }
