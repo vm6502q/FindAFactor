@@ -1073,7 +1073,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Same collection across all threads
   std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
   // This manages the work per thread
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, 1ULL << 32U, primes, forward(SMALLEST_WHEEL));
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, 1ULL << 26U, primes, forward(SMALLEST_WHEEL));
 
   const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker, &smoothNumberMap] {
     // inc_seq needs to be independent per thread.
