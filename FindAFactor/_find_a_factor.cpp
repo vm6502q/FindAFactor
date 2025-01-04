@@ -115,7 +115,7 @@ inline size_t log2(BigInteger n) {
 }
 
 inline BigInteger gcd(const BigInteger& n1, const BigInteger& n2) {
-  if(!n2) {
+  if (!n2) {
     return n1;
   }
   return gcd(n2, n1 % n2);
@@ -450,9 +450,7 @@ BigInteger forward13(const size_t &p) { return wheel13[p % 5760U] + (p / 5760U) 
 
 size_t backward13(const BigInteger &n) { return std::distance(wheel13, std::lower_bound(wheel13, wheel13 + 5760U, (size_t)(n % 30030U))) + 5760U * (size_t)(n / 30030U) + 1U; }
 
-inline BigInteger _forward2(const BigInteger &p) {
-  return (p << 1U) | 1U;
-}
+inline BigInteger _forward2(const BigInteger &p) { return (p << 1U) | 1U; }
 
 inline BigInteger _backward2(const BigInteger &n) { return n >> 1U; }
 
@@ -520,7 +518,7 @@ inline ForwardFn backward(const Wheel &w) {
 inline size_t GetWheel5and7Increment(unsigned short &wheel5, unsigned long long &wheel7) {
   constexpr unsigned short wheel5Back = 1U << 9U;
   constexpr unsigned long long wheel7Back = 1ULL << 55U;
-  unsigned wheelIncrement = 0U;
+  size_t wheelIncrement = 0U;
   bool is_wheel_multiple = false;
   do {
     is_wheel_multiple = (bool)(wheel5 & 1U);
@@ -539,7 +537,7 @@ inline size_t GetWheel5and7Increment(unsigned short &wheel5, unsigned long long 
     ++wheelIncrement;
   } while (is_wheel_multiple);
 
-  return (size_t)wheelIncrement;
+  return wheelIncrement;
 }
 
 std::vector<BigInteger> SieveOfEratosthenes(const BigInteger &n) {
@@ -644,12 +642,13 @@ std::vector<BigInteger> SieveOfEratosthenes(const BigInteger &n) {
   return knownPrimes;
 }
 
-inline bool isMultiple(const BigInteger &p, const std::vector<uint16_t> &knownPrimes) {
+bool isMultiple(const BigInteger &p, const std::vector<uint16_t> &knownPrimes) {
   for (const uint16_t &prime : knownPrimes) {
     if (!(p % prime)) {
       return true;
     }
   }
+
   return false;
 }
 
@@ -678,10 +677,11 @@ std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<uint16_t>
     wheelPrimes.push_back(p);
     output.push_back(wheel_inc(wheelPrimes));
   }
+
   return output;
 }
 
-inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
+size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
   size_t wheelIncrement = 0U;
   bool is_wheel_multiple = false;
   do {
@@ -705,7 +705,7 @@ inline size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Utility to perform modular exponentiation
-BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod) {
+inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod) {
   BigInteger result = 1U;
   while (exp) {
     if (exp & 1U) {
@@ -788,7 +788,7 @@ struct Factorizer {
   BigInteger toFactorSqrt;
   BigInteger batchRange;
   BigInteger batchNumber;
-  BigInteger batchBound;
+  BigInteger batchOffset;
   size_t wheelRatio;
   size_t primePartBound;
   bool isIncomplete;
@@ -797,31 +797,29 @@ struct Factorizer {
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t wr, size_t ppb, const std::vector<uint16_t> &p,
              ForwardFn fn)
-      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchBound((nodeId + 1U) * range), wheelRatio(wr), primePartBound(ppb),
+      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), wheelRatio(wr), primePartBound(ppb),
         isIncomplete(true), primes(p), forwardFn(fn) {}
 
   BigInteger getNextBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
 
-    if (batchNumber == batchRange) {
+    if (batchNumber >= batchRange) {
       isIncomplete = false;
-      return batchBound;
     }
 
-    return batchBound - (++batchNumber);
+    return batchOffset + (batchRange - ++batchNumber);
   }
 
   BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
 
-    if (batchNumber == batchRange) {
+    if (batchNumber >= batchRange) {
       isIncomplete = false;
-      return batchBound;
     }
 
-    const BigInteger halfBatchNum = (batchNumber++ >> 1U);
+    const BigInteger halfBatchNum = batchNumber++;
 
-    return batchBound - ((batchNumber & 1U) ? (BigInteger)(batchRange - halfBatchNum) : (BigInteger)(halfBatchNum + 1U));
+    return batchOffset + ((batchNumber & 1U) ? (BigInteger)halfBatchNum : (BigInteger)(batchRange - (halfBatchNum + 1U)));
   }
 
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
@@ -1028,15 +1026,14 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
   // This is simply trial division up to the ceiling.
   DispatchQueue dispatch(std::thread::hardware_concurrency());
+  std::mutex trialDivisionMutex;
   for (size_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
-    dispatch.dispatch([&toFactor, &primes, &result, primeIndex]() {
+    dispatch.dispatch([&toFactor, &primes, &result, &trialDivisionMutex, primeIndex]() {
       const size_t maxLcv = std::min(primeIndex + 64U, primes.size());
       for (size_t pi = primeIndex; pi < maxLcv; ++pi) {
-        if (result != 1U) {
-          return false;
-        }
         const uint16_t &currentPrime = primes[pi];
         if (!(toFactor % currentPrime)) {
+          std::lock_guard<std::mutex> lock(trialDivisionMutex);
           result = currentPrime;
           return true;
         }
@@ -1081,7 +1078,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
-    for (const auto &b : inc_seqs) {
+    for (const boost::dynamic_bitset<size_t> &b : inc_seqs) {
       inc_seqs_clone.emplace_back(b);
     }
 
@@ -1105,7 +1102,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     futures.push_back(std::async(std::launch::async, workerFn));
   }
 
-  for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
+  for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
     const BigInteger r = futures[cpu].get();
     if ((r > result) && (r != toFactor)) {
       result = r;
