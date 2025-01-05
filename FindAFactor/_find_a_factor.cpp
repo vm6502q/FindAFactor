@@ -975,7 +975,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr, const size_t &nodeCount, const size_t &nodeId, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, size_t threadCount, size_t batchMultiplier, double smoothnessBoundMultiplier) {
+                          size_t wheelFactorizationLevel, size_t threadCount, double batchMultiplier, double smoothnessBoundMultiplier) {
   // (At least) level 11 wheel factorization is baked into basic functions.
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
@@ -1040,8 +1040,13 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   std::vector<uint16_t> wheelFactorizationPrimes(primes.begin(), itw);
   // Keep as many "smooth" primes as bits in number to factor.
   const size_t toFactorBits = (size_t)log2(toFactor);
+  size_t smoothPrimeCount = (size_t)(smoothnessBoundMultiplier * toFactorBits);
+  if (!smoothPrimeCount) {
+    smoothPrimeCount = 1U;
+    std::cout << "Warning: smoothness bound multiplier would retain no primes, but it must retain at least 1. (Defaulting to retaining 1 prime.)";
+  }
   // Primes are only present in range above wheel factorization level
-  primes = std::vector<uint16_t>(itg, primes.begin() + std::min(primes.size(), gearFactorizationPrimes.size() + (size_t)(smoothnessBoundMultiplier * toFactorBits)));
+  primes = std::vector<uint16_t>(itg, primes.begin() + std::min(primes.size(), gearFactorizationPrimes.size() + smoothPrimeCount));
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
   for (const uint16_t &wp : gearFactorizationPrimes) {
@@ -1067,7 +1072,12 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Range per parallel node
   const BigInteger nodeRange = (((backward(SMALLEST_WHEEL)(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
   // This manages the work per thread
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, primes.size() * batchMultiplier, primes, forward(SMALLEST_WHEEL));
+  size_t batchSize = (size_t)(primes.size() * batchMultiplier);
+  if (!batchSize) {
+    batchSize = 1U;
+    std::cout << "Warning: batch multiplier would lead to a batch size of 0, but it must be at least 1. (Defaulting to 1.)";
+  }
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, batchSize, primes, forward(SMALLEST_WHEEL));
 
   const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker] {
     // inc_seq needs to be independent per thread.
