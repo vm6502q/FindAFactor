@@ -17,6 +17,7 @@ def main():
     node_id = int(os.environ.get('FINDAFACTOR_NODE_ID')) if os.environ.get('FINDAFACTOR_NODE_ID') else 0
     gear_factorization_level = int(os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL') else 11
     wheel_factorization_level = int(os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL') else 5
+    thread_count=int(os.environ.get('FINDAFACTOR_THREAD_COUNT')) if os.environ.get('FINDAFACTOR_THREAD_COUNT') else 0
     smoothness_bound_multiplier = float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0
 
     if argv_len > 2:
@@ -29,7 +30,9 @@ def main():
     if argv_len > 6:
         wheel_factorization_level = int(sys.argv[6])
     if argv_len > 7:
-        smoothness_bound_multiplier = float(sys.argv[7])
+        thread_count = int(sys.argv[7])
+    if argv_len > 8:
+        smoothness_bound_multiplier = float(sys.argv[8])
 
     start = time.perf_counter()
     result = find_a_factor(
@@ -39,6 +42,7 @@ def main():
         node_id = node_id,
         gear_factorization_level = gear_factorization_level,
         wheel_factorization_level = wheel_factorization_level,
+        thread_count = thread_count,
         smoothness_bound_multiplier = smoothness_bound_multiplier
     )
     print(time.perf_counter() - start)
