@@ -789,14 +789,15 @@ struct Factorizer {
   BigInteger batchNumber;
   BigInteger batchOffset;
   size_t wheelEntryCount;
+  size_t smoothPartsLimit;
   bool isIncomplete;
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t w, const std::vector<uint16_t> &p,
       ForwardFn fn)
-      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), wheelEntryCount(w), isIncomplete(true),
-      primes(p), forwardFn(fn) {}
+      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), wheelEntryCount(w),
+      smoothPartsLimit(p.size() << 2U), isIncomplete(true), primes(p), forwardFn(fn) {}
 
   BigInteger getNextBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
@@ -845,7 +846,7 @@ struct Factorizer {
         // Use the "exhaust" to produce smoother numbers.
         semiSmoothParts->push_back(n);
         // Batch this work, to reduce contention.
-        if (semiSmoothParts->size() < (primes.size() << 2U)) {
+        if (semiSmoothParts->size() < smoothPartsLimit) {
           // Skip increments on the "wheels" (or "gears").
           p += GetWheelIncrement(inc_seqs);
           continue;
