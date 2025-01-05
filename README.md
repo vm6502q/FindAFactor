@@ -66,7 +66,7 @@ If this is your use case, you want to specifically consider `smoothness_bound_mu
 
 Hence, you only want to set a manual `thread_count` below default to recover full CPU utilization within available system memory footprint. Ideally, you don't want to _have_ to change thread_count from `0`/default, indicating to automatically use all hyper threads, but keeping full utilization depends on both available system memory footprint and the scale of the number to factor, inherently.
 
-`wheel_factorization_level` and `gear_factorization_level` are common to both `use_congruence_of_squares` (i.e., Gaussian elimination for perfect squares) and "brute force." `11` for gear and `5` for wheel limit works well for small numbers. You'll definitely want to consider (gear/wheel) `13`/`7` or `17`/`11` (or even other values, maybe system-dependent) your numbers to factor approach cryptographic relevance.
+`wheel_factorization_level` and `gear_factorization_level` are common to both `use_congruence_of_squares` (i.e., Gaussian elimination for perfect squares) and "brute force." `11` for gear and `5` for wheel limit works well for small numbers. You'll definitely want to consider (gear/wheel) `13`/`7` or `17`/`11` (or even other values, maybe system-dependent) as your numbers to factor approach cryptographic relevance.
 
 As for `node_count` and `node_id`, believe it or not, factoring parallelism can truly be that simple: just run different node IDs in the set on different (roughly homogenous) isolated CPUs, without networking. The only caveat is that you must manually detect when any single node has found an answer (which is trivial to verify) and manually interrupt other nodes still working (or leave them to complete on their own).
 
