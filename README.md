@@ -56,6 +56,20 @@ All variables defaults can also be controlled by environment variables:
 - `FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL`
 - `FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER`
 
+## Factoring parameter strategy
+
+The developer anticipates this single-function set of parameters, as API, is the absolutely most complicated FindAFactor likely ever needs to get. The _only_ required argument is `to_factor`, and it _just works,_ for any number that should reasonably take about less than a second to a few minutes. However, if you're running larger numbers for longer than that, of course, it's worth investing 15 to 30 minutes to read the explanation above in the `README` of every argument and play with the settings, a little. But, with these options, you have _total control to tune_ the algorithm in any all ways necessary to adapt to system resource footprint.
+
+Advantage for `use_congruence_of_squares` is beyond the hardware scale of the developer's experiments, in practicality, but it can be shown to work correctly (at disadvantage, at small factoring bit-width scales). The anticipated use case is to turn this option on when approaching the size of modern-day RSA semiprimes in use.
+
+If this is your use case, you want to specifically consider `smoothness_bound_multiplier`, `batch_multiplier`, and `thread_count`. By default, as many primes are kept for "smooth" number sieving as bits in the number to factor. This is multiplied by `smooth_bound_multiplier` (and cast to a discrete number of primes in total). `batch_multiplier` is how many times this count of primes, after `smooth_bound_multiplier`, is multiplied for "smooth number part" batching. Turning this down uses less memory and gets to Gaussian elimination faster but decreases CPU utilization. However, the higher `batch_multiplier` is set for CPU utilization, the higher the memory used is.
+
+Hence, you only want to set a manual `thread_count` below default to recover full CPU utilization within available system memory footprint. Ideally, you don't want to _have_ to change thread_count from `0`/default, indicating to automatically use all hyper threads, but keeping full utilization depends on both available system memory footprint and the scale of the number to factor, inherently.
+
+`wheel_factorization_level` and `gear_factorization_level` are common to both `use_congruence_of_squares` (i.e., Gaussian elimination for perfect squares) and "brute force." `11` for gear and `5` for wheel limit works well for small numbers. You'll definitely want to consider (gear/wheel) `13`/`7` or `17`/`11` (or even other values, maybe system-dependent) your numbers to factor approach cryptographic relevance.
+
+As for `node_count` and `node_id`, believe it or not, factoring parallelism can truly be that simple: just run different node IDs in the set on different (roughly homogenous) isolated CPUs, without networking. The only caveat is that you must manually detect when any single node has found an answer (which is trivial to verify) and manually interrupt other nodes still working (or leave them to complete on their own).
+
 ## About 
 This library was originally called ["Qimcifa"](https://github.com/vm6502q/qimcifa) and demonstrated a (Shor's-like) "quantum-inspired" algorithm for integer factoring. It has since been developed into a general factoring algorithm and tool.
 
