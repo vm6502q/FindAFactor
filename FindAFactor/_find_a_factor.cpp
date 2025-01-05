@@ -889,7 +889,7 @@ struct Factorizer {
       const BigInteger batchEnd = batchStart + wheelEntryCount;
       for (BigInteger p = batchStart; p < batchEnd;) {
         // Brute-force check if the sequential number is a factor.
-        const BigInteger n = forwardFn(p);
+        BigInteger n = forwardFn(p);
         // If so, terminate this node and return the answer.
         if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
@@ -898,7 +898,8 @@ struct Factorizer {
         // Use the "exhaust" to produce smoother numbers.
         for (size_t i = 0U; i < smoothBatchWidth; ++i) {
             semiSmoothParts[(*ssp) * smoothBatchWidth + i] = (uint64_t)n;
-            n >>= (BigInteger)64U;
+            // This is intentional, due to problems with the limit point of 64-bit.
+            n >>= 64U;
         }
         ++(*ssp);
         // Batch this work, to reduce contention.
@@ -1157,7 +1158,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Keep as many "smooth" primes as bits in number to factor.
   const size_t toFactorBits = (size_t)log2(toFactor);
   // Multiply this by a user-tunable "smoothness bound multiplier"
-  smoothBatchFactorBits = (size_t)(smoothnessBoundMultiplier * bitCount);
+  smoothBatchFactorBits = (size_t)(smoothnessBoundMultiplier * toFactorBits);
   // Primes are only present in range above wheel factorization level
   primes = std::vector<uint16_t>(itg, primes.begin() + std::min(primes.size(), gearFactorizationPrimes.size() + smoothBatchFactorBits));
   // From 1, this is a period for wheel factorization
@@ -1191,15 +1192,15 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // 1ULL << (29U - (uint16_t)log2(toFactorBits) should allocate ~16 GB.
   // Increment 29U up or down to proceed by factors of 2 or 1/2.
 
-  const size_t bitPow = (size_t)(log2(bitCount));
-  deviceContext = OCLEngine::Instance((bitCount == (1ULL << bitPow)) ? bitPow : (bitPow + 1U)).GetDeviceContextPtr(-1);
+  const size_t bitPow = (size_t)(log2(toFactorBits));
+  deviceContext = OCLEngine::Instance((toFactorBits == (1ULL << bitPow)) ? bitPow : (bitPow + 1U)).GetDeviceContextPtr(-1);
   const cl::Context context = deviceContext->context;
   const cl::CommandQueue queue = deviceContext->queue;
 
   groupSize = deviceContext->GetPreferredSizeMultiple();
   groupCount = deviceContext->GetPreferredConcurrency();
   smoothBatchBound = groupSize * groupCount;
-  smoothBatchWidth = (bitCount < smoothBatchFactorBits) ? smoothBatchFactorBits / 64U + !!(smoothBatchFactorBits % 64) : (bitCount / 64U + !!(bitCount % 64));
+  smoothBatchWidth = (toFactorBits < smoothBatchFactorBits) ? smoothBatchFactorBits / 64U + !!(smoothBatchFactorBits % 64) : (toFactorBits / 64U + !!(toFactorBits % 64));
 
   numbersBuf = MakeBuffer(context, CL_MEM_READ_ONLY, sizeof(uint64_t) * smoothBatchWidth * smoothBatchBound);
   primesBuf = MakeBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(uint16_t) * primes.size(), (void *)&(primes[0U]));
