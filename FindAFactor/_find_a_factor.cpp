@@ -788,30 +788,33 @@ struct Factorizer {
   BigInteger batchRange;
   BigInteger batchNumber;
   BigInteger batchOffset;
+  BigInteger batchTotal;
   size_t wheelEntryCount;
   size_t smoothPartsLimit;
   bool isIncomplete;
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t w, size_t spl, const std::vector<uint16_t> &p,
-      ForwardFn fn)
-      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), wheelEntryCount(w),
-      smoothPartsLimit(spl), isIncomplete(true), primes(p), forwardFn(fn) {}
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
+      const std::vector<uint16_t> &p, ForwardFn fn)
+      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
+      wheelEntryCount(w), smoothPartsLimit(spl), isIncomplete(true), primes(p), forwardFn(fn) {}
 
-  BigInteger getNextBatch() {
+  BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
 
     if (batchNumber >= batchRange) {
       isIncomplete = false;
     }
 
-    return batchOffset + batchRange - ++batchNumber;
+    const BigInteger halfIndex = batchOffset + (batchNumber++ >> 1U) + 1U;
+
+    return ((batchNumber & 1U) ? batchTotal - halfIndex : halfIndex);
   }
 
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
-    for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
+    for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
       const BigInteger batchEnd = batchStart + wheelEntryCount;
       for (BigInteger p = batchStart; p < batchEnd;) {
@@ -832,7 +835,7 @@ struct Factorizer {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     // Since the largest prime factors of these numbers is relatively small,
     // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
-    for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
+    for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
       const BigInteger batchEnd = batchStart + wheelEntryCount;
       for (BigInteger p = batchStart; p < batchEnd;) {
@@ -1077,7 +1080,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     batchSize = 1U;
     std::cout << "Warning: batch multiplier would lead to a batch size of 0, but it must be at least 1. (Defaulting to 1.)";
   }
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, batchSize, primes, forward(SMALLEST_WHEEL));
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelEntryCount, batchSize, primes, forward(SMALLEST_WHEEL));
 
   const auto workerFn = [&toFactor, &inc_seqs, &isConOfSqr, &worker] {
     // inc_seq needs to be independent per thread.
