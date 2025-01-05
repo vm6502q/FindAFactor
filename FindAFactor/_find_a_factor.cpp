@@ -797,7 +797,7 @@ struct Factorizer {
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t w, const std::vector<uint16_t> &p,
       ForwardFn fn)
       : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), wheelEntryCount(w),
-      smoothPartsLimit(p.size() << 2U), isIncomplete(true), primes(p), forwardFn(fn) {}
+      smoothPartsLimit(p.size() << 8U), isIncomplete(true), primes(p), forwardFn(fn) {}
 
   BigInteger getNextBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
