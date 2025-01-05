@@ -31,6 +31,7 @@ factor = find_a_factor(
     node_count=1, node_id=0,
     gear_factorization_level=11,
     wheel_factorization_level=5,
+    thread_count=0,
     smoothness_bound_multiplier=1.0
 )
 ```
@@ -42,6 +43,7 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `node_id` (default value: `0`): This is the identifier of this node, when performing distributed factorization with `node_count` higher than `1`. `node_id` values start at `0` and go as high as `(node_count - 1)`.
 - `gear_factorization_level` (default value: `11`): This is the value up to which "wheel (and gear) factorization" and trial division are used to check factors and optimize "brute force," in general. The default value of `11` includes all prime factors of `11` and below and works well in general, though significantly higher might be preferred in certain cases.
 - `wheel_factorization_level` (default value: `5`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. Optimized implementation for wheels is only available up to `13`. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization.
+- `thread_count` (default value: `0` for auto): Control the number of threads used for separate Gaussian elimination or parallel brute-force instances. For value of `0`, the total number of hyper threads on the system will be detedted and used. When `use_congruence_of_squares=True`, this acts as a multiplier on overall memory usage. If you exceed system memory, turn it down to some manual value. (Gaussian elimination is not easily parallelizable, except to run as many separate instances as will fit in memory.)
 - `smoothness_bound_multiplier` (default value: `1.0`): starting with the first prime number after wheel factorization, the congruence of squares approach (with Quadratic Sieve) takes a default "smoothness bound" with as many distinct prime numbers as bits in the number to factor (for default argument of `1.0` multiplier). To increase or decrease this number, consider it multiplied by the value of `smoothness_bound_multiplier`.
 
 All variables defaults can also be controlled by environment variables:
