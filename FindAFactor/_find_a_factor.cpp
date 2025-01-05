@@ -898,7 +898,7 @@ struct Factorizer {
         // Use the "exhaust" to produce smoother numbers.
         for (size_t i = 0U; i < smoothBatchWidth; ++i) {
             semiSmoothParts[(*ssp) * smoothBatchWidth + i] = (uint64_t)n;
-            n = n >> 64U;
+            n >>= (BigInteger)64U;
         }
         ++(*ssp);
         // Batch this work, to reduce contention.
