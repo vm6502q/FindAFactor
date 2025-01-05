@@ -841,15 +841,14 @@ struct Factorizer {
   BigInteger batchNumber;
   BigInteger batchOffset;
   size_t wheelEntryCount;
-  size_t primePartBound;
   bool isIncomplete;
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t w, size_t ppb, const std::vector<uint16_t> &p,
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeId, size_t w, const std::vector<uint16_t> &p,
              ForwardFn fn)
-      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), wheelEntryCount(w), primePartBound(ppb),
-        isIncomplete(true), primes(p), forwardFn(fn) {}
+      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), wheelEntryCount(w), isIncomplete(true),
+      primes(p), forwardFn(fn) {}
 
   BigInteger getNextBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
@@ -1188,7 +1187,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Same collection across all threads
   std::map<BigInteger, boost::dynamic_bitset<uint64_t>> smoothNumberMap;
   // This manages the work per thread
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, 1ULL << (29U - (uint16_t)log2(toFactorBits)), primes, forward(SMALLEST_WHEEL));
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeId, wheelEntryCount, primes, forward(SMALLEST_WHEEL));
   // 1ULL << (29U - (uint16_t)log2(toFactorBits) should allocate ~16 GB.
   // Increment 29U up or down to proceed by factors of 2 or 1/2.
 
