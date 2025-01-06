@@ -926,7 +926,7 @@ struct Factorizer {
     gaussianElimination(smoothNumberMap);
 
     // Check for linear dependencies and find a congruence of squares
-    std::vector<size_t> toStrike;
+    std::vector<BigInteger> toStrike;
     auto iIt = smoothNumberMap->begin();
     for (size_t i = 0U; i < smoothNumberMap->size(); ++i) {
       boost::dynamic_bitset<size_t> &iRow = iIt->second;
@@ -939,7 +939,7 @@ struct Factorizer {
           continue;
         }
 
-        toStrike.push_back(j);
+        toStrike.push_back(jIt->first);
 
         // Compute x and y
         const BigInteger x = (iIt->first * jIt->first) % target;
