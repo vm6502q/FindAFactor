@@ -795,10 +795,10 @@ struct Factorizer {
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
-      const std::vector<uint16_t> &p, ForwardFn fn)
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w,
+             const std::vector<uint16_t> &p, ForwardFn fn)
       : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-      wheelEntryCount(w), smoothPartsLimit(spl), isIncomplete(true), primes(p), forwardFn(fn) {}
+      wheelEntryCount(w), smoothPartsLimit(w << 1U), isIncomplete(true), primes(p), forwardFn(fn) {}
 
   BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
@@ -978,7 +978,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr, const size_t &nodeCount, const size_t &nodeId, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, size_t threadCount, double batchMultiplier, double smoothnessBoundMultiplier) {
+                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, size_t threadCount) {
   // (At least) level 11 wheel factorization is baked into basic functions.
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
@@ -1074,15 +1074,10 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
   // Range per parallel node
   const BigInteger nodeRange = (((backward(SMALLEST_WHEEL)(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
-  // This manages the work per thread
-  size_t batchSize = (size_t)(primes.size() * batchMultiplier);
-  if (!batchSize) {
-    batchSize = 1U;
-    std::cout << "Warning: batch multiplier would lead to a batch size of 0, but it must be at least 1. (Defaulting to 1.)";
-  }
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelEntryCount, batchSize, primes, forward(SMALLEST_WHEEL));
+  // This manages the work of all threads.
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelEntryCount, primes, forward(SMALLEST_WHEEL));
 
-  const auto workerFn = [&inc_seqs, &isConOfSqr, &batchSize, &worker] {
+  const auto workerFn = [&inc_seqs, &isConOfSqr, &wheelEntryCount, &worker] {
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
@@ -1097,7 +1092,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
     // Different collections per thread;
     std::vector<BigInteger> semiSmoothParts;
-    semiSmoothParts.reserve(batchSize);
+    semiSmoothParts.reserve(wheelEntryCount << 1U);
     std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
 
     // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.

@@ -32,7 +32,6 @@ factor = find_a_factor(
     gear_factorization_level=11,
     wheel_factorization_level=5,
     thread_count=0,
-    batch_multiplier=3.0,
     smoothness_bound_multiplier=1.0
 )
 ```
@@ -45,7 +44,6 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `gear_factorization_level` (default value: `11`): This is the value up to which "wheel (and gear) factorization" and trial division are used to check factors and optimize "brute force," in general. The default value of `11` includes all prime factors of `11` and below and works well in general, though significantly higher might be preferred in certain cases.
 - `wheel_factorization_level` (default value: `5`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. Optimized implementation for wheels is only available up to `13`. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization.
 - `thread_count` (default value: `0` for auto): Control the number of threads used for separate Gaussian elimination or parallel brute-force instances. For value of `0`, the total number of hyper threads on the system will be detedted and used. When `use_congruence_of_squares=True`, this acts as a multiplier on overall memory usage. If you exceed system memory, turn it down to some manual value. (Gaussian elimination is not easily parallelizable, except to run as many separate instances as will fit in memory.)
-- `batch_multiplier` (default value: `3.0`): controls how many items are processed in a batch before Gaussian elimination. `batch_multiplier` times the number of "smooth" primes is the batch size for "semi-smooth" numbers, to be collected before sieving and then Gaussian elimination. Besides thread count, this `batch_multiplier` can help tune overall memory usage and multiprocessor utilization.
 - `smoothness_bound_multiplier` (default value: `1.0`): starting with the first prime number after wheel factorization, the congruence of squares approach (with Quadratic Sieve) takes a default "smoothness bound" with as many distinct prime numbers as bits in the number to factor (for default argument of `1.0` multiplier). To increase or decrease this number, consider it multiplied by the value of `smoothness_bound_multiplier`.
 
 All variables defaults can also be controlled by environment variables:
@@ -62,9 +60,7 @@ The developer anticipates this single-function set of parameters, as API, is the
 
 Advantage for `use_congruence_of_squares` is beyond the hardware scale of the developer's experiments, in practicality, but it can be shown to work correctly (at disadvantage, at small factoring bit-width scales). The anticipated use case is to turn this option on when approaching the size of modern-day RSA semiprimes in use.
 
-If this is your use case, you want to specifically consider `smoothness_bound_multiplier`, `batch_multiplier`, and `thread_count`. By default, as many primes are kept for "smooth" number sieving as bits in the number to factor. This is multiplied by `smooth_bound_multiplier` (and cast to a discrete number of primes in total). `batch_multiplier` is how many times this count of primes, after `smooth_bound_multiplier`, is multiplied for "smooth number part" batching. Turning this down uses less memory and gets to Gaussian elimination faster but might or might not decrease CPU utilization. However, the higher `batch_multiplier` is set, as to maximize CPU utilization, the higher the memory used is.
-
-Hence, you only want to set a manual `thread_count` below default to recover full CPU utilization within available system memory footprint. Ideally, you don't want to _have_ to change thread_count from `0`/default, indicating to automatically use all hyper threads, but keeping full utilization depends on both available system memory footprint and the scale of the number to factor, inherently.
+If this is your use case, you want to specifically consider `smoothness_bound_multiplier` and potentially `thread_count` for managing memory. By default, as many primes are kept for "smooth" number sieving as bits in the number to factor. This is multiplied by `smooth_bound_multiplier` (and cast to a discrete number of primes in total). If you need want to use more memory per thread than the system has available resources (which might be a legitimate demand), turn down `thread_count`.
 
 `wheel_factorization_level` and `gear_factorization_level` are common to both `use_congruence_of_squares` (i.e., Gaussian elimination for perfect squares) and "brute force." `11` for gear and `5` for wheel limit works well for small numbers. You'll definitely want to consider (gear/wheel) `13`/`7` or `17`/`11` (or even other values, maybe system-dependent) as your numbers to factor approach cryptographic relevance.
 
