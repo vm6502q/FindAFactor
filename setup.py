@@ -2,7 +2,7 @@ import os
 import setuptools
 from distutils.core import setup, Extension
 
-cpp_args = ['-std=c++17', '-lpthread']
+cpp_args = ['-lpthread']
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')
 with open(README_PATH) as readme_file:
@@ -14,13 +14,14 @@ ext_modules = [
         ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp"],
         include_dirs=['FindAFactor/include', 'pybind11/include', '/usr/local/include'],
         language='c++',
+        cxx_std=17,
         extra_compile_args = cpp_args,
     ),
 ]
 
 setup(
     name='FindAFactor',
-    version='1.11.1',
+    version='1.11.2',
     author='Dan Strano',
     author_email='dan@unitary.fund',
     description='Find any nontrivial factor of a number',
