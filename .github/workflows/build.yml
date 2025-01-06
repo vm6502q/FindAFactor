@@ -132,15 +132,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install wheel setuptools
 
-      - name: Mount vcpkg cache
-        uses: actions/cache@v4
+      - name: Install Boost
+        uses: MarkusJx/install-boost@v2
+        id: install-boost
         with:
-          path: "~/.cache/vcpkg/archives"
-          key: vcpkg-${{ matrix.os }}
-
-      - name: Install vcpkg dependencies
-        run: |
-          vcpkg install pybind11 boost-headers
+          boost_version: 1.87.0
 
       - name: Build Wheel
         run: |

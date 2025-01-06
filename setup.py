@@ -15,7 +15,6 @@ ext_modules = [
         include_dirs=['FindAFactor/include', 'pybind11/include', '/usr/local/include', '/opt/homebrew/include',
                       (os.environ.get('VCPKG_ROOT') if os.environ.get('VCPKG_ROOT') else 'C:/vcpkg') + '/installed/x64-windows/include'],
         language='c++',
-        cxx_std=17,
         extra_compile_args = cpp_args,
     ),
 ]
