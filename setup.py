@@ -12,7 +12,7 @@ ext_modules = [
     Extension(
         '_find_a_factor',
         ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp"],
-        include_dirs=['FindAFactor/include', 'pybind11/include', '/usr/local/include'],
+        include_dirs=['FindAFactor/include', 'pybind11/include', '/usr/local/include', '/opt/homebrew/include'],
         language='c++',
         cxx_std=17,
         extra_compile_args = cpp_args,
