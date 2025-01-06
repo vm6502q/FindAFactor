@@ -139,6 +139,8 @@ jobs:
           boost_version: 1.87.0
 
       - name: Build Wheel
+        env:
+          BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
         run: |
           python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
 

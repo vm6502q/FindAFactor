@@ -1,4 +1,5 @@
 import os
+import pybind11
 import setuptools
 from distutils.core import setup, Extension
 
@@ -12,8 +13,8 @@ ext_modules = [
     Extension(
         '_find_a_factor',
         ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp"],
-        include_dirs=['FindAFactor/include', 'pybind11/include', '/usr/local/include', '/opt/homebrew/include',
-                      (os.environ.get('VCPKG_ROOT') if os.environ.get('VCPKG_ROOT') else 'C:/vcpkg') + '/installed/x64-windows/include'],
+        include_dirs=['FindAFactor/include', pybind11.get_include(), '/usr/local/include', '/opt/homebrew/include',
+                      (os.environ.get('BOOST_ROOT') if os.environ.get('BOOST_ROOT') else 'C:/boost') + '/include'],
         language='c++',
         extra_compile_args = cpp_args,
     ),
