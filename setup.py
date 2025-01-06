@@ -13,7 +13,7 @@ ext_modules = [
         '_find_a_factor',
         ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp"],
         include_dirs=['FindAFactor/include', 'pybind11/include', '/usr/local/include', '/opt/homebrew/include',
-                      (os.environ.get('BOOST_ROOT') if os.environ.get('BOOST_ROOT') else 'C:/boost')],
+                      (os.environ.get('BOOST_ROOT') if os.environ.get('BOOST_ROOT') else 'C:/boost') + '\\include'],
         language='c++',
         extra_compile_args = cpp_args,
     ),
