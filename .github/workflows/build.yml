@@ -140,7 +140,7 @@ jobs:
 
       - name: Install vcpkg dependencies
         run: |
-          vcpkg install pybind11
+          vcpkg install pybind11 boost
 
       - name: Build Wheel
         run: |
@@ -178,7 +178,7 @@ jobs:
       - name: Prepare Build Environment (MacOS)
         run: |
           brew upgrade
-          brew install pybind11
+          brew install pybind11 boost
 
       - name: Build Wheel
         run: |
@@ -216,7 +216,7 @@ jobs:
       - name: Prepare Build Environment (MacOS)
         run: |
           brew upgrade
-          brew install pybind11
+          brew install pybind11 boost
 
       - name: Build Wheel
         run: |
@@ -254,7 +254,7 @@ jobs:
       - name: Prepare Build Environment (MacOS)
         run: |
           brew upgrade rustup
-          brew install pybind11
+          brew install pybind11 boost
 
       - name: Build Wheel
         run: |
