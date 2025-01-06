@@ -1,4 +1,5 @@
 import os
+import pybind11
 import setuptools
 from distutils.core import setup, Extension
 
@@ -12,7 +13,7 @@ ext_modules = [
     Extension(
         '_find_a_factor',
         ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp"],
-        include_dirs=['FindAFactor/include', 'pybind11/include', '/usr/local/include', '/opt/homebrew/include',
+        include_dirs=['FindAFactor/include', pybind11.get_include(),
                       (os.environ.get('BOOST_ROOT') if os.environ.get('BOOST_ROOT') else 'C:\\boost') + '\\include\\boost'],
         language='c++',
         extra_compile_args = cpp_args,
