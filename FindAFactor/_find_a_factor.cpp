@@ -795,10 +795,10 @@ struct Factorizer {
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w,
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<uint16_t> &p, ForwardFn fn)
       : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-      wheelEntryCount(w), smoothPartsLimit(w << 1U), isIncomplete(true), primes(p), forwardFn(fn) {}
+      wheelEntryCount(w), smoothPartsLimit(spl), isIncomplete(true), primes(p), forwardFn(fn) {}
 
   BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
@@ -978,7 +978,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr, const size_t &nodeCount, const size_t &nodeId, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, size_t threadCount) {
+                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier, size_t threadCount) {
   // (At least) level 11 wheel factorization is baked into basic functions.
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
@@ -1075,7 +1075,10 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Range per parallel node
   const BigInteger nodeRange = (((backward(SMALLEST_WHEEL)(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
   // This manages the work of all threads.
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelEntryCount, primes, forward(SMALLEST_WHEEL));
+  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
+                    nodeRange, nodeCount, nodeId,
+                    wheelEntryCount, (size_t)((wheelEntryCount << 1U) * batchSizeMultiplier),
+                    primes, forward(SMALLEST_WHEEL));
 
   const auto workerFn = [&inc_seqs, &isConOfSqr, &wheelEntryCount, &worker] {
     // inc_seq needs to be independent per thread.
