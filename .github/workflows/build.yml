@@ -140,7 +140,7 @@ jobs:
 
       - name: Install vcpkg dependencies
         run: |
-          vcpkg install pybind11 boost
+          vcpkg install pybind11 boost boost-headers
 
       - name: Build Wheel
         run: |
