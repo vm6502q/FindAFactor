@@ -2,7 +2,7 @@ import os
 import setuptools
 from distutils.core import setup, Extension
 
-cpp_args = ['-lpthread']
+cpp_args = ['-std=c++17', '-lpthread']
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')
 with open(README_PATH) as readme_file:
