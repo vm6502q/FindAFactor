@@ -142,10 +142,6 @@ jobs:
         env:
           BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
         run: |
-          dir D:\a\FindAFactor\FindAFactor\boost\boost
-          dir D:\a\FindAFactor\FindAFactor\boost\boost\include
-          dir D:\a\FindAFactor\FindAFactor\boost\boost\include\boost
-          dir D:\a\FindAFactor\FindAFactor\boost\boost\include\boost-1_87
           python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
 
       - name: Upload Artifacts
