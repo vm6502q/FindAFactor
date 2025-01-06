@@ -1,5 +1,9 @@
 import os
-import pybind11
+try:
+    import pybind11
+    PYBIND11_Found = True
+except ImportError:
+    PYBIND11_Found = False
 import setuptools
 from distutils.core import setup, Extension
 
@@ -13,7 +17,7 @@ ext_modules = [
     Extension(
         '_find_a_factor',
         ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp"],
-        include_dirs=['FindAFactor/include', pybind11.get_include(), '/usr/local/include', '/opt/homebrew/include',
+        include_dirs=['FindAFactor/include', pybind11.get_include() if PYBIND11_Found else 'pybind11/include', '/usr/local/include', '/opt/homebrew/include',
                       (os.environ.get('BOOST_ROOT') if os.environ.get('BOOST_ROOT') else 'C:\\boost') + '\\include\\boost'],
         language='c++',
         extra_compile_args = cpp_args,
