@@ -1082,7 +1082,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   }
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, wheelEntryCount, batchSize, primes, forward(SMALLEST_WHEEL));
 
-  const auto workerFn = [&inc_seqs, &isConOfSqr, &worker] {
+  const auto workerFn = [&inc_seqs, &isConOfSqr, &batchSize, &worker] {
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
@@ -1097,6 +1097,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
     // Different collections per thread;
     std::vector<BigInteger> semiSmoothParts;
+    semiSmoothParts.reserve(batchSize);
     std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
 
     // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
