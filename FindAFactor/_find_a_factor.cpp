@@ -781,6 +781,7 @@ boost::dynamic_bitset<size_t> factorizationVector(BigInteger num, const std::vec
 
 struct Factorizer {
   std::mutex batchMutex;
+  std::mutex smoothNumberMapMutex;
   std::default_random_engine rng;
   BigInteger toFactorSqr;
   BigInteger toFactor;
@@ -848,30 +849,22 @@ struct Factorizer {
         }
         // Use the "exhaust" to produce smoother numbers.
         semiSmoothParts->push_back(n);
-        // Batch this work, to reduce contention.
-        if (semiSmoothParts->size() < smoothPartsLimit) {
-          // Skip increments on the "wheels" (or "gears").
-          p += GetWheelIncrement(inc_seqs);
-          continue;
-        }
-        // Our "smooth parts" are smaller than the square root of toFactor.
-        // We combine them semi-randomly, to produce numbers just larger than toFactor^(1/2).
-        const BigInteger m = makeSmoothNumbers(semiSmoothParts, smoothNumberMap);
-        // Check the factor returned.
-        if (m != 1U) {
-          // Gaussian elimination found a factor!
-          isIncomplete = false;
-          return m;
-        }
         // Skip increments on the "wheels" (or "gears").
         p += GetWheelIncrement(inc_seqs);
+      }
+
+      // Batch this work, to reduce contention.
+      if (semiSmoothParts->size() >= smoothPartsLimit) {
+        makeSmoothNumbers(semiSmoothParts, smoothNumberMap);
+
+        return 1U;
       }
     }
 
     return 1U;
   }
 
-  BigInteger makeSmoothNumbers(std::vector<BigInteger> *semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<size_t>> *smoothNumberMap) {
+  void makeSmoothNumbers(std::vector<BigInteger> *semiSmoothParts, std::map<BigInteger, boost::dynamic_bitset<size_t>> *smoothNumberMap) {
     // Factorize all "smooth parts."
     std::vector<BigInteger> smoothParts;
     std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothPartsMap;
@@ -901,19 +894,17 @@ struct Factorizer {
       if (smoothNumber <= toFactorSqrt) {
         continue;
       }
-      auto it = smoothNumberMap->find(smoothNumber);
-      if (it == smoothNumberMap->end()) {
-        (*smoothNumberMap)[smoothNumber] = fv;
+      if (true) {
+        std::lock_guard<std::mutex> lock(smoothNumberMapMutex);
+        auto it = smoothNumberMap->find(smoothNumber);
+        if (it == smoothNumberMap->end()) {
+          (*smoothNumberMap)[smoothNumber] = fv;
+        }
       }
       // Reset "smoothNumber" and its factorization vector.
       smoothNumber = 1U;
       fv = boost::dynamic_bitset<size_t>(primes.size(), false);
     }
-    // We're done with smoothParts.
-    smoothParts.clear();
-
-    // This next section is for (Quadratic Sieve) Gaussian elimination.
-    return findFactorViaGaussianElimination(toFactor, smoothNumberMap);
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1074,13 +1065,47 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
   // Range per parallel node
   const BigInteger nodeRange = (((backward(SMALLEST_WHEEL)(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
+  // This is used by all threads:
+  std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
+  const unsigned cpuCount = threadCount ? threadCount : std::thread::hardware_concurrency();
+  std::vector<std::vector<BigInteger>> semiSmoothParts(cpuCount);
   // This manages the work of all threads.
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
                     wheelEntryCount, (size_t)((wheelEntryCount << 1U) * batchSizeMultiplier),
                     primes, forward(SMALLEST_WHEEL));
 
-  const auto workerFn = [&inc_seqs, &isConOfSqr, &wheelEntryCount, &worker] {
+  if (!isConOfSqr) {
+    const auto workerFn = [&inc_seqs, &worker] {
+      // inc_seq needs to be independent per thread.
+      std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
+      inc_seqs_clone.reserve(inc_seqs.size());
+      for (const boost::dynamic_bitset<size_t> &b : inc_seqs) {
+        inc_seqs_clone.emplace_back(b);
+      }
+
+      // "Brute force" includes extensive wheel multiplication and can be faster.
+      return worker.bruteForce(&inc_seqs_clone);
+    };
+
+    std::vector<std::future<BigInteger>> futures;
+    futures.reserve(cpuCount);
+
+    for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
+      futures.push_back(std::async(std::launch::async, workerFn));
+    }
+
+    for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
+      const BigInteger r = futures[cpu].get();
+      if ((r > result) && (r != toFactor)) {
+        result = r;
+      }
+    }
+
+    return boost::lexical_cast<std::string>(result);
+  }
+
+  const auto smoothNumberFn = [&inc_seqs, &wheelEntryCount, &semiSmoothParts, &smoothNumberMap, &worker] (unsigned cpu) {
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
@@ -1088,34 +1113,37 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
       inc_seqs_clone.emplace_back(b);
     }
 
-    // "Brute force" includes extensive wheel multiplication and can be faster.
-    if (!isConOfSqr) {
-      return worker.bruteForce(&inc_seqs_clone);
-    }
-
     // Different collections per thread;
-    std::vector<BigInteger> semiSmoothParts;
     semiSmoothParts.reserve(wheelEntryCount << 1U);
-    std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
 
     // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
-    return worker.smoothCongruences(&inc_seqs_clone, &semiSmoothParts, &smoothNumberMap);
+    return worker.smoothCongruences(&inc_seqs_clone, &(semiSmoothParts[cpu]), &smoothNumberMap);
   };
 
-  const unsigned cpuCount = threadCount ? threadCount : std::thread::hardware_concurrency();
   std::vector<std::future<BigInteger>> futures;
   futures.reserve(cpuCount);
 
-  for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
-    futures.push_back(std::async(std::launch::async, workerFn));
-  }
-
-  for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
-    const BigInteger r = futures[cpu].get();
-    if ((r > result) && (r != toFactor)) {
-      result = r;
+  do {
+    for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
+      futures.push_back(std::async(std::launch::async, smoothNumberFn, cpu));
     }
-  }
+
+    for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
+      const BigInteger r = futures[cpu].get();
+      if ((r > result) && (r != toFactor)) {
+        result = r;
+      }
+    }
+
+    if ((result != 1U) && (result != toFactor)) {
+      return boost::lexical_cast<std::string>(result);
+    }
+
+    futures.clear();
+
+    // This next section is for (Quadratic Sieve) Gaussian elimination.
+    result = worker.findFactorViaGaussianElimination(toFactor, &smoothNumberMap);
+  } while ((result == 1U) || (result == toFactor));
 
   return boost::lexical_cast<std::string>(result);
 }
