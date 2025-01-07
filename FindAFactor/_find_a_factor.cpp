@@ -723,6 +723,7 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 
 // Perform Gaussian elimination on a binary matrix
 void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *matrix) {
+  const unsigned cpuCount = CpuCount;
   const auto mBegin = matrix->begin();
   const size_t rows = matrix->size();
   const size_t cols = mBegin->second.size();
@@ -750,16 +751,16 @@ void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *ma
       if (cpu >= rows) {
           break;
       }
-      dispatch.dispatch([col, cpu, CpuCount, &rows, &c, &mBegin]() {
+      dispatch.dispatch([col, cpu, &cpuCount, &rows, &c, &mBegin]() {
         auto rowIt = mBegin;
         std::advance(rowIt, cpu);
-        for (size_t row = cpu; row < rows; row += CpuCount) {
+        for (size_t row = cpu; row < rows; row += cpuCount) {
           boost::dynamic_bitset<size_t> &r = rowIt->second;
           if ((row != col) && r[col]) {
             r ^= c;
           }
-          if ((row + CpuCount) < rows) {
-              std::advance(rowIt, CpuCount);
+          if ((row + cpuCount) < rows) {
+              std::advance(rowIt, cpuCount);
           }
         }
 
