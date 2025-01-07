@@ -723,11 +723,12 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 // Perform Gaussian elimination on a binary matrix
 void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *matrix) {
   const unsigned cpuCount = std::thread::hardware_concurrency();
+  const auto mBegin = matrix->begin();
   const size_t rows = matrix->size();
-  const size_t cols = matrix->begin()->second.size();
+  const size_t cols = mBegin->second.size();
   std::vector<int> pivots(cols, -1);
   for (size_t col = 0U; col < cols; ++col) {
-    auto colIt = matrix->begin();
+    auto colIt = mBegin;
     std::advance(colIt, col);
 
     auto rowIt = colIt;
@@ -749,8 +750,8 @@ void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *ma
       if (cpu >= rows) {
           break;
       }
-      dispatch.dispatch([cpu, &cpuCount, &rows, &col, &matrix, &c]() {
-        auto rowIt = matrix->begin();
+      dispatch.dispatch([col, cpu, &cpuCount, &rows, &c, &mBegin]() {
+        auto rowIt = mBegin;
         std::advance(rowIt, cpu);
         for (size_t row = cpu; row < rows; row += cpuCount) {
           boost::dynamic_bitset<size_t> &r = rowIt->second;
@@ -933,44 +934,58 @@ struct Factorizer {
     gaussianElimination(smoothNumberMap);
 
     // Check for linear dependencies and find a congruence of squares
+    std::mutex rowMutex;
+    BigInteger result = 1U;
     std::set<BigInteger> toStrike;
     auto iIt = smoothNumberMap->begin();
     const size_t rowCount = smoothNumberMap->size();
-    for (size_t i = 0U; i < rowCount; ++i) {
-      boost::dynamic_bitset<size_t> &iRow = iIt->second;
-      auto jIt = iIt;
-      for (size_t j = i + 1U; j < rowCount; ++j) {
-        ++jIt;
+    for (size_t i = 0U; (i < rowCount) && (result == 1U); ++i) {
+      dispatch.dispatch([&target, i, iIt, &rowCount, &result, &toStrike, &rowMutex]() {
+        boost::dynamic_bitset<size_t> &iRow = iIt->second;
+        auto jIt = iIt;
+        for (size_t j = i + 1U; j < rowCount; ++j) {
+          ++jIt;
 
-        boost::dynamic_bitset<size_t> &jRow = jIt->second;
-        if (iRow != jRow) {
-          continue;
+          boost::dynamic_bitset<size_t> &jRow = jIt->second;
+          if (iRow != jRow) {
+            continue;
+          }
+
+          if (true) {
+            std::lock_guard<std::mutex> lock(rowMutex);
+            toStrike.insert(jIt->first);
+          }
+
+          // Compute x and y
+          const BigInteger x = (iIt->first * jIt->first) % target;
+          const BigInteger y = modExp(x, target >> 1U, target);
+
+          // Check congruence of squares
+          BigInteger factor = gcd(target, x + y);
+          if ((factor != 1U) && (factor != target)) {
+            std::lock_guard<std::mutex> lock(rowMutex);
+            result = factor;
+
+            return true;
+          }
+
+          if (x == y) {
+            continue;
+          }
+
+          // Try x - y as well
+          factor = gcd(target, x - y);
+          if ((factor != 1U) && (factor != target)) {
+            std::lock_guard<std::mutex> lock(rowMutex);
+            result = factor;
+
+            return true;
+          }
         }
-
-        toStrike.insert(jIt->first);
-
-        // Compute x and y
-        const BigInteger x = (iIt->first * jIt->first) % target;
-        const BigInteger y = modExp(x, target >> 1U, target);
-
-        // Check congruence of squares
-        BigInteger factor = gcd(target, x + y);
-        if ((factor != 1U) && (factor != target)) {
-          return factor;
-        }
-
-        if (x == y) {
-          continue;
-        }
-
-        // Try x - y as well
-        factor = gcd(target, x - y);
-        if ((factor != 1U) && (factor != target)) {
-          return factor;
-        }
-      }
+      });
       ++iIt;
     }
+    dispatch.finish();
 
     // These numbers have been tried already:
     for (const BigInteger& i : toStrike) {
