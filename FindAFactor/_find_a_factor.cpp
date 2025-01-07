@@ -66,7 +66,8 @@ namespace Qimcifa {
 
 typedef boost::multiprecision::cpp_int BigInteger;
 
-DispatchQueue dispatch(std::thread::hardware_concurrency());
+const unsigned CpuCount = std::thread::hardware_concurrency();
+DispatchQueue dispatch(CpuCount);
 
 enum Wheel { ERROR = 0, WHEEL1 = 1, WHEEL2 = 2, WHEEL3 = 6, WHEEL5 = 30, WHEEL7 = 210, WHEEL11 = 2310, WHEEL13 = 30030 };
 
@@ -722,7 +723,6 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 
 // Perform Gaussian elimination on a binary matrix
 void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *matrix) {
-  const unsigned cpuCount = std::thread::hardware_concurrency();
   const auto mBegin = matrix->begin();
   const size_t rows = matrix->size();
   const size_t cols = mBegin->second.size();
@@ -746,20 +746,20 @@ void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *ma
     }
 
     const boost::dynamic_bitset<size_t> &c = colIt->second;
-    for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
+    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       if (cpu >= rows) {
           break;
       }
-      dispatch.dispatch([col, cpu, &cpuCount, &rows, &c, &mBegin]() {
+      dispatch.dispatch([col, cpu, CpuCount, &rows, &c, &mBegin]() {
         auto rowIt = mBegin;
         std::advance(rowIt, cpu);
-        for (size_t row = cpu; row < rows; row += cpuCount) {
+        for (size_t row = cpu; row < rows; row += CpuCount) {
           boost::dynamic_bitset<size_t> &r = rowIt->second;
           if ((row != col) && r[col]) {
             r ^= c;
           }
-          if ((row + cpuCount) < rows) {
-              std::advance(rowIt, cpuCount);
+          if ((row + CpuCount) < rows) {
+              std::advance(rowIt, CpuCount);
           }
         }
 
@@ -987,6 +987,10 @@ struct Factorizer {
     }
     dispatch.finish();
 
+    if ((result != 1U) && (result != target)) {
+      return result;
+    }
+
     // These numbers have been tried already:
     for (const BigInteger& i : toStrike) {
       smoothNumberMap->erase(i);
@@ -1001,7 +1005,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr, const size_t &nodeCount, const size_t &nodeId, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier, size_t threadCount) {
+                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
   // (At least) level 11 wheel factorization is baked into basic functions.
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
@@ -1098,8 +1102,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   const BigInteger nodeRange = (((backward(SMALLEST_WHEEL)(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
   // This is used by all threads:
   std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
-  const unsigned cpuCount = threadCount ? threadCount : std::thread::hardware_concurrency();
-  std::vector<std::vector<BigInteger>> semiSmoothParts(cpuCount);
+  std::vector<std::vector<BigInteger>> semiSmoothParts(CpuCount);
   // This manages the work of all threads.
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
@@ -1120,9 +1123,9 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     };
 
     std::vector<std::future<BigInteger>> futures;
-    futures.reserve(cpuCount);
+    futures.reserve(CpuCount);
 
-    for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
+    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       futures.push_back(std::async(std::launch::async, workerFn));
     }
 
@@ -1152,10 +1155,10 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   };
 
   std::vector<std::future<BigInteger>> futures;
-  futures.reserve(cpuCount);
+  futures.reserve(CpuCount);
 
   do {
-    for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
+    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       futures.push_back(std::async(std::launch::async, smoothNumberFn, cpu));
     }
 
