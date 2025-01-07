@@ -928,14 +928,13 @@ struct Factorizer {
     gaussianElimination(smoothNumberMap);
 
     // Check for linear dependencies and find a congruence of squares
-    std::mutex resultMutex;
-    BigInteger result = 1U;
-    std::vector<BigInteger> toStrike;
+    std::set<BigInteger> toStrike;
     auto iIt = smoothNumberMap->begin();
-    for (size_t i = 0U; (i < smoothNumberMap->size()) && (result == 1U); ++i) {
+    const size_t rowCount = smoothNumberMap->size();
+    for (size_t i = 0U; i < rowCount; ++i) {
       boost::dynamic_bitset<size_t> &iRow = iIt->second;
       auto jIt = iIt;
-      for (size_t j = i + 1U; (j < smoothNumberMap->size()) && (result == 1U); ++j) {
+      for (size_t j = i + 1U; j < rowCount; ++j) {
         ++jIt;
 
         boost::dynamic_bitset<size_t> &jRow = jIt->second;
@@ -943,49 +942,34 @@ struct Factorizer {
           continue;
         }
 
-        toStrike.push_back(jIt->first);
+        toStrike.insert(jIt->first);
 
-        dispatch.dispatch([&target, iIt, jIt, &resultMutex, &result]() {
-          // Compute x and y
-          const BigInteger x = (iIt->first * jIt->first) % target;
-          const BigInteger y = modExp(x, target >> 1U, target);
+        // Compute x and y
+        const BigInteger x = (iIt->first * jIt->first) % target;
+        const BigInteger y = modExp(x, target >> 1U, target);
 
-          // Check congruence of squares
-          BigInteger factor = gcd(target, x + y);
-          if ((factor != 1U) && (factor != target)) {
-            std::lock_guard<std::mutex> lock(resultMutex);
-            result = factor;
+        // Check congruence of squares
+        BigInteger factor = gcd(target, x + y);
+        if ((factor != 1U) && (factor != target)) {
+          return factor;
+        }
 
-            return true;
-          }
+        if (x == y) {
+          continue;
+        }
 
-          if (x == y) {
-            return false;
-          }
-
-          // Try x - y as well
-          factor = gcd(target, x - y);
-          if ((factor != 1U) && (factor != target)) {
-            std::lock_guard<std::mutex> lock(resultMutex);
-            result = factor;
-
-            return true;
-          }
-
-          return false;
-        });
+        // Try x - y as well
+        factor = gcd(target, x - y);
+        if ((factor != 1U) && (factor != target)) {
+          return factor;
+        }
       }
       ++iIt;
     }
-    dispatch.finish();
-
-    if ((result != 1U) && (result != target)) {
-      return result;
-    }
 
     // These numbers have been tried already:
-    for (size_t i = 0U; i < toStrike.size(); ++i) {
-      smoothNumberMap->erase(toStrike[i]);
+    for (const BigInteger& i : toStrike) {
+      smoothNumberMap->erase(i);
     }
 
     return 1U; // No factor found
