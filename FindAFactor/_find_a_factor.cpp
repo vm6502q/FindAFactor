@@ -66,6 +66,8 @@ namespace Qimcifa {
 
 typedef boost::multiprecision::cpp_int BigInteger;
 
+DispatchQueue dispatch(std::thread::hardware_concurrency());
+
 enum Wheel { ERROR = 0, WHEEL1 = 1, WHEEL2 = 2, WHEEL3 = 6, WHEEL5 = 30, WHEEL7 = 210, WHEEL11 = 2310, WHEEL13 = 30030 };
 
 Wheel wheelByPrimeCardinal(int i) {
@@ -720,8 +722,9 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 
 // Perform Gaussian elimination on a binary matrix
 void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *matrix) {
-  size_t rows = matrix->size();
-  size_t cols = matrix->begin()->second.size();
+  const unsigned cpuCount = std::thread::hardware_concurrency();
+  const size_t rows = matrix->size();
+  const size_t cols = matrix->begin()->second.size();
   std::vector<int> pivots(cols, -1);
   for (size_t col = 0U; col < cols; ++col) {
     auto colIt = matrix->begin();
@@ -742,14 +745,22 @@ void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *ma
     }
 
     const boost::dynamic_bitset<size_t> &c = colIt->second;
-    rowIt = matrix->begin();
-    for (size_t row = 0U; row < rows; ++row) {
-      boost::dynamic_bitset<size_t> &r = rowIt->second;
-      if ((row != col) && r[col]) {
-        r ^= c;
-      }
-      ++rowIt;
+    for (unsigned cpu = 0U; cpu < cpuCount; ++cpu) {
+      dispatch.dispatch([cpu, &cpuCount, &rows, &col, &matrix, &c]() {
+        auto rowIt = matrix->begin();
+        std::advance(rowIt, cpu);
+        for (size_t row = cpu; row < rows; row += cpuCount) {
+          boost::dynamic_bitset<size_t> &r = rowIt->second;
+          if ((row != col) && r[col]) {
+            r ^= c;
+          }
+          std::advance(rowIt, cpuCount);
+        }
+
+        return false;
+      });
     }
+    dispatch.finish();
   }
 }
 
@@ -1007,7 +1018,6 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   const size_t wgDiff = std::distance(itw, itg);
 
   // This is simply trial division up to the ceiling.
-  DispatchQueue dispatch(std::thread::hardware_concurrency());
   std::mutex trialDivisionMutex;
   for (size_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
     dispatch.dispatch([&toFactor, &primes, &result, &trialDivisionMutex, primeIndex]() {
