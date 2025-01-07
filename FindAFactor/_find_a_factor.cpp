@@ -947,8 +947,6 @@ struct Factorizer {
           continue;
         }
 
-        toStrike.insert(jIt->first);
-
         // Compute x and y
         const BigInteger x = (iIt->first * jIt->first) % target;
         const BigInteger y = modExp(x, target >> 1U, target);
@@ -968,6 +966,8 @@ struct Factorizer {
         if ((factor != 1U) && (factor != target)) {
           return factor;
         }
+
+        toStrike.insert(jIt->first);
       }
       ++iIt;
     }
