@@ -928,6 +928,8 @@ struct Factorizer {
     gaussianElimination(smoothNumberMap);
 
     // Check for linear dependencies and find a congruence of squares
+    std::mutex resultMutex;
+    BigInteger result = 1U;
     std::vector<BigInteger> toStrike;
     auto iIt = smoothNumberMap->begin();
     for (size_t i = 0U; i < smoothNumberMap->size(); ++i) {
@@ -943,27 +945,42 @@ struct Factorizer {
 
         toStrike.push_back(jIt->first);
 
-        // Compute x and y
-        const BigInteger x = (iIt->first * jIt->first) % target;
-        const BigInteger y = modExp(x, target / 2, target);
+        dispatch.dispatch([&target, iIt, &jIt, &resultMutex, &result]() {
+          // Compute x and y
+          const BigInteger x = (iIt->first * jIt->first) % target;
+          const BigInteger y = modExp(x, target >> 1U, target);
 
-        // Check congruence of squares
-        BigInteger factor = gcd(target, x + y);
-        if ((factor != 1U) && (factor != target)) {
-          return factor;
-        }
+          // Check congruence of squares
+          BigInteger factor = gcd(target, x + y);
+          if ((factor != 1U) && (factor != target)) {
+            std::lock_guard<std::mutex> lock(resultMutex);
+            result = factor;
 
-        if (x == y) {
-          continue;
-        }
+            return true;
+          }
 
-        // Try x - y as well
-        factor = gcd(target, x - y);
-        if ((factor != 1U) && (factor != target)) {
-          return factor;
-        }
+          if (x == y) {
+            return false;
+          }
+
+          // Try x - y as well
+          factor = gcd(target, x - y);
+          if ((factor != 1U) && (factor != target)) {
+            std::lock_guard<std::mutex> lock(resultMutex);
+            result = factor;
+
+            return true;
+          }
+
+          return false;
+        });
       }
       ++iIt;
+    }
+    dispatch.finish();
+
+    if ((result != 1U) && (result != target)) {
+      return result;
     }
 
     // These numbers have been tried already:
