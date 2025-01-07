@@ -180,7 +180,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pyqrack-${{ matrix.platform }}
+          name: FindAFactor-${{ matrix.platform }}
           path: dist/
 
   build_mac_14:
@@ -213,7 +213,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pyqrack-${{ matrix.platform }}
+          name: FindAFactor-${{ matrix.platform }}
           path: dist/
 
   build_mac_13:
@@ -246,5 +246,5 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pyqrack-${{ matrix.platform }}
+          name: FindAFactor-${{ matrix.platform }}
           path: dist/
