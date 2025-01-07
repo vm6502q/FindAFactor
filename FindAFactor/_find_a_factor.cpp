@@ -945,7 +945,7 @@ struct Factorizer {
 
         toStrike.push_back(jIt->first);
 
-        dispatch.dispatch([&target, iIt, &jIt, &resultMutex, &result]() {
+        dispatch.dispatch([&target, iIt, jIt, &resultMutex, &result]() {
           // Compute x and y
           const BigInteger x = (iIt->first * jIt->first) % target;
           const BigInteger y = modExp(x, target >> 1U, target);
