@@ -932,10 +932,10 @@ struct Factorizer {
     BigInteger result = 1U;
     std::vector<BigInteger> toStrike;
     auto iIt = smoothNumberMap->begin();
-    for (size_t i = 0U; i < smoothNumberMap->size(); ++i) {
+    for (size_t i = 0U; (i < smoothNumberMap->size()) && (result == 1U); ++i) {
       boost::dynamic_bitset<size_t> &iRow = iIt->second;
       auto jIt = iIt;
-      for (size_t j = i + 1U; j < smoothNumberMap->size(); ++j) {
+      for (size_t j = i + 1U; (j < smoothNumberMap->size()) && (result == 1U); ++j) {
         ++jIt;
 
         boost::dynamic_bitset<size_t> &jRow = jIt->second;
