@@ -751,7 +751,7 @@ void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *ma
       if (cpu >= rows) {
           break;
       }
-      dispatch.dispatch([col, cpu, &cpuCount, &rows, &c, &mBegin]() {
+      dispatch.dispatch([col, cpu, &cpuCount, &rows, &c, &mBegin]() -> bool {
         auto rowIt = mBegin;
         std::advance(rowIt, cpu);
         for (size_t row = cpu; row < rows; row += cpuCount) {
@@ -940,8 +940,9 @@ struct Factorizer {
     std::set<BigInteger> toStrike;
     auto iIt = smoothNumberMap->begin();
     const size_t rowCount = smoothNumberMap->size();
-    for (size_t i = 0U; (i < rowCount) && (result == 1U); ++i) {
-      dispatch.dispatch([&target, i, iIt, &rowCount, &result, &toStrike, &rowMutex]() {
+    const size_t rowCountMin2 = rowCount - 2U;
+    for (size_t i = 0U; (i < rowCountMin2) && (result == 1U); ++i) {
+      dispatch.dispatch([&target, i, iIt, &rowCount, &result, &toStrike, &rowMutex]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = iIt->second;
         auto jIt = iIt;
         for (size_t j = i + 1U; j < rowCount; ++j) {
@@ -983,12 +984,14 @@ struct Factorizer {
             return true;
           }
         }
+
+        return false;
       });
       ++iIt;
     }
     dispatch.finish();
 
-    if ((result != 1U) && (result != target)) {
+    if (result != 1U) {
       return result;
     }
 
@@ -1046,7 +1049,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // This is simply trial division up to the ceiling.
   std::mutex trialDivisionMutex;
   for (size_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
-    dispatch.dispatch([&toFactor, &primes, &result, &trialDivisionMutex, primeIndex]() {
+    dispatch.dispatch([&toFactor, &primes, &result, &trialDivisionMutex, primeIndex]() -> bool {
       const size_t maxLcv = std::min(primeIndex + 64U, primes.size());
       for (size_t pi = primeIndex; pi < maxLcv; ++pi) {
         const uint16_t &currentPrime = primes[pi];
