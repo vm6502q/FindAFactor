@@ -764,9 +764,9 @@ struct Factorizer {
   bool isIncomplete;
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
-  std::vector<BigInteger> smoothNumberKeys;
   std::set<BigInteger> smoothNumberKeySet;
-  std::map<size_t, boost::dynamic_bitset<size_t>> smoothNumberValues;
+  std::vector<BigInteger> smoothNumberKeys;
+  std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<uint16_t> &p, ForwardFn fn)
@@ -869,7 +869,7 @@ struct Factorizer {
         std::lock_guard<std::mutex> lock(smoothNumberMapMutex);
         auto it = smoothNumberKeySet.find(smoothNumber);
         if (it == smoothNumberKeySet.end()) {
-          smoothNumberValues[smoothNumberKeys.size()] = fv;
+          smoothNumberValues.emplace_back(fv);
           smoothNumberKeys.push_back(smoothNumber);
           smoothNumberKeySet.insert(smoothNumber);
         }
@@ -896,25 +896,27 @@ struct Factorizer {
     const size_t rowCountMin1 = rowCount - 1U;
     for (size_t i = rowOffset; (i < rowCountMin1) && (result == 1U); ++i) {
       dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex, &toStrike]() -> bool {
-        boost::dynamic_bitset<size_t> &iRow = iIt->second;
+        boost::dynamic_bitset<size_t> &iRow = *iIt;
         auto jIt = iIt;
         for (size_t j = i + 1U; j < rowCount; ++j) {
           ++jIt;
 
-          boost::dynamic_bitset<size_t> &jRow = jIt->second;
+          boost::dynamic_bitset<size_t> &jRow = *jIt;
           if (iRow != jRow) {
             continue;
           }
 
-          const BigInteger& iInt = this->smoothNumberKeys[iIt->first];
-          const BigInteger& jInt = this->smoothNumberKeys[jIt->first];
+          const size_t iIndex = std::distance(this->smoothNumberValues.begin(), iIt);
+          const size_t jIndex = std::distance(this->smoothNumberValues.begin(), jIt);
 
+          const BigInteger& iInt = this->smoothNumberKeys[iIndex];
+          const BigInteger& jInt = this->smoothNumberKeys[jIndex];
           if (iInt < jInt) {
             std::lock_guard<std::mutex> lock(rowMutex);
-            toStrike.insert(jIt->first);
+            toStrike.insert(jIndex);
           } else {
             std::lock_guard<std::mutex> lock(rowMutex);
-            toStrike.insert(iIt->first);
+            toStrike.insert(iIndex);
           }
 
           // Compute x and y
@@ -956,10 +958,11 @@ struct Factorizer {
 
     // These numbers have been tried already:
     for (const size_t& i : toStrike) {
-      smoothNumberValues.erase(i);
+      smoothNumberKeys.erase(smoothNumberKeys.begin() + i);
+      smoothNumberValues.erase(smoothNumberValues.begin() + i);
     }
 
-    rowOffset = smoothNumberValues.size();
+    rowOffset = smoothNumberKeys.size();
 
     return 1U; // No factor found
   }
