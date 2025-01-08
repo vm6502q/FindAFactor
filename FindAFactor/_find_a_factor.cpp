@@ -897,7 +897,7 @@ struct Factorizer {
       dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex, &toStrike]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = *iIt;
 
-        const size_t startJ = std::max(this->rowOffset + 1U, i + 1U);
+        const size_t startJ = std::max(this->rowOffset, i + 1U);
         auto jIt = this->smoothNumberValues.begin();
         std::advance(jIt, (startJ - 1U));
         for (size_t j = startJ; j < rowCount; ++j) {
