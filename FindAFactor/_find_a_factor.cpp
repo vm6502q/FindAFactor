@@ -721,57 +721,6 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
   return result;
 }
 
-// Perform Gaussian elimination on a binary matrix
-void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *matrix) {
-  const unsigned cpuCount = CpuCount;
-  const auto mBegin = matrix->begin();
-  const size_t rows = matrix->size();
-  const size_t cols = mBegin->second.size();
-  std::vector<int> pivots(cols, -1);
-  for (size_t col = 0U; col < cols; ++col) {
-    auto colIt = mBegin;
-    std::advance(colIt, col);
-
-    auto rowIt = colIt;
-    for (size_t row = col; row < rows; ++row) {
-      if (rowIt->second[col]) {
-        std::swap(colIt->second, rowIt->second);
-        pivots[col] = row;
-        break;
-      }
-      ++rowIt;
-    }
-
-    if (pivots[col] == -1) {
-      continue;
-    }
-
-    const boost::dynamic_bitset<size_t> &c = colIt->second;
-    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      if (cpu >= rows) {
-          break;
-      }
-      dispatch.dispatch([col, cpu, &cpuCount, &rows, &c, &mBegin]() -> bool {
-        auto rowIt = mBegin;
-        std::advance(rowIt, cpu);
-        for (size_t row = cpu; ; row += cpuCount) {
-          boost::dynamic_bitset<size_t> &r = rowIt->second;
-          if ((row != col) && r[col]) {
-            r ^= c;
-          }
-          if ((row + cpuCount) >= rows) {
-            return false;
-          }
-          std::advance(rowIt, cpuCount);
-        }
-
-        return false;
-      });
-    }
-    dispatch.finish();
-  }
-}
-
 // Compute the prime factorization modulo 2
 boost::dynamic_bitset<size_t> factorizationVector(BigInteger num, const std::vector<uint16_t> &primes) {
   boost::dynamic_bitset<size_t> vec(primes.size(), false);
@@ -931,10 +880,7 @@ struct Factorizer {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Find factor via Gaussian elimination
-  BigInteger findFactorViaGaussianElimination(const BigInteger &target, std::map<BigInteger, boost::dynamic_bitset<size_t>> *smoothNumberMap) {
-    // Perform Gaussian elimination
-    gaussianElimination(smoothNumberMap);
-
+  BigInteger findFactor(const BigInteger &target, std::map<BigInteger, boost::dynamic_bitset<size_t>> *smoothNumberMap) {
     // Check for linear dependencies and find a congruence of squares
     std::mutex rowMutex;
     BigInteger result = 1U;
@@ -1181,7 +1127,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     futures.clear();
 
     // This next section is for (Quadratic Sieve) Gaussian elimination.
-    result = worker.findFactorViaGaussianElimination(toFactor, &smoothNumberMap);
+    result = worker.findFactor(toFactor, &smoothNumberMap);
   } while ((result == 1U) || (result == toFactor));
 
   return boost::lexical_cast<std::string>(result);
