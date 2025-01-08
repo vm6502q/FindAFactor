@@ -18,7 +18,7 @@ def main():
     gear_factorization_level = int(os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL') else 11
     wheel_factorization_level = int(os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL') else 7
     smoothness_bound_multiplier = float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0
-    batch_size_multiplier=float(os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER') else 15.75
+    batch_size_multiplier=float(os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER') else 512.0
 
     if argv_len > 2:
         use_congruence_of_squares = ((sys.argv[2] != "False") and (sys.argv[2] != "0"))

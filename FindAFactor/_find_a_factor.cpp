@@ -891,14 +891,16 @@ struct Factorizer {
     BigInteger result = 1U;
     std::set<size_t> toStrike;
     auto iIt = smoothNumberValues.begin();
-    std::advance(iIt, rowOffset);
     const size_t rowCount = smoothNumberValues.size();
     const size_t rowCountMin1 = rowCount - 1U;
-    for (size_t i = rowOffset; (i < rowCountMin1) && (result == 1U); ++i) {
+    for (size_t i = 0U; (i < rowCountMin1) && (result == 1U); ++i) {
       dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex, &toStrike]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = *iIt;
-        auto jIt = iIt;
-        for (size_t j = i + 1U; j < rowCount; ++j) {
+
+        const size_t startJ = std::max(this->rowOffset + 1U, i + 1U);
+        auto jIt = this->smoothNumberValues.begin();
+        std::advance(jIt, (startJ - 1U));
+        for (size_t j = startJ; j < rowCount; ++j) {
           ++jIt;
 
           boost::dynamic_bitset<size_t> &jRow = *jIt;

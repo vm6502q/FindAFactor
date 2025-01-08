@@ -32,7 +32,7 @@ factor = find_a_factor(
     gear_factorization_level=11,
     wheel_factorization_level=7,
     smoothness_bound_multiplier=1.0,
-    batch_size_multiplier=0.75
+    batch_size_multiplier=512.0
 )
 ```
 
@@ -44,7 +44,7 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `gear_factorization_level` (default value: `11`): This is the value up to which "wheel (and gear) factorization" and trial division are used to check factors and optimize "brute force," in general. The default value of `11` includes all prime factors of `11` and below and works well in general, though significantly higher might be preferred in certain cases.
 - `wheel_factorization_level` (default value: `7`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. Optimized implementation for wheels is only available up to `13`. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization.
 - `smoothness_bound_multiplier` (default value: `1.0`): starting with the first prime number after wheel factorization, the congruence of squares approach (with Quadratic Sieve) takes a default "smoothness bound" with as many distinct prime numbers as bits in the number to factor (for default argument of `1.0` multiplier). To increase or decrease this number, consider it multiplied by the value of `smoothness_bound_multiplier`.
-- `batch_size_multiplier` (default value: `0.75`): Each `1.0` increment of the multiplier is 2 cycles of gear and wheel factorization, alternating every other cycle between bottom of guessing range and top of guessing range, for every thread in use. However, more than `1.0` batch scale of numbers are processed to produce a `1.0` batch size, so set this close to but somewhat less than a whole number value.
+- `batch_size_multiplier` (default value: `512.0`): Each `1.0` increment of the multiplier is 2 cycles of gear and wheel factorization, alternating every other cycle between bottom of guessing range and top of guessing range, for every thread in use.
 
 All variables defaults can also be controlled by environment variables:
 - `FINDAFACTOR_USE_CONGRUENCE_OF_SQUARES` (any value makes `True`, while default is `False`)
@@ -61,7 +61,7 @@ The developer anticipates this single-function set of parameters, as API, is the
 
 Advantage for `use_congruence_of_squares` is beyond the hardware scale of the developer's experiments, in practicality, but it can be shown to work correctly (at disadvantage, at small factoring bit-width scales). The anticipated use case is to turn this option on when approaching the size of modern-day RSA semiprimes in use.
 
-If this is your use case, you want to specifically consider `smoothness_bound_multiplier`, `batch_size_multiplier`, and potentially `thread_count` for managing memory. By default, as many primes are kept for "smooth" number sieving as bits in the number to factor. This is multiplied by `smooth_bound_multiplier` (and cast to a discrete number of primes in total). This multiplier tends to predominate memory, but `batch_size_multiplier` can also cause problems if set too high or low, as a high value might exhaust memory, while a low value increases potentially nonproductive Gaussian elimination checks, which might be more efficient if batched higher. Our expectation is that most systems will benefit from setting `batch_size_multiplier` _much_ higher than default, potentially to the point of using about half of available memory, but this will require user experimentation to determine.
+If this is your use case, you want to specifically consider `smoothness_bound_multiplier`, `batch_size_multiplier`, and potentially `thread_count` for managing memory. By default, as many primes are kept for "smooth" number sieving as bits in the number to factor. This is multiplied by `smooth_bound_multiplier` (and cast to a discrete number of primes in total). This multiplier tends to predominate memory, but `batch_size_multiplier` can also cause problems if set too high or low, as a high value might exhaust memory, while a low value increases potentially nonproductive Gaussian elimination checks, which might be more efficient if batched higher. Our expectation is that most systems will benefit from significant experimentation with and fine tuning of `batch_size_multiplier` to something other than default, potentially to the point of using about half of available memory.
 
 `wheel_factorization_level` and `gear_factorization_level` are common to both `use_congruence_of_squares` (i.e., Gaussian elimination for perfect squares) and "brute force." `11` for gear and `5` for wheel limit works well for small numbers. You'll definitely want to consider (gear/wheel) `13`/`7` or `17`/`11` (or even other values, maybe system-dependent) as your numbers to factor approach cryptographic relevance.
 
