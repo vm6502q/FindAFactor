@@ -760,6 +760,7 @@ struct Factorizer {
   BigInteger batchTotal;
   size_t wheelEntryCount;
   size_t smoothPartsLimit;
+  size_t rowOffset;
   bool isIncomplete;
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
@@ -768,7 +769,7 @@ struct Factorizer {
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<uint16_t> &p, ForwardFn fn)
       : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-      wheelEntryCount(w), smoothPartsLimit(spl), isIncomplete(true), primes(p), forwardFn(fn) {}
+      wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(0U), isIncomplete(true), primes(p), forwardFn(fn) {}
 
   BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
@@ -879,16 +880,17 @@ struct Factorizer {
   //                                                   WRITTEN BY ELARA (GPT) BELOW                                                        //
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  // Find factor via Gaussian elimination
+  // Find duplicate rows
   BigInteger findFactor(const BigInteger &target) {
     // Check for linear dependencies and find a congruence of squares
     std::mutex rowMutex;
     BigInteger result = 1U;
     std::set<BigInteger> toStrike;
     auto iIt = smoothNumberMap.begin();
+    std::advance(iIt, rowOffset);
     const size_t rowCount = smoothNumberMap.size();
     const size_t rowCountMin1 = rowCount - 1U;
-    for (size_t i = 0U; (i < rowCountMin1) && (result == 1U); ++i) {
+    for (size_t i = rowOffset; (i < rowCountMin1) && (result == 1U); ++i) {
       dispatch.dispatch([&target, i, iIt, &rowCount, &result, &toStrike, &rowMutex]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = iIt->second;
         auto jIt = iIt;
@@ -946,6 +948,8 @@ struct Factorizer {
     for (const BigInteger& i : toStrike) {
       smoothNumberMap.erase(i);
     }
+
+    rowOffset = smoothNumberMap.size();
 
     return 1U; // No factor found
   }
