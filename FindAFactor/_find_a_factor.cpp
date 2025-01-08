@@ -754,14 +754,15 @@ void gaussianElimination(std::map<BigInteger, boost::dynamic_bitset<size_t>> *ma
       dispatch.dispatch([col, cpu, &cpuCount, &rows, &c, &mBegin]() -> bool {
         auto rowIt = mBegin;
         std::advance(rowIt, cpu);
-        for (size_t row = cpu; row < rows; row += cpuCount) {
+        for (size_t row = cpu; ; row += cpuCount) {
           boost::dynamic_bitset<size_t> &r = rowIt->second;
           if ((row != col) && r[col]) {
             r ^= c;
           }
-          if ((row + cpuCount) < rows) {
-              std::advance(rowIt, cpuCount);
+          if ((row + cpuCount) >= rows) {
+            return false;
           }
+          std::advance(rowIt, cpuCount);
         }
 
         return false;
