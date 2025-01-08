@@ -889,13 +889,13 @@ struct Factorizer {
     // Check for linear dependencies and find a congruence of squares
     std::mutex rowMutex;
     BigInteger result = 1U;
-    // std::set<size_t> toStrike;
+    std::set<size_t> toStrike;
     auto iIt = smoothNumberValues.begin();
     std::advance(iIt, rowOffset);
-    const size_t rowCount = smoothNumberKeys.size();
+    const size_t rowCount = smoothNumberValues.size();
     const size_t rowCountMin1 = rowCount - 1U;
     for (size_t i = rowOffset; (i < rowCountMin1) && (result == 1U); ++i) {
-      dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex]() -> bool {
+      dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex, &toStrike]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = iIt->second;
         auto jIt = iIt;
         for (size_t j = i + 1U; j < rowCount; ++j) {
@@ -909,13 +909,13 @@ struct Factorizer {
           const BigInteger& iInt = this->smoothNumberKeys[iIt->first];
           const BigInteger& jInt = this->smoothNumberKeys[jIt->first];
 
-          // if (iInt < jInt) {
-          //   std::lock_guard<std::mutex> lock(rowMutex);
-          //   toStrike.insert(jIt->first);
-          // } else {
-          //   std::lock_guard<std::mutex> lock(rowMutex);
-          //   toStrike.insert(iIt->first);
-          // }
+          if (iInt < jInt) {
+            std::lock_guard<std::mutex> lock(rowMutex);
+            toStrike.insert(jIt->first);
+          } else {
+            std::lock_guard<std::mutex> lock(rowMutex);
+            toStrike.insert(iIt->first);
+          }
 
           // Compute x and y
           const BigInteger x = (iInt * jInt) % target;
@@ -955,13 +955,11 @@ struct Factorizer {
     }
 
     // These numbers have been tried already:
-    // for (const size_t& i : toStrike) {
-    //   smoothNumberValues.erase(i);
-    //   smoothNumberKeySet.erase(smoothNumberKeys[i]);
-    //   smoothNumberKeys.erase(smoothNumberKeys.begin() + i);
-    // }
+    for (const size_t& i : toStrike) {
+      smoothNumberValues.erase(i);
+    }
 
-    rowOffset = smoothNumberKeys.size();
+    rowOffset = smoothNumberValues.size();
 
     return 1U; // No factor found
   }
