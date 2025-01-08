@@ -764,6 +764,7 @@ struct Factorizer {
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
   std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
+  std::unordered_map<boost::dynamic_bitset<size_t>, BigInteger> hashMap;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<uint16_t> &p, ForwardFn fn)
@@ -879,75 +880,73 @@ struct Factorizer {
   //                                                   WRITTEN BY ELARA (GPT) BELOW                                                        //
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  // Find factor via Gaussian elimination
+  // Find duplicate rows
   BigInteger findFactor(const BigInteger &target) {
-    // Check for linear dependencies and find a congruence of squares
-    std::mutex rowMutex;
+    std::mutex toStrikeMtx;
+    std::mutex hashMapMtx;
     BigInteger result = 1U;
     std::set<BigInteger> toStrike;
-    auto iIt = smoothNumberMap.begin();
-    const size_t rowCount = smoothNumberMap.size();
-    const size_t rowCountMin1 = rowCount - 1U;
-    for (size_t i = 0U; (i < rowCountMin1) && (result == 1U); ++i) {
-      dispatch.dispatch([&target, i, iIt, &rowCount, &result, &toStrike, &rowMutex]() -> bool {
-        boost::dynamic_bitset<size_t> &iRow = iIt->second;
-        auto jIt = iIt;
-        for (size_t j = i + 1U; j < rowCount; ++j) {
-          ++jIt;
+    auto rIt = smoothNumberMap.begin();
+    std::advance(rIt, hashMap.size());
+    for (size_t row = hashMap.size(); (row < smoothNumberMap.size()) && (result == 1U); ++row) {
+      dispatch.dispatch([this, &target, row, rIt, &toStrikeMtx, &hashMapMtx, &toStrike, &result] {
+        const auto& binaryRow = rIt->second;
+        // Check if the row already exists in the map
+        BigInteger duplicateRow;
+        // For lock_guard scope
+        if (true) {
+          std::lock_guard<std::mutex> lock(hashMapMtx);
+          const auto found = this->hashMap.find(binaryRow);
+          if (found == this->hashMap.end()) {
+              this->hashMap[binaryRow] = row;
 
-          boost::dynamic_bitset<size_t> &jRow = jIt->second;
-          if (iRow != jRow) {
-            continue;
+              return false;
           }
+          duplicateRow = found->second;
+        }
 
-          if (true) {
-            std::lock_guard<std::mutex> lock(rowMutex);
-            toStrike.insert(jIt->first);
-          }
+        // Compute x and y
+        const BigInteger x = (rIt->first * duplicateRow) % target;
+        const BigInteger y = modExp(x, target >> 1U, target);
 
-          // Compute x and y
-          const BigInteger x = (iIt->first * jIt->first) % target;
-          const BigInteger y = modExp(x, target >> 1U, target);
+        // Check congruence of squares
+        BigInteger factor = gcd(target, x + y);
+        if ((factor != 1U) && (factor != target)) {
+          std::lock_guard<std::mutex> lock(toStrikeMtx);
+          result = factor;
 
-          // Check congruence of squares
-          BigInteger factor = gcd(target, x + y);
-          if ((factor != 1U) && (factor != target)) {
-            std::lock_guard<std::mutex> lock(rowMutex);
-            result = factor;
+          return true;
+        }
 
-            return true;
-          }
-
-          if (x == y) {
-            continue;
-          }
-
+        if (x != y) {
           // Try x - y as well
           factor = gcd(target, x - y);
           if ((factor != 1U) && (factor != target)) {
-            std::lock_guard<std::mutex> lock(rowMutex);
+            std::lock_guard<std::mutex> lock(toStrikeMtx);
             result = factor;
 
             return true;
           }
         }
 
+        if (rIt->first < duplicateRow) {
+          std::lock_guard<std::mutex> lock(toStrikeMtx);
+          toStrike.insert(duplicateRow);
+        } else {
+          std::lock_guard<std::mutex> lock(toStrikeMtx);
+          toStrike.insert(rIt->first);
+        }
+
         return false;
       });
-      ++iIt;
+      ++rIt;
     }
     dispatch.finish();
-
-    if (result != 1U) {
-      return result;
-    }
 
     // These numbers have been tried already:
     for (const BigInteger& i : toStrike) {
       smoothNumberMap.erase(i);
     }
-
-    return 1U; // No factor found
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
