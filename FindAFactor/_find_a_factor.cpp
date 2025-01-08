@@ -764,7 +764,9 @@ struct Factorizer {
   bool isIncomplete;
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
-  std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothNumberMap;
+  std::vector<BigInteger> smoothNumberKeys;
+  std::set<BigInteger> smoothNumberKeySet;
+  std::map<size_t, boost::dynamic_bitset<size_t>> smoothNumberValues;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<uint16_t> &p, ForwardFn fn)
@@ -865,9 +867,11 @@ struct Factorizer {
       }
       if (true) {
         std::lock_guard<std::mutex> lock(smoothNumberMapMutex);
-        auto it = smoothNumberMap.find(smoothNumber);
-        if (it == smoothNumberMap.end()) {
-          smoothNumberMap[smoothNumber] = fv;
+        auto it = smoothNumberKeySet.find(smoothNumber);
+        if (it == smoothNumberKeySet.end()) {
+          smoothNumberValues[smoothNumberKeys.size()] = fv;
+          smoothNumberKeys.push_back(smoothNumber);
+          smoothNumberKeySet.insert(smoothNumber);
         }
       }
       // Reset "smoothNumber" and its factorization vector.
@@ -885,13 +889,13 @@ struct Factorizer {
     // Check for linear dependencies and find a congruence of squares
     std::mutex rowMutex;
     BigInteger result = 1U;
-    std::set<BigInteger> toStrike;
-    auto iIt = smoothNumberMap.begin();
+    // std::set<size_t> toStrike;
+    auto iIt = smoothNumberValues.begin();
     std::advance(iIt, rowOffset);
-    const size_t rowCount = smoothNumberMap.size();
+    const size_t rowCount = smoothNumberKeys.size();
     const size_t rowCountMin1 = rowCount - 1U;
     for (size_t i = rowOffset; (i < rowCountMin1) && (result == 1U); ++i) {
-      dispatch.dispatch([&target, i, iIt, &rowCount, &result, &toStrike, &rowMutex]() -> bool {
+      dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = iIt->second;
         auto jIt = iIt;
         for (size_t j = i + 1U; j < rowCount; ++j) {
@@ -902,13 +906,19 @@ struct Factorizer {
             continue;
           }
 
-          if (true) {
-            std::lock_guard<std::mutex> lock(rowMutex);
-            toStrike.insert(jIt->first);
-          }
+          const BigInteger& iInt = this->smoothNumberKeys[iIt->first];
+          const BigInteger& jInt = this->smoothNumberKeys[jIt->first];
+
+          // if (iInt < jInt) {
+          //   std::lock_guard<std::mutex> lock(rowMutex);
+          //   toStrike.insert(jIt->first);
+          // } else {
+          //   std::lock_guard<std::mutex> lock(rowMutex);
+          //   toStrike.insert(iIt->first);
+          // }
 
           // Compute x and y
-          const BigInteger x = (iIt->first * jIt->first) % target;
+          const BigInteger x = (iInt * jInt) % target;
           const BigInteger y = modExp(x, target >> 1U, target);
 
           // Check congruence of squares
@@ -945,11 +955,13 @@ struct Factorizer {
     }
 
     // These numbers have been tried already:
-    for (const BigInteger& i : toStrike) {
-      smoothNumberMap.erase(i);
-    }
+    // for (const size_t& i : toStrike) {
+    //   smoothNumberValues.erase(i);
+    //   smoothNumberKeySet.erase(smoothNumberKeys[i]);
+    //   smoothNumberKeys.erase(smoothNumberKeys.begin() + i);
+    // }
 
-    rowOffset = smoothNumberMap.size();
+    rowOffset = smoothNumberKeys.size();
 
     return 1U; // No factor found
   }
