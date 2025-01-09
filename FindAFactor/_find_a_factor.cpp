@@ -760,7 +760,6 @@ struct Factorizer {
   BigInteger batchTotal;
   size_t wheelEntryCount;
   size_t smoothPartsLimit;
-  size_t rowOffset;
   bool isIncomplete;
   std::vector<uint16_t> primes;
   ForwardFn forwardFn;
@@ -771,11 +770,12 @@ struct Factorizer {
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<uint16_t> &p, ForwardFn fn)
     : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(0U), isIncomplete(true), primes(p), forwardFn(fn)
+    wheelEntryCount(w), smoothPartsLimit(spl), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
+      smoothNumberKeySet.insert(primes[i]);
       smoothNumberKeys.push_back(primes[i]);
-      smoothNumberValues.emplace_back(primes.size());
+      smoothNumberValues.emplace_back(primes.size(), false);
       smoothNumberValues.back()[i] = true;
     }
   }
@@ -894,15 +894,15 @@ struct Factorizer {
   // Perform Gaussian elimination on a binary matrix
   void gaussianElimination() {
     const unsigned cpuCount = CpuCount;
-    auto nColIt = smoothNumberKeys.begin();
     auto mColIt = smoothNumberValues.begin();
+    auto nColIt = smoothNumberKeys.begin();
     const size_t rows = smoothNumberValues.size();
     const size_t cols = mColIt->size();
-    std::vector<int> pivots(cols, -1);
     for (size_t col = 0U; col < cols; ++col) {
-      auto nRowIt = nColIt;
       auto mRowIt = mColIt;
+      auto nRowIt = nColIt;
 
+      int64_t pivot = -1;
       for (size_t row = col; row < rows; ++row) {
         if ((*mRowIt)[col]) {
           // Swapping matrix rows corresponds
@@ -911,24 +911,26 @@ struct Factorizer {
             std::swap(*mColIt, *mRowIt);
             std::swap(*nColIt, *nRowIt);
           }
-          pivots[col] = row;
+          pivot = row;
           break;
         }
         ++nRowIt;
         ++mRowIt;
       }
 
-      if (pivots[col] != -1) {
+      if (pivot != -1) {
         const boost::dynamic_bitset<size_t> &cm = *mColIt;
         const BigInteger &cn = *nColIt;
+        mRowIt = smoothNumberValues.begin();
+        nRowIt = smoothNumberKeys.begin();
         for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
-          dispatch.dispatch([this, col, cpu, &cpuCount, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
-            auto nrIt = nRowIt;
+          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
             auto mrIt = mRowIt;
+            auto nrIt = nRowIt;
             for (size_t row = cpu; ; row += cpuCount) {
-              boost::dynamic_bitset<size_t> &rm = *mRowIt;
-              BigInteger &rn = *nRowIt;
-              if ((row != col) && rm[col] && (rn < this->toFactorSqr)) {
+              boost::dynamic_bitset<size_t> &rm = *mrIt;
+              BigInteger &rn = *nrIt;
+              if ((row != col) && rm[col]) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
@@ -943,14 +945,14 @@ struct Factorizer {
 
             return false;
           });
-          ++nRowIt;
           ++mRowIt;
+          ++nRowIt;
         }
         dispatch.finish();
       }
 
-      ++nColIt;
       ++mColIt;
+      ++nColIt;
     }
   }
 
@@ -963,23 +965,10 @@ struct Factorizer {
     // Check for linear dependencies and find a congruence of squares
     std::mutex rowMutex;
     BigInteger result = 1U;
-    std::set<size_t> toStrike;
-    auto iIt = smoothNumberValues.begin();
-    const size_t rowCount = smoothNumberValues.size();
-    for (size_t i = 0U; (i < rowCount) && (result == 1U); ++i) {
-      dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex, &toStrike]() -> bool {
-        boost::dynamic_bitset<size_t> &iRow = *iIt;
-        const size_t iIndex = std::distance(this->smoothNumberValues.begin(), iIt);
-        const BigInteger& iInt = this->smoothNumberKeys[iIndex];
-
-        if (!iRow.none()) {
-          if (iInt >= toFactorSqr) {
-            toStrike.insert(iIndex);
-          }
-          return false;
-        }
-
-        toStrike.insert(iIndex);
+    const size_t rowCount = smoothNumberKeys.size();
+    for (size_t i = primes.size(); (i < rowCount) && (result == 1U); ++i) {
+      dispatch.dispatch([this, &target, i, &result, &rowMutex]() -> bool {
+        const BigInteger& iInt = this->smoothNumberKeys[i];
 
         // Compute x and y
         const BigInteger x = iInt % target;
@@ -1009,7 +998,6 @@ struct Factorizer {
 
         return false;
       });
-      ++iIt;
     }
     dispatch.finish();
 
@@ -1018,12 +1006,8 @@ struct Factorizer {
     }
 
     // These numbers have been tried already:
-    for (const size_t& i : toStrike) {
-      smoothNumberKeys.erase(smoothNumberKeys.begin() + i);
-      smoothNumberValues.erase(smoothNumberValues.begin() + i);
-    }
-
-    rowOffset = smoothNumberKeys.size();
+    smoothNumberKeys.resize(primes.size());
+    smoothNumberValues.resize(primes.size());
 
     return 1U; // No factor found
   }
