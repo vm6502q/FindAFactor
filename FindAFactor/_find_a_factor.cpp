@@ -869,7 +869,7 @@ struct Factorizer {
       fv ^= smoothPartsMap[sp];
       smoothNumber *= sp;
       // Check if the number is big enough
-      if (smoothNumber <= toFactorSqrt) {
+      if (smoothNumber <= toFactor) {
         continue;
       }
       if (true) {
@@ -969,55 +969,39 @@ struct Factorizer {
       dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex, &toStrike]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = *iIt;
 
-        const size_t startJ = std::max(this->rowOffset, i + 1U);
-        auto jIt = this->smoothNumberValues.begin();
-        std::advance(jIt, (startJ - 1U));
-        for (size_t j = startJ; j < rowCount; ++j) {
-          ++jIt;
+        if (!iRow.none()) {
+          return false;
+        }
 
-          boost::dynamic_bitset<size_t> &jRow = *jIt;
-          if (iRow != jRow) {
-            continue;
-          }
+        const size_t iIndex = std::distance(this->smoothNumberValues.begin(), iIt);
+        const BigInteger& iInt = this->smoothNumberKeys[iIndex];
 
-          const size_t iIndex = std::distance(this->smoothNumberValues.begin(), iIt);
-          const size_t jIndex = std::distance(this->smoothNumberValues.begin(), jIt);
+        toStrike.insert(iIndex);
 
-          const BigInteger& iInt = this->smoothNumberKeys[iIndex];
-          const BigInteger& jInt = this->smoothNumberKeys[jIndex];
-          if (iInt < jInt) {
-            std::lock_guard<std::mutex> lock(rowMutex);
-            toStrike.insert(jIndex);
-          } else {
-            std::lock_guard<std::mutex> lock(rowMutex);
-            toStrike.insert(iIndex);
-          }
+        // Compute x and y
+        const BigInteger x = iInt % target;
+        const BigInteger y = modExp(x, target >> 1U, target);
 
-          // Compute x and y
-          const BigInteger x = (iInt * jInt) % target;
-          const BigInteger y = modExp(x, target >> 1U, target);
+        // Check congruence of squares
+        BigInteger factor = gcd(target, x + y);
+        if ((factor != 1U) && (factor != target)) {
+          std::lock_guard<std::mutex> lock(rowMutex);
+          result = factor;
 
-          // Check congruence of squares
-          BigInteger factor = gcd(target, x + y);
-          if ((factor != 1U) && (factor != target)) {
-            std::lock_guard<std::mutex> lock(rowMutex);
-            result = factor;
+          return true;
+        }
 
-            return true;
-          }
+        if (x == y) {
+          return false;
+        }
 
-          if (x == y) {
-            continue;
-          }
+        // Try x - y as well
+        factor = gcd(target, x - y);
+        if ((factor != 1U) && (factor != target)) {
+          std::lock_guard<std::mutex> lock(rowMutex);
+          result = factor;
 
-          // Try x - y as well
-          factor = gcd(target, x - y);
-          if ((factor != 1U) && (factor != target)) {
-            std::lock_guard<std::mutex> lock(rowMutex);
-            result = factor;
-
-            return true;
-          }
+          return true;
         }
 
         return false;
