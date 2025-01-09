@@ -770,8 +770,15 @@ struct Factorizer {
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<uint16_t> &p, ForwardFn fn)
-      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-      wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(0U), isIncomplete(true), primes(p), forwardFn(fn) {}
+    : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
+    wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(0U), isIncomplete(true), primes(p), forwardFn(fn)
+  {
+    for (size_t i = 0U; i < primes.size(); ++i) {
+      smoothNumberKeys.push_back(primes[i]);
+      smoothNumberValues.emplace_back(primes.size());
+      smoothNumberValues.back()[i] = true;
+    }
+  }
 
   BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
@@ -884,8 +891,73 @@ struct Factorizer {
   //                                                   WRITTEN BY ELARA (GPT) BELOW                                                        //
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  // Perform Gaussian elimination on a binary matrix
+  void gaussianElimination() {
+    const unsigned cpuCount = CpuCount;
+    auto nColIt = smoothNumberKeys.begin();
+    auto mColIt = smoothNumberValues.begin();
+    const size_t rows = smoothNumberValues.size();
+    const size_t cols = mColIt->size();
+    std::vector<int> pivots(cols, -1);
+    for (size_t col = 0U; col < cols; ++col) {
+      auto nRowIt = nColIt;
+      auto mRowIt = mColIt;
+
+      for (size_t row = col; row < rows; ++row) {
+        if ((*mRowIt)[col]) {
+          // Swapping matrix rows corresponds
+          // with swapping factorized numbers.
+          std::swap(*mColIt, *mRowIt);
+          std::swap(*nColIt, *nRowIt);
+          pivots[col] = row;
+          break;
+        }
+        ++nRowIt;
+        ++mRowIt;
+      }
+
+      if (pivots[col] != -1) {
+        const boost::dynamic_bitset<size_t> &cm = *mColIt;
+        const BigInteger &cn = *nColIt;
+        for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
+          dispatch.dispatch([col, cpu, &cpuCount, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
+            auto nrIt = nRowIt;
+            auto mrIt = mRowIt;
+            for (size_t row = cpu; ; row += cpuCount) {
+              boost::dynamic_bitset<size_t> &rm = *mRowIt;
+              BigInteger &rn = *nRowIt;
+              if ((row != col) && rm[col]) {
+                // XOR-ing factorization rows
+                // is like multiplying the numbers.
+                rm ^= cm;
+                rn *= rn;
+              }
+              if ((row + cpuCount) >= rows) {
+                return false;
+              }
+              std::advance(nrIt, cpuCount);
+              std::advance(mrIt, cpuCount);
+            }
+
+            return false;
+          });
+          ++nRowIt;
+          ++mRowIt;
+        }
+        dispatch.finish();
+      }
+
+      ++nColIt;
+      ++mColIt;
+    }
+  }
+
   // Find duplicate rows
   BigInteger findFactor(const BigInteger &target) {
+    // Gaussian elimination multiplies these numbers
+    // with small primes, to produce squares
+    gaussianElimination();
+
     // Check for linear dependencies and find a congruence of squares
     std::mutex rowMutex;
     BigInteger result = 1U;
