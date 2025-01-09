@@ -770,8 +770,16 @@ struct Factorizer {
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<uint16_t> &p, ForwardFn fn)
-      : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-      wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(0U), isIncomplete(true), primes(p), forwardFn(fn) {}
+    : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
+    wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(primes.size()), isIncomplete(true), primes(p), forwardFn(fn)
+  {
+    for (size_t i = 0U; i < primes.size(); ++i) {
+      smoothNumberKeySet.insert(primes[i]);
+      smoothNumberKeys.push_back(primes[i]);
+      smoothNumberValues.emplace_back(primes.size(), false);
+      smoothNumberValues.back()[i] = true;
+    }
+  }
 
   BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
@@ -862,7 +870,7 @@ struct Factorizer {
       fv ^= smoothPartsMap[sp];
       smoothNumber *= sp;
       // Check if the number is big enough
-      if (smoothNumber <= toFactorSqrt) {
+      if (smoothNumber <= toFactor) {
         continue;
       }
       if (true) {
@@ -884,8 +892,73 @@ struct Factorizer {
   //                                                   WRITTEN WITH ELARA (GPT) BELOW                                                      //
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  // Perform Gaussian elimination on a binary matrix
+  void gaussianElimination() {
+    const unsigned cpuCount = CpuCount;
+    auto mColIt = smoothNumberValues.begin();
+    auto nColIt = smoothNumberKeys.begin();
+    const size_t rows = smoothNumberValues.size();
+    const size_t cols = mColIt->size();
+    for (size_t col = 0U; col < cols; ++col) {
+      auto mRowIt = mColIt;
+      auto nRowIt = nColIt;
+
+      int64_t pivot = -1;
+      for (size_t row = col; row < rows; ++row) {
+        if ((*mRowIt)[col]) {
+          // Swapping matrix rows corresponds
+          // with swapping factorized numbers.
+          if (row != col) {
+            std::swap(*mColIt, *mRowIt);
+            std::swap(*nColIt, *nRowIt);
+          }
+          pivot = row;
+          break;
+        }
+        ++nRowIt;
+        ++mRowIt;
+      }
+
+      if (pivot != -1) {
+        const boost::dynamic_bitset<size_t> &cm = *mColIt;
+        const BigInteger &cn = *nColIt;
+        mRowIt = smoothNumberValues.begin();
+        nRowIt = smoothNumberKeys.begin();
+        for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
+          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
+            auto mrIt = mRowIt;
+            auto nrIt = nRowIt;
+            for (size_t row = cpu; ; row += cpuCount) {
+              boost::dynamic_bitset<size_t> &rm = *mrIt;
+              BigInteger &rn = *nrIt;
+              if ((row != col) && rm[col]) {
+                // XOR-ing factorization rows
+                // is like multiplying the numbers.
+                rm ^= cm;
+                rn *= cn;
+              }
+              if ((row + cpuCount) >= rows) {
+                return false;
+              }
+              std::advance(nrIt, cpuCount);
+              std::advance(mrIt, cpuCount);
+            }
+
+            return false;
+          });
+          ++mRowIt;
+          ++nRowIt;
+        }
+        dispatch.finish();
+      }
+
+      ++mColIt;
+      ++nColIt;
+    }
+  }
+
   // Find duplicate rows
-  BigInteger findFactor(const BigInteger &target) {
+  BigInteger findDuplicateRows(const BigInteger &target) {
     // Check for linear dependencies and find a congruence of squares
     std::mutex rowMutex;
     BigInteger result = 1U;
@@ -966,13 +1039,69 @@ struct Factorizer {
     return 1U; // No factor found
   }
 
+  // Use Gaussian elimination
+  BigInteger findFactor(const BigInteger &target) {
+    // Gaussian elimination multiplies these numbers
+    // with small primes, to produce squares
+    gaussianElimination();
+
+    // Check for linear dependencies and find a congruence of squares
+    std::mutex rowMutex;
+    BigInteger result = 1U;
+    const size_t rowCount = smoothNumberKeys.size();
+    for (size_t i = primes.size(); (i < rowCount) && (result == 1U); ++i) {
+      dispatch.dispatch([this, &target, i, &result, &rowMutex]() -> bool {
+        const BigInteger& iInt = this->smoothNumberKeys[i];
+
+        // Compute x and y
+        const BigInteger x = iInt % target;
+        const BigInteger y = modExp(x, target >> 1U, target);
+
+        // Check congruence of squares
+        BigInteger factor = gcd(target, x + y);
+        if ((factor != 1U) && (factor != target)) {
+          std::lock_guard<std::mutex> lock(rowMutex);
+          result = factor;
+
+          return true;
+        }
+
+        if (x == y) {
+          return false;
+        }
+
+        // Try x - y as well
+        factor = gcd(target, x - y);
+        if ((factor != 1U) && (factor != target)) {
+          std::lock_guard<std::mutex> lock(rowMutex);
+          result = factor;
+
+          return true;
+        }
+
+        return false;
+      });
+    }
+    dispatch.finish();
+
+    if (result != 1U) {
+      return result;
+    }
+
+    // These numbers have been tried already:
+    smoothNumberKeys.resize(primes.size());
+    smoothNumberValues.resize(primes.size());
+
+    return 1U; // No factor found
+  }
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //                                                   WRITTEN WITH ELARA (GPT) ABOVE                                                      //
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
 
-std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr, const size_t &nodeCount, const size_t &nodeId, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
+std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr, const bool &isGaussElim, const size_t &nodeCount, const size_t &nodeId,
+                          size_t gearFactorizationLevel, size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
   // (At least) level 11 wheel factorization is baked into basic functions.
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
@@ -1142,7 +1271,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     futures.clear();
 
     // This next section is for (Quadratic Sieve) Gaussian elimination.
-    result = worker.findFactor(toFactor);
+    result = isGaussElim ? worker.findFactor(toFactor) : worker.findDuplicateRows(toFactor);
   } while ((result == 1U) || (result == toFactor));
 
   return boost::lexical_cast<std::string>(result);
