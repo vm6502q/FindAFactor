@@ -922,13 +922,13 @@ struct Factorizer {
         const boost::dynamic_bitset<size_t> &cm = *mColIt;
         const BigInteger &cn = *nColIt;
         for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
-          dispatch.dispatch([col, cpu, &cpuCount, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
+          dispatch.dispatch([this, col, cpu, &cpuCount, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
             auto nrIt = nRowIt;
             auto mrIt = mRowIt;
             for (size_t row = cpu; ; row += cpuCount) {
               boost::dynamic_bitset<size_t> &rm = *mRowIt;
               BigInteger &rn = *nRowIt;
-              if ((row != col) && rm[col]) {
+              if ((row != col) && rm[col] && (rn < this->toFactorSqr)) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
@@ -969,13 +969,15 @@ struct Factorizer {
     for (size_t i = 0U; (i < rowCount) && (result == 1U); ++i) {
       dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex, &toStrike]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = *iIt;
-
-        if (!iRow.none()) {
-          return false;
-        }
-
         const size_t iIndex = std::distance(this->smoothNumberValues.begin(), iIt);
         const BigInteger& iInt = this->smoothNumberKeys[iIndex];
+
+        if (!iRow.none()) {
+          if (iInt >= toFactorSqr) {
+            toStrike.insert(iIndex);
+          }
+          return false;
+        }
 
         toStrike.insert(iIndex);
 
