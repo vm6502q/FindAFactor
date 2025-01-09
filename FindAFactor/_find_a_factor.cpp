@@ -896,6 +896,7 @@ struct Factorizer {
     for (size_t i = 0U; (i < rowCountMin1) && (result == 1U); ++i) {
       dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex, &toStrike]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = *iIt;
+        const BigInteger& iInt = this->smoothNumberKeys[i];
 
         const size_t startJ = std::max(this->rowOffset, i + 1U);
         auto jIt = this->smoothNumberValues.begin();
@@ -908,17 +909,13 @@ struct Factorizer {
             continue;
           }
 
-          const size_t iIndex = std::distance(this->smoothNumberValues.begin(), iIt);
-          const size_t jIndex = std::distance(this->smoothNumberValues.begin(), jIt);
-
-          const BigInteger& iInt = this->smoothNumberKeys[iIndex];
-          const BigInteger& jInt = this->smoothNumberKeys[jIndex];
+          const BigInteger& jInt = this->smoothNumberKeys[j];
           if (iInt < jInt) {
             std::lock_guard<std::mutex> lock(rowMutex);
-            toStrike.insert(jIndex);
+            toStrike.insert(j);
           } else {
             std::lock_guard<std::mutex> lock(rowMutex);
-            toStrike.insert(iIndex);
+            toStrike.insert(i);
           }
 
           // Compute x and y
