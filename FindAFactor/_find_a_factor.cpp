@@ -964,8 +964,7 @@ struct Factorizer {
     std::set<size_t> toStrike;
     auto iIt = smoothNumberValues.begin();
     const size_t rowCount = smoothNumberValues.size();
-    const size_t rowCountMin1 = rowCount - 1U;
-    for (size_t i = 0U; (i < rowCountMin1) && (result == 1U); ++i) {
+    for (size_t i = 0U; (i < rowCount) && (result == 1U); ++i) {
       dispatch.dispatch([this, &target, i, iIt, &rowCount, &result, &rowMutex, &toStrike]() -> bool {
         boost::dynamic_bitset<size_t> &iRow = *iIt;
 
