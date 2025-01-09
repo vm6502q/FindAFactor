@@ -930,7 +930,7 @@ struct Factorizer {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
-                rn *= rn;
+                rn *= cn;
               }
               if ((row + cpuCount) >= rows) {
                 return false;
