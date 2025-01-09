@@ -907,8 +907,10 @@ struct Factorizer {
         if ((*mRowIt)[col]) {
           // Swapping matrix rows corresponds
           // with swapping factorized numbers.
-          std::swap(*mColIt, *mRowIt);
-          std::swap(*nColIt, *nRowIt);
+          if (row != col) {
+            std::swap(*mColIt, *mRowIt);
+            std::swap(*nColIt, *nRowIt);
+          }
           pivots[col] = row;
           break;
         }
