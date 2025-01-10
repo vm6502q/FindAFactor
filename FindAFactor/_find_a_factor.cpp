@@ -770,7 +770,7 @@ struct Factorizer {
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<uint16_t> &p, ForwardFn fn)
     : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(primes.size()), isIncomplete(true), primes(p), forwardFn(fn)
+    wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       smoothNumberKeys.push_back(primes[i]);
