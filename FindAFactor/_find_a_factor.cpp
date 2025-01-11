@@ -645,8 +645,8 @@ std::vector<BigInteger> SieveOfEratosthenes(const BigInteger &n) {
   return knownPrimes;
 }
 
-bool isMultiple(const BigInteger &p, const std::vector<uint16_t> &knownPrimes) {
-  for (const uint16_t &prime : knownPrimes) {
+bool isMultiple(const BigInteger &p, const std::vector<BigInteger> &knownPrimes) {
+  for (const BigInteger &prime : knownPrimes) {
     if (!(p % prime)) {
       return true;
     }
@@ -655,12 +655,12 @@ bool isMultiple(const BigInteger &p, const std::vector<uint16_t> &knownPrimes) {
   return false;
 }
 
-boost::dynamic_bitset<size_t> wheel_inc(std::vector<uint16_t> primes) {
+boost::dynamic_bitset<size_t> wheel_inc(std::vector<BigInteger> primes) {
   BigInteger radius = 1U;
-  for (const uint16_t &i : primes) {
+  for (const BigInteger &i : primes) {
     radius *= i;
   }
-  const uint16_t prime = primes.back();
+  const BigInteger prime = primes.back();
   primes.pop_back();
   boost::dynamic_bitset<size_t> o;
   for (BigInteger i = 1U; i <= radius; ++i) {
@@ -673,10 +673,10 @@ boost::dynamic_bitset<size_t> wheel_inc(std::vector<uint16_t> primes) {
   return o;
 }
 
-std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<uint16_t> &primes) {
+std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<BigInteger> &primes) {
   std::vector<boost::dynamic_bitset<size_t>> output;
-  std::vector<uint16_t> wheelPrimes;
-  for (const uint16_t &p : primes) {
+  std::vector<BigInteger> wheelPrimes;
+  for (const BigInteger &p : primes) {
     wheelPrimes.push_back(p);
     output.push_back(wheel_inc(wheelPrimes));
   }
@@ -722,11 +722,11 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 }
 
 // Compute the prime factorization modulo 2
-boost::dynamic_bitset<size_t> factorizationVector(BigInteger num, const std::vector<uint16_t> &primes) {
+boost::dynamic_bitset<size_t> factorizationVector(BigInteger num, const std::vector<BigInteger> &primes) {
   boost::dynamic_bitset<size_t> vec(primes.size(), false);
   for (size_t i = 0U; i < primes.size(); ++i) {
     bool count = false;
-    const uint16_t &p = primes[i];
+    const BigInteger &p = primes[i];
     while (!(num % p)) {
       num /= p;
       count = !count;
@@ -762,13 +762,13 @@ struct Factorizer {
   size_t smoothPartsLimit;
   size_t rowOffset;
   bool isIncomplete;
-  std::vector<uint16_t> primes;
+  std::vector<BigInteger> primes;
   ForwardFn forwardFn;
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
-             const std::vector<uint16_t> &p, ForwardFn fn)
+             const std::vector<BigInteger> &p, ForwardFn fn)
     : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
   {
@@ -1097,23 +1097,23 @@ struct Factorizer {
 };
 
 std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr, const bool &isGaussElim, const size_t &nodeCount, const size_t &nodeId,
-                          size_t gearFactorizationLevel, size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
+                          size_t trialDivisionLevel, size_t gearFactorizationLevel, size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
   // (At least) level 11 wheel factorization is baked into basic functions.
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
   } else if (wheelFactorizationLevel > 13U) {
     wheelFactorizationLevel = 13U;
-    std::cout << "Warning: Wheel factorization limit is 13. (Parameter will be ignored and default to 13.)";
+    std::cout << "Warning: Wheel factorization limit is 13. (Parameter will be ignored and default to 13.)" << std::endl;
   }
   if (!gearFactorizationLevel) {
     gearFactorizationLevel = 1U;
   } else if (gearFactorizationLevel < wheelFactorizationLevel) {
     gearFactorizationLevel = wheelFactorizationLevel;
-    std::cout << "Warning: Gear factorization level must be at least as high as wheel level. (Parameter will be ignored and default to wheel level.)";
+    std::cout << "Warning: Gear factorization level must be at least as high as wheel level. (Parameter will be ignored and default to wheel level.)" << std::endl;
   }
 
   // Convert from string.
-  BigInteger toFactor(toFactorStr);
+  const BigInteger toFactor(toFactorStr);
 
   // The largest possible discrete factor of "toFactor" is its square root (as with any integer).
   const BigInteger fullMaxBase = sqrt(toFactor);
@@ -1122,13 +1122,10 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   }
 
   // We only need to try trial division about as high as would be necessary for 4096 bits of semiprime.
-  const BigInteger primeCeiling = (65536ULL < fullMaxBase) ? (BigInteger)65536ULL : fullMaxBase;
+  const BigInteger primeCeiling = (trialDivisionLevel < fullMaxBase) ? (BigInteger)trialDivisionLevel : fullMaxBase;
   BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
-  std::vector<BigInteger> bigPrimes = SieveOfEratosthenes(primeCeiling);
-  // All of our primes are necessarily less than 16-bit
-  std::vector<uint16_t> primes(bigPrimes.size());
-  std::transform(bigPrimes.begin(), bigPrimes.end(), primes.begin(), [](const BigInteger &p) { return (uint16_t)p; });
+  std::vector<BigInteger> primes = SieveOfEratosthenes(primeCeiling);
   // "it" is the end-of-list iterator for a list up-to-and-including wheelFactorizationLevel.
   const auto itw = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
   const auto itg = std::upper_bound(primes.begin(), primes.end(), gearFactorizationLevel);
@@ -1140,7 +1137,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     dispatch.dispatch([&toFactor, &primes, &result, &trialDivisionMutex, primeIndex]() -> bool {
       const size_t maxLcv = std::min(primeIndex + 64U, primes.size());
       for (size_t pi = primeIndex; pi < maxLcv; ++pi) {
-        const uint16_t &currentPrime = primes[pi];
+        const BigInteger& currentPrime = primes[pi];
         if (!(toFactor % currentPrime)) {
           std::lock_guard<std::mutex> lock(trialDivisionMutex);
           result = currentPrime;
@@ -1157,20 +1154,32 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   }
 
   // Set up wheel factorization (or "gear" factorization)
-  std::vector<uint16_t> gearFactorizationPrimes(primes.begin(), itg);
-  std::vector<uint16_t> wheelFactorizationPrimes(primes.begin(), itw);
+  std::vector<BigInteger> gearFactorizationPrimes(primes.begin(), itg);
+  std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), itw);
   // Keep as many "smooth" primes as bits in number to factor.
   const size_t toFactorBits = (size_t)log2(toFactor);
   size_t smoothPrimeCount = (size_t)(smoothnessBoundMultiplier * toFactorBits);
   if (!smoothPrimeCount) {
     smoothPrimeCount = 1U;
-    std::cout << "Warning: smoothness bound multiplier would retain no primes, but it must retain at least 1. (Defaulting to retaining 1 prime.)";
+    std::cout << "Warning: smoothness bound multiplier would retain no primes, but it must retain at least 1. (Defaulting to retaining 1 prime.)" << std::endl;
   }
   // Primes are only present in range above wheel factorization level
-  primes = std::vector<uint16_t>(itg, primes.begin() + std::min(primes.size(), gearFactorizationPrimes.size() + smoothPrimeCount));
+  primes.erase(primes.begin(), itg);
+  const size_t maxPrimeCount = std::min(primes.size(), smoothPrimeCount);
+  std::vector<BigInteger> smoothPrimes;
+  for (size_t primeId = 0U; (primeId < primes.size()) && (smoothPrimes.size() < maxPrimeCount); ++primeId) {
+    const BigInteger residue = toFactor % primes[primeId];
+    const BigInteger sr = sqrt(residue);
+    if ((sr * sr) == residue) {
+      smoothPrimes.push_back(primes[primeId]);
+    }
+  }
+  if (smoothPrimes.size() < maxPrimeCount) {
+    std::cout << "Warning: Factor base was truncated to " << smoothPrimes.size() << ". If you don't want it truncated, set the trial division level option higher." << std::endl;
+  }
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
-  for (const uint16_t &wp : gearFactorizationPrimes) {
+  for (const BigInteger &wp : gearFactorizationPrimes) {
     biggestWheel *= (size_t)wp;
   }
   // Wheel entry count per largest "gear" scales our brute-force range.
@@ -1182,7 +1191,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   }
   wheelFactorizationPrimes.clear();
   // These are "gears," for wheel factorization (with a "wheel" already in place up to 11).
-  std::vector<boost::dynamic_bitset<size_t>> inc_seqs = wheel_gen(std::vector<uint16_t>(gearFactorizationPrimes.begin(), gearFactorizationPrimes.end()));
+  std::vector<boost::dynamic_bitset<size_t>> inc_seqs = wheel_gen(gearFactorizationPrimes);
   // We're done with the lowest primes.
   const size_t MIN_RTD_LEVEL = gearFactorizationPrimes.size() - wgDiff;
   const Wheel SMALLEST_WHEEL = wheelByPrimeCardinal(MIN_RTD_LEVEL);
@@ -1198,7 +1207,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
                     wheelEntryCount, (size_t)((wheelEntryCount << 1U) * batchSizeMultiplier),
-                    primes, forward(SMALLEST_WHEEL));
+                    smoothPrimes, forward(SMALLEST_WHEEL));
 
   if (!isConOfSqr) {
     const auto workerFn = [&inc_seqs, &worker] {

@@ -16,6 +16,7 @@ def main():
     use_gaussian_elimination = True if os.environ.get('FINDAFACTOR_USE_GAUSSIAN_ELIMINATION') else False
     node_count = int(os.environ.get('FINDAFACTOR_NODE_COUNT')) if os.environ.get('FINDAFACTOR_NODE_COUNT') else 1
     node_id = int(os.environ.get('FINDAFACTOR_NODE_ID')) if os.environ.get('FINDAFACTOR_NODE_ID') else 0
+    trial_division_level=int(os.environ.get('FINDAFACTOR_TRIAL_DIVISION_LEVEL')) if os.environ.get('FINDAFACTOR_TRIAL_DIVISION_LEVEL') else 2**16
     gear_factorization_level = int(os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL') else 11
     wheel_factorization_level = int(os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL') else 7
     smoothness_bound_multiplier = float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0
@@ -36,6 +37,8 @@ def main():
         smoothness_bound_multiplier = float(sys.argv[8])
     if argv_len > 9:
         batch_size_multiplier = float(sys.argv[9])
+    if argv_len > 10:
+        trial_division_level = int(sys.argv[10])
 
     start = time.perf_counter()
     result = find_a_factor(
@@ -44,6 +47,7 @@ def main():
         use_gaussian_elimination = use_gaussian_elimination,
         node_count = node_count,
         node_id = node_id,
+        trial_division_level = trial_division_level,
         gear_factorization_level = gear_factorization_level,
         wheel_factorization_level = wheel_factorization_level,
         smoothness_bound_multiplier = smoothness_bound_multiplier,
