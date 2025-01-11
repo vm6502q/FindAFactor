@@ -2,7 +2,7 @@
 Find any nontrivial factor of a number
 
 ## Copyright and license
-(c) Daniel Strano and the Qrack contributors 2017-2024. All rights reserved.
+(c) Daniel Strano and the Qrack contributors 2017-2025. All rights reserved.
 
 ## Installation
 From PyPi:
