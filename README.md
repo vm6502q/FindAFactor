@@ -30,6 +30,7 @@ factor = find_a_factor(
     use_congruence_of_squares=False,
     use_gaussian_elimination=False,
     node_count=1, node_id=0,
+    trial_division_level=65536,
     gear_factorization_level=11,
     wheel_factorization_level=7,
     smoothness_bound_multiplier=1.0,
@@ -43,6 +44,7 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `use_gaussian_elimination` (default value: `False`): This option is only relevant if `use_congruence_of_squares=True`. In that case, if `use_gaussian_elimination` is `True`, then proper Gaussian elimination is used, with **O(N^3)** worst case complexity but using potentially much smaller "N" count of rows. If the option is `False`, rather than Gaussian elimination, the algorithm checks only for exact factorization parity duplicates in the "smooth" number rows, for **O(N^2)** worst case complexity, but using a potentially much larger "N" count of rows.
 - `node_count` (default value: `1`): `FindAFactor` can perform factorization in a _distributed_ manner, across nodes, without network communication! When `node_count` is set higher than `1`, the search space for factors is segmented equally per node. If the number to factor is semiprime, and brute-force search is used instead of congruence of squares, for example, all nodes except the one that happens to contain the (unknown) prime factor less than the square root of `to_factor` will ultimately return `1`, while one node will find and return this factor. For best performance, every node involved in factorization should have roughly the same CPU throughput capacity.
 - `node_id` (default value: `0`): This is the identifier of this node, when performing distributed factorization with `node_count` higher than `1`. `node_id` values start at `0` and go as high as `(node_count - 1)`.
+- `trial_division_level` (default value: `65536`): Trial division is carried out as a preliminary round for all primes up this number. If you need more primes for your smoothness bound, increase this level.
 - `gear_factorization_level` (default value: `11`): This is the value up to which "wheel (and gear) factorization" and trial division are used to check factors and optimize "brute force," in general. The default value of `11` includes all prime factors of `11` and below and works well in general, though significantly higher might be preferred in certain cases.
 - `wheel_factorization_level` (default value: `7`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. Optimized implementation for wheels is only available up to `13`. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization.
 - `smoothness_bound_multiplier` (default value: `1.0`): starting with the first prime number after wheel factorization, the congruence of squares approach (with Quadratic Sieve) takes a default "smoothness bound" with as many distinct prime numbers as bits in the number to factor (for default argument of `1.0` multiplier). To increase or decrease this number, consider it multiplied by the value of `smoothness_bound_multiplier`.
@@ -52,6 +54,7 @@ All variables defaults can also be controlled by environment variables:
 - `FINDAFACTOR_USE_CONGRUENCE_OF_SQUARES` (any value makes `True`, while default is `False`)
 - `FINDAFACTOR_NODE_COUNT`
 - `FINDAFACTOR_NODE_ID`
+- `FINDAFACTOR_TRIAL_DIVISION_LEVEL`
 - `FINDAFACTOR_GEAR_FACTORIZATION_LEVEL`
 - `FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL`
 - `FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER`
