@@ -721,28 +721,6 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
   return result;
 }
 
-// Compute the prime factorization modulo 2
-boost::dynamic_bitset<size_t> factorizationVector(BigInteger num, const std::vector<BigInteger> &primes) {
-  boost::dynamic_bitset<size_t> vec(primes.size(), false);
-  for (size_t i = 0U; i < primes.size(); ++i) {
-    bool count = false;
-    const BigInteger &p = primes[i];
-    while (!(num % p)) {
-      num /= p;
-      count = !count;
-    }
-    vec[i] = count;
-    if (num == 1U) {
-      break;
-    }
-  }
-  if (num != 1U) {
-    return boost::dynamic_bitset<size_t>();
-  }
-
-  return vec;
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                  WRITTEN WITH ELARA (GPT) ABOVE                                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -751,6 +729,8 @@ struct Factorizer {
   std::mutex batchMutex;
   std::mutex smoothNumberMapMutex;
   std::default_random_engine rng;
+  std::mt19937_64 gen;
+  std::uniform_int_distribution<size_t> dis;
   BigInteger toFactorSqr;
   BigInteger toFactor;
   BigInteger toFactorSqrt;
@@ -763,17 +743,20 @@ struct Factorizer {
   size_t rowOffset;
   bool isIncomplete;
   std::vector<BigInteger> primes;
+  std::vector<BigInteger> sqrPrimes;
   ForwardFn forwardFn;
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<BigInteger> &p, ForwardFn fn)
-    : rng({}), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
+    : rng({}), gen(rng()), dis(0U, p.size() - 1U), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
-      smoothNumberKeys.push_back(primes[i]);
+      const BigInteger& p = primes[i];
+      sqrPrimes.push_back(p * p);
+      smoothNumberKeys.push_back(p);
       smoothNumberValues.emplace_back(primes.size(), false);
       smoothNumberValues.back()[i] = true;
     }
@@ -841,12 +824,34 @@ struct Factorizer {
     return 1U;
   }
 
+  // Compute the prime factorization modulo 2
+  boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
+    boost::dynamic_bitset<size_t> vec(primes.size(), false);
+    for (size_t i = 0U; i < primes.size(); ++i) {
+      bool count = false;
+      const BigInteger &p = primes[i];
+      while (!(num % p)) {
+        num /= p;
+        count = !count;
+      }
+      vec[i] = count;
+      if (num == 1U) {
+        break;
+      }
+    }
+    if (num != 1U) {
+      return boost::dynamic_bitset<size_t>();
+    }
+
+    return vec;
+  }
+
   void makeSmoothNumbers(std::vector<BigInteger> *semiSmoothParts, bool isGaussElim) {
     // Factorize all "smooth parts."
     std::vector<BigInteger> smoothParts;
     std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothPartsMap;
     for (const BigInteger &n : (*semiSmoothParts)) {
-      const boost::dynamic_bitset<size_t> fv = factorizationVector(n, primes);
+      const boost::dynamic_bitset<size_t> fv = factorizationVector(n);
       if (fv.size()) {
         smoothPartsMap[n] = fv;
         smoothParts.push_back(n);
@@ -894,8 +899,7 @@ struct Factorizer {
     auto mColIt = smoothNumberValues.begin();
     auto nColIt = smoothNumberKeys.begin();
     const size_t rows = smoothNumberValues.size();
-    const size_t cols = mColIt->size();
-    for (size_t col = 0U; col < cols; ++col) {
+    for (size_t col = 0U; col < primes.size(); ++col) {
       auto mRowIt = mColIt;
       auto nRowIt = nColIt;
 
@@ -953,6 +957,32 @@ struct Factorizer {
     }
   }
 
+  BigInteger checkPerfectSquare(BigInteger perfectSquare) {
+    while (perfectSquare < toFactorSqr) {
+      // Compute x and y
+      const BigInteger x = perfectSquare % toFactor;
+      const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
+
+      // Check congruence of squares
+      BigInteger factor = gcd(toFactor, x + y);
+      if ((factor != 1U) && (factor != toFactor)) {
+        return factor;
+      }
+
+      if (x != y) {
+        // Try x - y as well
+        factor = gcd(toFactor, x - y);
+        if ((factor != 1U) && (factor != toFactor)) {
+          return factor;
+        }
+      }
+
+      perfectSquare *= sqrPrimes[dis(gen)];
+    }
+
+    return 1U;
+  }
+
   // Find duplicate rows
   BigInteger findDuplicateRows(const BigInteger &target) {
     // Check for linear dependencies and find a congruence of squares
@@ -987,25 +1017,7 @@ struct Factorizer {
             toStrike.insert(i);
           }
 
-          // Compute x and y
-          const BigInteger x = (iInt * jInt) % target;
-          const BigInteger y = modExp(x, target >> 1U, target);
-
-          // Check congruence of squares
-          BigInteger factor = gcd(target, x + y);
-          if ((factor != 1U) && (factor != target)) {
-            std::lock_guard<std::mutex> lock(rowMutex);
-            result = factor;
-
-            return true;
-          }
-
-          if (x == y) {
-            continue;
-          }
-
-          // Try x - y as well
-          factor = gcd(target, x - y);
+          const BigInteger factor = checkPerfectSquare(this->smoothNumberKeys[i]);
           if ((factor != 1U) && (factor != target)) {
             std::lock_guard<std::mutex> lock(rowMutex);
             result = factor;
@@ -1047,27 +1059,8 @@ struct Factorizer {
     const size_t rowCount = smoothNumberKeys.size();
     for (size_t i = primes.size(); (i < rowCount) && (result == 1U); ++i) {
       dispatch.dispatch([this, &target, i, &result, &rowMutex]() -> bool {
-        const BigInteger& iInt = this->smoothNumberKeys[i];
+        const BigInteger factor = checkPerfectSquare(this->smoothNumberKeys[i]);
 
-        // Compute x and y
-        const BigInteger x = iInt % target;
-        const BigInteger y = modExp(x, target >> 1U, target);
-
-        // Check congruence of squares
-        BigInteger factor = gcd(target, x + y);
-        if ((factor != 1U) && (factor != target)) {
-          std::lock_guard<std::mutex> lock(rowMutex);
-          result = factor;
-
-          return true;
-        }
-
-        if (x == y) {
-          return false;
-        }
-
-        // Try x - y as well
-        factor = gcd(target, x - y);
         if ((factor != 1U) && (factor != target)) {
           std::lock_guard<std::mutex> lock(rowMutex);
           result = factor;
