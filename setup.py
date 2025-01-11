@@ -7,7 +7,7 @@ except ImportError:
 import setuptools
 from distutils.core import setup, Extension
 
-cpp_args = ['-std=c++17', '-lpthread']
+cpp_args = ['-std=c++17', '-lpthread', '-O3']
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')
 with open(README_PATH) as readme_file:
