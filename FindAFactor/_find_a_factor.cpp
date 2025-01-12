@@ -849,10 +849,7 @@ struct Factorizer {
       if (num == 1U) {
         break;
       }
-      // Since we removed smooth primes,
-      // factor == 1U if the number is smooth.
     };
-
     if (num != 1U) {
       return boost::dynamic_bitset<size_t>();
     }
