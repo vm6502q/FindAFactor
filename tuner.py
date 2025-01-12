@@ -55,7 +55,7 @@ def main():
         Integer(4, 6, name="gear_factorization_level"),           # Gear factorization level
         Integer(3, 4, name="wheel_factorization_level"),          # Wheel factorization level
         Real(0.5, 2.0, name="smoothness_bound_multiplier"),       # Smoothness bound multiplier
-        Real(4.0, 12.0, name="batch_size_multiplier")             # Batch size multiplier
+        Real(4.0, 11.0, name="batch_size_multiplier")             # Batch size multiplier
     ]
 
     # Run Bayesian optimization
