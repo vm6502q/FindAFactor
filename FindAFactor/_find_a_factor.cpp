@@ -41,12 +41,7 @@
 #include "dispatchqueue.hpp"
 
 #include <algorithm>
-#include <chrono>
-#include <cmath>
-#include <float.h>
-#include <fstream>
 #include <future>
-#include <iomanip>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -54,7 +49,6 @@
 #include <random>
 #include <stdlib.h>
 #include <string>
-#include <time.h>
 
 #include <boost/dynamic_bitset.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
@@ -865,7 +859,7 @@ struct Factorizer {
           continue;
         }
         factor /= p;
-        vec[pi] = !vec[pi];
+        vec.flip(pi);
         if (factor == 1U) {
           break;
         }
