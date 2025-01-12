@@ -1,4 +1,5 @@
 # Tuner code written by Elara (OpenAI GPT)
+# (Install scikit-optimize to use)
 
 import time
 from skopt import gp_minimize
