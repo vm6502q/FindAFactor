@@ -189,7 +189,7 @@ inline size_t backward3(const size_t &n) { return (size_t)((~(~n | 1U)) / 3U) + 
 constexpr unsigned char wheel5[8U] = {1U, 7U, 11U, 13U, 17U, 19U, 23U, 29U};
 
 // Make this NOT a multiple of 2, 3, or 5.
-size_t forward5(const size_t &p) { return wheel5[p % 8U] + (p / 8U) * 30U; }
+size_t forward5(const size_t &p) { return wheel5[p & 7U] + (p >> 3U) * 30U; }
 
 size_t backward5(const size_t &n) { return std::distance(wheel5, std::lower_bound(wheel5, wheel5 + 8U, (size_t)(n % 30U))) + 8U * (size_t)(n / 30U) + 1U; }
 
@@ -486,7 +486,7 @@ inline BigInteger _forward3(const BigInteger &p) { return (p << 1U) + (~(~p | 1U
 
 inline BigInteger _backward3(const BigInteger &n) { return ((~(~n | 1U)) / 3U) + 1U; }
 
-BigInteger _forward5(const BigInteger &p) { return wheel5[(size_t)(p % 8U)] + (p / 8U) * 30U; }
+BigInteger _forward5(const BigInteger &p) { return wheel5[(size_t)(p & 7U)] + (p >> 3U) * 30U; }
 
 BigInteger _backward5(const BigInteger &n) { return std::distance(wheel5, std::lower_bound(wheel5, wheel5 + 8U, (size_t)(n % 30U))) + 8U * (n / 30U) + 1U; }
 
@@ -769,7 +769,6 @@ struct Factorizer {
   size_t rowOffset;
   bool isIncomplete;
   std::vector<size_t> primes;
-  std::vector<size_t> sqrPrimes;
   ForwardFn forwardFn;
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
@@ -782,7 +781,6 @@ struct Factorizer {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
       wheelRadius *= p;
-      sqrPrimes.push_back(p * p);
       smoothNumberKeys.push_back(p);
       smoothNumberValues.emplace_back(primes.size(), 0);
       smoothNumberValues.back()[i] = true;
@@ -995,26 +993,24 @@ struct Factorizer {
   }
 
   BigInteger checkPerfectSquare(BigInteger perfectSquare) {
-    while (perfectSquare < toFactorSqr) {
-      // Compute x and y
-      const BigInteger x = perfectSquare % toFactor;
-      const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
+    // Compute x and y
+    const BigInteger x = perfectSquare % toFactor;
+    const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
 
-      // Check congruence of squares
-      BigInteger factor = gcd(toFactor, x + y);
-      if ((factor != 1U) && (factor != toFactor)) {
-        return factor;
-      }
+    // Check congruence of squares
+    BigInteger factor = gcd(toFactor, x + y);
+    if ((factor != 1U) && (factor != toFactor)) {
+      return factor;
+    }
 
-      if (x != y) {
-        // Try x - y as well
-        factor = gcd(toFactor, x - y);
-        if ((factor != 1U) && (factor != toFactor)) {
-          return factor;
-        }
-      }
+    if (x == y) {
+      return 1U;
+    }
 
-      perfectSquare *= sqrPrimes[dis(gen)];
+    // Try x - y as well
+    factor = gcd(toFactor, x - y);
+    if ((factor != 1U) && (factor != toFactor)) {
+      return factor;
     }
 
     return 1U;
@@ -1198,10 +1194,11 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   const size_t maxPrimeCount = std::min(primes.size(), smoothPrimeCount);
   std::vector<size_t> smoothPrimes;
   for (size_t primeId = 0U; (primeId < primes.size()) && (smoothPrimes.size() < maxPrimeCount); ++primeId) {
-    const size_t residue = (size_t)(toFactor % primes[primeId]);
+    const size_t p = primes[primeId];
+    const size_t residue = (size_t)(toFactor % p);
     const size_t sr = _sqrt(residue);
     if ((sr * sr) == residue) {
-      smoothPrimes.push_back(primes[primeId]);
+      smoothPrimes.push_back(p);
     }
   }
   if (smoothPrimes.size() < maxPrimeCount) {
