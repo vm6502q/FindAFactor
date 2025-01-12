@@ -1269,7 +1269,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     return boost::lexical_cast<std::string>(result);
   }
 
-  const auto smoothNumberFn = [&inc_seqs, &wheelEntryCount, &semiSmoothParts, &worker, &isGaussElim] (unsigned cpu) {
+  const auto smoothNumberFn = [&inc_seqs, &wheelEntryCount, &batchSizeMultiplier, &semiSmoothParts, &worker, &isGaussElim] (unsigned cpu) {
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
@@ -1278,7 +1278,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     }
 
     // Different collections per thread;
-    semiSmoothParts.reserve(wheelEntryCount << 1U);
+    semiSmoothParts.reserve((size_t)((wheelEntryCount << 1U) * batchSizeMultiplier));
 
     // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
     return worker.smoothCongruences(&inc_seqs_clone, &(semiSmoothParts[cpu]), isGaussElim);
