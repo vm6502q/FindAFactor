@@ -24,7 +24,7 @@ def optimization_objective(to_factor, params):
         use_gaussian_elimination=(method == 2),
         node_count=1,
         node_id=0,
-        trial_division_level=int(trial_division_level),
+        trial_division_level=(1<<int(trial_division_level)),
         gear_factorization_level=primes[int(gear_factorization_level)],
         wheel_factorization_level=primes[int(wheel_factorization_level)],
         smoothness_bound_multiplier=smoothness_bound_multiplier,
@@ -51,7 +51,7 @@ def main():
     # Define the parameter space for optimization
     param_space = [
         Integer(0, 2, name="method"),                             # Enumeration of bools
-        Integer(1000000, 10000000, name="trial_division_level"),  # Range for trial division level
+        Integer(12, 24, name="trial_division_level"),             # Range for trial division level
         Integer(4, 6, name="gear_factorization_level"),           # Gear factorization level
         Integer(3, 4, name="wheel_factorization_level"),          # Wheel factorization level
         Real(0.5, 2.0, name="smoothness_bound_multiplier"),       # Smoothness bound multiplier
@@ -70,7 +70,7 @@ def main():
     print("Optimal Parameters:")
     print(f"Use Congruence of Squaes: {(result.x[0] > 0)}")
     print(f"Use Gaussian Elimination: {(result.x[0] == 2)}")
-    print(f"Trial Division Level: {result.x[1]}")
+    print(f"Trial Division Level: {(1<<result.x[1])}")
     print(f"Gear Factorization Level: {primes[result.x[2]]}")
     print(f"Wheel Factorization Level: {primes[result.x[3]]}")
     print(f"Smoothness Bound Multiplier: {result.x[4]}")
