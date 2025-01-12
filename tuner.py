@@ -28,7 +28,7 @@ def optimization_objective(to_factor, params):
         gear_factorization_level=primes[int(gear_factorization_level)],
         wheel_factorization_level=primes[int(wheel_factorization_level)],
         smoothness_bound_multiplier=smoothness_bound_multiplier,
-        batch_size_multiplier=2**batch_size_multiplier
+        batch_size_multiplier=2**(batch_size_multiplier+5-int(gear_factorization_level))
     )
 
     # Measure elapsed time
