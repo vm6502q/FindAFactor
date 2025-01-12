@@ -829,9 +829,8 @@ struct Factorizer {
   // Compute the prime factorization modulo 2
   boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
     boost::dynamic_bitset<size_t> vec(primes.size(), false);
-    BigInteger factor = 1U;
-    do {
-      factor = gcd(num, wheelRadius);
+    while (true) {
+      BigInteger factor = gcd(num, wheelRadius);
       if (factor == 1U) {
         break;
       }
@@ -852,7 +851,7 @@ struct Factorizer {
       }
       // Since we removed smooth primes,
       // factor == 1U if the number is smooth.
-    } while (factor == 1U);
+    };
 
     if (num != 1U) {
       return boost::dynamic_bitset<size_t>();
