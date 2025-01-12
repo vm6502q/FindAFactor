@@ -836,6 +836,7 @@ struct Factorizer {
         break;
       }
       num /= factor;
+      // Remove smooth primes from factor
       for (size_t pi = 0U; pi < primes.size(); ++pi) {
         const BigInteger& p = primes[pi];
         if (!(factor % p)) {
@@ -849,7 +850,9 @@ struct Factorizer {
       if (num == 1U) {
         break;
       }
-    } while (factor != 1U);
+      // Since we removed smooth primes,
+      // factor == 1U if the number is smooth.
+    } while (factor == 1U);
 
     if (num != 1U) {
       return boost::dynamic_bitset<size_t>();
