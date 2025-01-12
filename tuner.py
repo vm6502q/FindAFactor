@@ -7,7 +7,7 @@ from skopt import gp_minimize
 from skopt.space import Real, Integer
 from FindAFactor import find_a_factor
 
-primes = [2, 3, 5, 7, 11, 13, 17]
+primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
 
 # Define the optimization objective
 def optimization_objective(to_factor, params):
@@ -52,9 +52,9 @@ def main():
     param_space = [
         Integer(0, 2, name="method"),                             # Enumeration of bools
         Integer(12, 24, name="trial_division_level"),             # Range for trial division level
-        Integer(4, 6, name="gear_factorization_level"),           # Gear factorization level
+        Integer(4, 8, name="gear_factorization_level"),           # Gear factorization level
         Integer(3, 4, name="wheel_factorization_level"),          # Wheel factorization level
-        Real(0.5, 2.0, name="smoothness_bound_multiplier"),       # Smoothness bound multiplier
+        Real(0.5, 1.5, name="smoothness_bound_multiplier"),       # Smoothness bound multiplier
         Real(4.0, 11.0, name="batch_size_multiplier")             # Batch size multiplier
     ]
 
