@@ -875,7 +875,7 @@ struct Factorizer {
       if (num == 1U) {
         return vec;
       }
-    };
+    }
     if (num != 1U) {
       return boost::dynamic_bitset<size_t>();
     }
