@@ -838,12 +838,13 @@ struct Factorizer {
       // Remove smooth primes from factor
       for (size_t pi = 0U; pi < primes.size(); ++pi) {
         const BigInteger& p = primes[pi];
-        if (!(factor % p)) {
-          factor /= p;
-          vec[pi] = !vec[pi];
-          if (factor == 1U) {
-            break;
-          }
+        if (factor % p) {
+          continue;
+        }
+        factor /= p;
+        vec[pi] = !vec[pi];
+        if (factor == 1U) {
+          break;
         }
       }
       if (num == 1U) {
