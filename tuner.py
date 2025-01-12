@@ -54,8 +54,8 @@ def main():
         Integer(12, 24, name="trial_division_level"),             # Range for trial division level
         Integer(4, 8, name="gear_factorization_level"),           # Gear factorization level
         Integer(3, 4, name="wheel_factorization_level"),          # Wheel factorization level
-        Real(0.5, 1.0, name="smoothness_bound_multiplier"),       # Smoothness bound multiplier
-        Real(4.0, 11.0, name="batch_size_multiplier")             # Batch size multiplier
+        Real(0.5, 1.5, name="smoothness_bound_multiplier"),       # Smoothness bound multiplier
+        Real(4.0, 10.0, name="batch_size_multiplier")             # Batch size multiplier
     ]
 
     # Run Bayesian optimization
