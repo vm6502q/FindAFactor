@@ -745,7 +745,6 @@ struct Factorizer {
   bool isIncomplete;
   std::vector<BigInteger> primes;
   std::vector<BigInteger> sqrPrimes;
-  std::map<BigInteger, size_t> primeIndex;
   ForwardFn forwardFn;
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
@@ -758,7 +757,6 @@ struct Factorizer {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const BigInteger& p = primes[i];
       wheelRadius *= p;
-      primeIndex[p] = i;
       sqrPrimes.push_back(p * p);
       smoothNumberKeys.push_back(p);
       smoothNumberValues.emplace_back(primes.size(), false);
@@ -838,9 +836,8 @@ struct Factorizer {
         break;
       }
       num /= factor;
-      for (const BigInteger& p : primes) {
-        if (!(factor % p)) {
-          const size_t& pi = primeIndex[p];
+      for (size_t pi = 0U; pi < primes.size(); ++pi) {
+        if (!(factor % primes[pi])) {
           vec[pi] = !vec[pi];
         }
       }
