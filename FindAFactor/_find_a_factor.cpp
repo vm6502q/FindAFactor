@@ -682,7 +682,7 @@ bool isMultiple(const BigInteger &p, const std::vector<size_t> &knownPrimes) {
 
 boost::dynamic_bitset<size_t> wheel_inc(std::vector<size_t> primes) {
   BigInteger radius = 1U;
-  for (const BigInteger &i : primes) {
+  for (const size_t &i : primes) {
     radius *= i;
   }
   const size_t prime = primes.back();
@@ -1231,8 +1231,6 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
   // Range per parallel node
   const BigInteger nodeRange = (((backward(SMALLEST_WHEEL)(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
-  // This is used by all threads:
-  std::vector<std::vector<BigInteger>> semiSmoothParts(CpuCount);
   // This manages the work of all threads.
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
@@ -1269,7 +1267,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     return boost::lexical_cast<std::string>(result);
   }
 
-  const auto smoothNumberFn = [&inc_seqs, &wheelEntryCount, &batchSizeMultiplier, &semiSmoothParts, &worker, &isGaussElim] (unsigned cpu) {
+  const auto smoothNumberFn = [&inc_seqs, &wheelEntryCount, &batchSizeMultiplier, &worker, &isGaussElim] {
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
@@ -1278,10 +1276,11 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     }
 
     // Different collections per thread;
+    std::vector<BigInteger> semiSmoothParts;
     semiSmoothParts.reserve((size_t)((wheelEntryCount << 1U) * batchSizeMultiplier));
 
     // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
-    return worker.smoothCongruences(&inc_seqs_clone, &(semiSmoothParts[cpu]), isGaussElim);
+    return worker.smoothCongruences(&inc_seqs_clone, &semiSmoothParts, isGaussElim);
   };
 
   std::vector<std::future<BigInteger>> futures;
@@ -1289,7 +1288,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
 
   do {
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      futures.push_back(std::async(std::launch::async, smoothNumberFn, cpu));
+      futures.push_back(std::async(std::launch::async, smoothNumberFn));
     }
 
     for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
