@@ -759,7 +759,7 @@ struct Factorizer {
       wheelRadius *= p;
       sqrPrimes.push_back(p * p);
       smoothNumberKeys.push_back(p);
-      smoothNumberValues.emplace_back(primes.size());
+      smoothNumberValues.emplace_back(primes.size(), 0);
       smoothNumberValues.back()[i] = true;
     }
   }
@@ -828,7 +828,7 @@ struct Factorizer {
 
   // Compute the prime factorization modulo 2
   boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
-    boost::dynamic_bitset<size_t> vec(primes.size());
+    boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
       BigInteger factor = gcd(num, wheelRadius);
       if (factor == 1U) {
@@ -879,7 +879,7 @@ struct Factorizer {
 
     // Now that smooth parts have been shuffled, just multiply down the list until they are larger than square root of toFactor.
     BigInteger smoothNumber = 1U;
-    boost::dynamic_bitset<size_t> fv(primes.size());
+    boost::dynamic_bitset<size_t> fv(primes.size(), 0);
     for (size_t spi = 0U; spi < smoothParts.size(); ++spi) {
       const BigInteger &sp = smoothParts[spi];
       // This multiplies together the factorizations of the smooth parts
@@ -897,7 +897,7 @@ struct Factorizer {
       }
       // Reset "smoothNumber" and its factorization vector.
       smoothNumber = 1U;
-      fv = boost::dynamic_bitset<size_t>(primes.size());
+      fv = boost::dynamic_bitset<size_t>(primes.size(), 0);
     }
   }
 
