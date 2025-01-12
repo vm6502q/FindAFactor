@@ -848,7 +848,7 @@ struct Factorizer {
         }
       }
       if (num == 1U) {
-        break;
+        return vec;
       }
     };
     if (num != 1U) {
