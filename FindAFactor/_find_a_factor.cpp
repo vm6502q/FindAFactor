@@ -149,33 +149,58 @@ BigInteger sqrt(const BigInteger &toTest) {
   return ans;
 }
 
+size_t _sqrt(const size_t &toTest) {
+  // Otherwise, find b = sqrt(b^2).
+  size_t start = 1U, end = toTest >> 1U, ans = 0U;
+  do {
+    const size_t mid = (start + end) >> 1U;
+
+    // If toTest is a perfect square
+    const size_t sqr = mid * mid;
+    if (sqr == toTest) {
+      return mid;
+    }
+
+    if (sqr < toTest) {
+      // Since we need floor, we update answer when mid*mid is smaller than p, and move closer to sqrt(p).
+      start = mid + 1U;
+      ans = mid;
+    } else {
+      // If mid*mid is greater than p
+      end = mid - 1U;
+    }
+  } while (start <= end);
+
+  return ans;
+}
+
 // We are multiplying out the first distinct primes, below.
 
 // Make this NOT a multiple of 2.
-inline BigInteger forward2(const size_t &p) { return (p << 1U) | 1U; }
+inline size_t forward2(const size_t &p) { return (p << 1U) | 1U; }
 
-inline size_t backward2(const BigInteger &p) { return (size_t)(p >> 1U); }
+inline size_t backward2(const size_t &p) { return (size_t)(p >> 1U); }
 
 // Make this NOT a multiple of 2 or 3.
-inline BigInteger forward3(const size_t &p) { return (p << 1U) + (~(~p | 1U)) - 1U; }
+inline size_t forward3(const size_t &p) { return (p << 1U) + (~(~p | 1U)) - 1U; }
 
-inline size_t backward3(const BigInteger &n) { return (size_t)((~(~n | 1U)) / 3U) + 1U; }
+inline size_t backward3(const size_t &n) { return (size_t)((~(~n | 1U)) / 3U) + 1U; }
 
 constexpr unsigned char wheel5[8U] = {1U, 7U, 11U, 13U, 17U, 19U, 23U, 29U};
 
 // Make this NOT a multiple of 2, 3, or 5.
-BigInteger forward5(const size_t &p) { return wheel5[p % 8U] + (p / 8U) * 30U; }
+size_t forward5(const size_t &p) { return wheel5[p % 8U] + (p / 8U) * 30U; }
 
-size_t backward5(const BigInteger &n) { return std::distance(wheel5, std::lower_bound(wheel5, wheel5 + 8U, (size_t)(n % 30U))) + 8U * (size_t)(n / 30U) + 1U; }
+size_t backward5(const size_t &n) { return std::distance(wheel5, std::lower_bound(wheel5, wheel5 + 8U, (size_t)(n % 30U))) + 8U * (size_t)(n / 30U) + 1U; }
 
 constexpr unsigned char wheel7[48U] = {1U,   11U,  13U,  17U,  19U,  23U,  29U,  31U,  37U,  41U,  43U,  47U,  53U,  59U,  61U,  67U,
                                        71U,  73U,  79U,  83U,  89U,  97U,  101U, 103U, 107U, 109U, 113U, 121U, 127U, 131U, 137U, 139U,
                                        143U, 149U, 151U, 157U, 163U, 167U, 169U, 173U, 179U, 181U, 187U, 191U, 193U, 197U, 199U, 209U};
 
 // Make this NOT a multiple of 2, 3, 5, or 7.
-BigInteger forward7(const size_t &p) { return wheel7[p % 48U] + (p / 48U) * 210U; }
+size_t forward7(const size_t &p) { return wheel7[p % 48U] + (p / 48U) * 210U; }
 
-size_t backward7(const BigInteger &n) { return std::distance(wheel7, std::lower_bound(wheel7, wheel7 + 48U, (size_t)(n % 210U))) + 48U * (size_t)(n / 210U) + 1U; }
+size_t backward7(const size_t &n) { return std::distance(wheel7, std::lower_bound(wheel7, wheel7 + 48U, (size_t)(n % 210U))) + 48U * (size_t)(n / 210U) + 1U; }
 
 constexpr unsigned short wheel11[480U] = {
     1U,    13U,   17U,   19U,   23U,   29U,   31U,   37U,   41U,   43U,   47U,   53U,   59U,   61U,   67U,   71U,   73U,   79U,   83U,   89U,   97U,   101U,  103U,  107U,
@@ -200,9 +225,9 @@ constexpr unsigned short wheel11[480U] = {
     2203U, 2207U, 2209U, 2213U, 2221U, 2227U, 2231U, 2237U, 2239U, 2243U, 2249U, 2251U, 2257U, 2263U, 2267U, 2269U, 2273U, 2279U, 2281U, 2287U, 2291U, 2293U, 2297U, 2309U};
 
 // Make this NOT a multiple of 2, 3, 5, 7, or 11.
-BigInteger forward11(const size_t &p) { return wheel11[p % 480U] + (p / 480U) * 2310U; }
+size_t forward11(const size_t &p) { return wheel11[p % 480U] + (p / 480U) * 2310U; }
 
-size_t backward11(const BigInteger &n) { return std::distance(wheel11, std::lower_bound(wheel11, wheel11 + 480U, (size_t)(n % 2310U))) + 480U * (size_t)(n / 2310U) + 1U; }
+size_t backward11(const size_t &n) { return std::distance(wheel11, std::lower_bound(wheel11, wheel11 + 480U, (size_t)(n % 2310U))) + 480U * (size_t)(n / 2310U) + 1U; }
 
 constexpr unsigned short wheel13[5760U] =
     {
@@ -449,9 +474,9 @@ constexpr unsigned short wheel13[5760U] =
 };
 
 // Make this NOT a multiple of 2, 3, 5, 7, 11, or 13.
-BigInteger forward13(const size_t &p) { return wheel13[p % 5760U] + (p / 5760U) * 30030U; }
+size_t forward13(const size_t &p) { return wheel13[p % 5760U] + (p / 5760U) * 30030U; }
 
-size_t backward13(const BigInteger &n) { return std::distance(wheel13, std::lower_bound(wheel13, wheel13 + 5760U, (size_t)(n % 30030U))) + 5760U * (size_t)(n / 30030U) + 1U; }
+size_t backward13(const size_t &n) { return std::distance(wheel13, std::lower_bound(wheel13, wheel13 + 5760U, (size_t)(n % 30030U))) + 5760U * (size_t)(n / 30030U) + 1U; }
 
 inline BigInteger _forward2(const BigInteger &p) { return (p << 1U) | 1U; }
 
@@ -543,15 +568,15 @@ inline size_t GetWheel5and7Increment(unsigned short &wheel5, unsigned long long 
   return wheelIncrement;
 }
 
-std::vector<BigInteger> SieveOfEratosthenes(const BigInteger &n) {
-  std::vector<BigInteger> knownPrimes = {2U, 3U, 5U, 7U};
+std::vector<size_t> SieveOfEratosthenes(const size_t &n) {
+  std::vector<size_t> knownPrimes = {2U, 3U, 5U, 7U};
   if (n < 2U) {
-    return std::vector<BigInteger>();
+    return std::vector<size_t>();
   }
 
   if (n < (knownPrimes.back() + 2U)) {
     const auto highestPrimeIt = std::upper_bound(knownPrimes.begin(), knownPrimes.end(), n);
-    return std::vector<BigInteger>(knownPrimes.begin(), highestPrimeIt);
+    return std::vector<size_t>(knownPrimes.begin(), highestPrimeIt);
   }
 
   knownPrimes.reserve((size_t)(((double)n) / log((double)n)));
@@ -576,7 +601,7 @@ std::vector<BigInteger> SieveOfEratosthenes(const BigInteger &n) {
   for (;;) {
     o += GetWheel5and7Increment(wheel5, wheel7);
 
-    const BigInteger p = forward3(o);
+    const size_t p = forward3(o);
     if ((p * p) > n) {
       break;
     }
@@ -590,9 +615,9 @@ std::vector<BigInteger> SieveOfEratosthenes(const BigInteger &n) {
     // We are skipping multiples of 2, 3, and 5
     // for space complexity, for 4/15 the bits.
     // More are skipped by the wheel for time.
-    const BigInteger p2 = p << 1U;
-    const BigInteger p4 = p << 2U;
-    BigInteger i = p * p;
+    const size_t p2 = p << 1U;
+    const size_t p4 = p << 2U;
+    size_t i = p * p;
 
     // "p" already definitely not a multiple of 3.
     // Its remainder when divided by 3 can be 1 or 2.
@@ -628,7 +653,7 @@ std::vector<BigInteger> SieveOfEratosthenes(const BigInteger &n) {
   }
 
   for (;;) {
-    const BigInteger p = forward3(o);
+    const size_t p = forward3(o);
     if (p > n) {
       break;
     }
@@ -645,8 +670,8 @@ std::vector<BigInteger> SieveOfEratosthenes(const BigInteger &n) {
   return knownPrimes;
 }
 
-bool isMultiple(const BigInteger &p, const std::vector<BigInteger> &knownPrimes) {
-  for (const BigInteger &prime : knownPrimes) {
+bool isMultiple(const BigInteger &p, const std::vector<size_t> &knownPrimes) {
+  for (const size_t &prime : knownPrimes) {
     if (!(p % prime)) {
       return true;
     }
@@ -655,12 +680,12 @@ bool isMultiple(const BigInteger &p, const std::vector<BigInteger> &knownPrimes)
   return false;
 }
 
-boost::dynamic_bitset<size_t> wheel_inc(std::vector<BigInteger> primes) {
+boost::dynamic_bitset<size_t> wheel_inc(std::vector<size_t> primes) {
   BigInteger radius = 1U;
   for (const BigInteger &i : primes) {
     radius *= i;
   }
-  const BigInteger prime = primes.back();
+  const size_t prime = primes.back();
   primes.pop_back();
   boost::dynamic_bitset<size_t> o;
   for (BigInteger i = 1U; i <= radius; ++i) {
@@ -673,10 +698,10 @@ boost::dynamic_bitset<size_t> wheel_inc(std::vector<BigInteger> primes) {
   return o;
 }
 
-std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<BigInteger> &primes) {
+std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<size_t> &primes) {
   std::vector<boost::dynamic_bitset<size_t>> output;
-  std::vector<BigInteger> wheelPrimes;
-  for (const BigInteger &p : primes) {
+  std::vector<size_t> wheelPrimes;
+  for (const size_t &p : primes) {
     wheelPrimes.push_back(p);
     output.push_back(wheel_inc(wheelPrimes));
   }
@@ -743,19 +768,19 @@ struct Factorizer {
   size_t smoothPartsLimit;
   size_t rowOffset;
   bool isIncomplete;
-  std::vector<BigInteger> primes;
-  std::vector<BigInteger> sqrPrimes;
+  std::vector<size_t> primes;
+  std::vector<size_t> sqrPrimes;
   ForwardFn forwardFn;
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
-             const std::vector<BigInteger> &p, ForwardFn fn)
+             const std::vector<size_t> &p, ForwardFn fn)
     : rng({}), gen(rng()), dis(0U, p.size() - 1U), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     wheelRadius(1U), wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
-      const BigInteger& p = primes[i];
+      const size_t& p = primes[i];
       wheelRadius *= p;
       sqrPrimes.push_back(p * p);
       smoothNumberKeys.push_back(p);
@@ -837,7 +862,7 @@ struct Factorizer {
       num /= factor;
       // Remove smooth primes from factor
       for (size_t pi = 0U; pi < primes.size(); ++pi) {
-        const BigInteger& p = primes[pi];
+        const size_t& p = primes[pi];
         if (factor % p) {
           continue;
         }
@@ -1127,10 +1152,10 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   }
 
   // We only need to try trial division about as high as would be necessary for 4096 bits of semiprime.
-  const BigInteger primeCeiling = (trialDivisionLevel < fullMaxBase) ? (BigInteger)trialDivisionLevel : fullMaxBase;
+  const size_t primeCeiling = (trialDivisionLevel < fullMaxBase) ? trialDivisionLevel : (size_t)fullMaxBase;
   BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
-  std::vector<BigInteger> primes = SieveOfEratosthenes(primeCeiling);
+  std::vector<size_t> primes = SieveOfEratosthenes(primeCeiling);
   // "it" is the end-of-list iterator for a list up-to-and-including wheelFactorizationLevel.
   const auto itw = std::upper_bound(primes.begin(), primes.end(), wheelFactorizationLevel);
   const auto itg = std::upper_bound(primes.begin(), primes.end(), gearFactorizationLevel);
@@ -1142,7 +1167,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     dispatch.dispatch([&toFactor, &primes, &result, &trialDivisionMutex, primeIndex]() -> bool {
       const size_t maxLcv = std::min(primeIndex + 64U, primes.size());
       for (size_t pi = primeIndex; pi < maxLcv; ++pi) {
-        const BigInteger& currentPrime = primes[pi];
+        const size_t& currentPrime = primes[pi];
         if (!(toFactor % currentPrime)) {
           std::lock_guard<std::mutex> lock(trialDivisionMutex);
           result = currentPrime;
@@ -1159,8 +1184,8 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   }
 
   // Set up wheel factorization (or "gear" factorization)
-  std::vector<BigInteger> gearFactorizationPrimes(primes.begin(), itg);
-  std::vector<BigInteger> wheelFactorizationPrimes(primes.begin(), itw);
+  std::vector<size_t> gearFactorizationPrimes(primes.begin(), itg);
+  std::vector<size_t> wheelFactorizationPrimes(primes.begin(), itw);
   // Keep as many "smooth" primes as bits in number to factor.
   const size_t toFactorBits = (size_t)log2(toFactor);
   size_t smoothPrimeCount = (size_t)(smoothnessBoundMultiplier * toFactorBits);
@@ -1171,10 +1196,10 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   // Primes are only present in range above wheel factorization level
   primes.erase(primes.begin(), itg);
   const size_t maxPrimeCount = std::min(primes.size(), smoothPrimeCount);
-  std::vector<BigInteger> smoothPrimes;
+  std::vector<size_t> smoothPrimes;
   for (size_t primeId = 0U; (primeId < primes.size()) && (smoothPrimes.size() < maxPrimeCount); ++primeId) {
-    const BigInteger residue = toFactor % primes[primeId];
-    const BigInteger sr = sqrt(residue);
+    const size_t residue = (size_t)(toFactor % primes[primeId]);
+    const size_t sr = _sqrt(residue);
     if ((sr * sr) == residue) {
       smoothPrimes.push_back(primes[primeId]);
     }
@@ -1184,7 +1209,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
   }
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
-  for (const BigInteger &wp : gearFactorizationPrimes) {
+  for (const size_t &wp : gearFactorizationPrimes) {
     biggestWheel *= (size_t)wp;
   }
   // Wheel entry count per largest "gear" scales our brute-force range.
