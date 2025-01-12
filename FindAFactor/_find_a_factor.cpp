@@ -738,12 +738,14 @@ struct Factorizer {
   BigInteger batchNumber;
   BigInteger batchOffset;
   BigInteger batchTotal;
+  BigInteger wheelRadius;
   size_t wheelEntryCount;
   size_t smoothPartsLimit;
   size_t rowOffset;
   bool isIncomplete;
   std::vector<BigInteger> primes;
   std::vector<BigInteger> sqrPrimes;
+  std::map<BigInteger, size_t> primeIndex;
   ForwardFn forwardFn;
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
@@ -751,10 +753,12 @@ struct Factorizer {
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<BigInteger> &p, ForwardFn fn)
     : rng({}), gen(rng()), dis(0U, p.size() - 1U), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
+    wheelRadius(1U), wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const BigInteger& p = primes[i];
+      wheelRadius *= p;
+      primeIndex[p] = i;
       sqrPrimes.push_back(p * p);
       smoothNumberKeys.push_back(p);
       smoothNumberValues.emplace_back(primes.size(), false);
@@ -827,18 +831,24 @@ struct Factorizer {
   // Compute the prime factorization modulo 2
   boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
     boost::dynamic_bitset<size_t> vec(primes.size(), false);
-    for (size_t i = 0U; i < primes.size(); ++i) {
-      bool count = false;
-      const BigInteger &p = primes[i];
-      while (!(num % p)) {
-        num /= p;
-        count = !count;
+    BigInteger factor = 1U;
+    do {
+      factor = gcd(num, wheelRadius);
+      if (factor == 1U) {
+        break;
       }
-      vec[i] = count;
+      num /= factor;
+      for (const BigInteger& p : primes) {
+        if (!(factor % p)) {
+          const size_t& pi = primeIndex[p];
+          vec[pi] = !vec[pi];
+        }
+      }
       if (num == 1U) {
         break;
       }
-    }
+    } while (factor != 1U);
+
     if (num != 1U) {
       return boost::dynamic_bitset<size_t>();
     }
