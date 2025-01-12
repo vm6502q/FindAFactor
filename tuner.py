@@ -28,7 +28,7 @@ def optimization_objective(to_factor, params):
         gear_factorization_level=primes[int(gear_factorization_level)],
         wheel_factorization_level=primes[int(wheel_factorization_level)],
         smoothness_bound_multiplier=smoothness_bound_multiplier,
-        batch_size_multiplier=2**(batch_size_multiplier+5-int(gear_factorization_level))
+        batch_size_multiplier=2**(batch_size_multiplier+5-gear_factorization_level)
     )
 
     # Measure elapsed time
@@ -52,10 +52,10 @@ def main():
     param_space = [
         Integer(0, 2, name="method"),                             # Enumeration of bools
         Integer(12, 24, name="trial_division_level"),             # Range for trial division level
-        Integer(4, 6, name="gear_factorization_level"),           # Gear factorization level
+        Integer(4, 7, name="gear_factorization_level"),           # Gear factorization level
         Integer(3, 4, name="wheel_factorization_level"),          # Wheel factorization level
         Real(0.5, 2.0, name="smoothness_bound_multiplier"),       # Smoothness bound multiplier
-        Real(4.0, 12.0, name="batch_size_multiplier")             # Batch size multiplier
+        Real(4.0, 11.0, name="batch_size_multiplier")             # Batch size multiplier
     ]
 
     # Run Bayesian optimization
