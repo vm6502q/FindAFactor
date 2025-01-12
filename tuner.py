@@ -8,6 +8,7 @@ from skopt.space import Real, Integer
 from FindAFactor import find_a_factor
 
 primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
+batch_offset = 5
 
 # Define the optimization objective
 def optimization_objective(to_factor, params):
@@ -28,7 +29,7 @@ def optimization_objective(to_factor, params):
         gear_factorization_level=primes[int(gear_factorization_level)],
         wheel_factorization_level=primes[int(wheel_factorization_level)],
         smoothness_bound_multiplier=smoothness_bound_multiplier,
-        batch_size_multiplier=2**(batch_size_multiplier+5-gear_factorization_level)
+        batch_size_multiplier=2**(batch_size_multiplier+batch_offset-gear_factorization_level)
     )
 
     # Measure elapsed time
@@ -74,7 +75,7 @@ def main():
     print(f"Gear Factorization Level: {primes[result.x[2]]}")
     print(f"Wheel Factorization Level: {primes[result.x[3]]}")
     print(f"Smoothness Bound Multiplier: {result.x[4]}")
-    print(f"Batch Size Multiplier: {2**result.x[5]}")
+    print(f"Batch Size Multiplier: {2**(result.x[5]+batch_offset-result.x[2])}")
     print(f"Minimum Factorization Time: {result.fun:.4f} seconds")
 
     return 0
