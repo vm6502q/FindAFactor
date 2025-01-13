@@ -24,7 +24,7 @@ class CMakeBuild(build_ext):
         wd = os.getcwd()
         os.makedirs(self.build_temp, exist_ok=True)
         os.chdir(self.build_temp)
-        cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir]
+        cmake_args = ['-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir]
         self.spawn(['cmake', ext.sourcedir] + cmake_args)
         self.spawn(['cmake', '--build', '.'])
         os.chdir(wd)
