@@ -1195,7 +1195,7 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
       smoothPrimes.push_back(p);
     }
   }
-  if (smoothPrimes.size() < maxPrimeCount) {
+  if (isConOfSqr && (smoothPrimes.size() < maxPrimeCount)) {
     std::cout << "Warning: Factor base truncated to " << smoothPrimes.size() << " factors. If you don't want to truncate, set the trial division level option higher." << std::endl;
   }
   // From 1, this is a period for wheel factorization
