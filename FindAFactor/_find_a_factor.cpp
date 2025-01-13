@@ -41,6 +41,7 @@
 #include "dispatchqueue.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <future>
 #include <iostream>
 #include <map>
