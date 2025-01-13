@@ -21,9 +21,13 @@ class CMakeBuild(build_ext):
 
     def build_extension(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        wd = os.getcwd()
+        os.makedirs(self.build_temp, exist_ok=True)
+        os.chdir(self.build_temp)
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir]
         self.spawn(['cmake', ext.sourcedir] + cmake_args)
         self.spawn(['cmake', '--build', '.'])
+        os.chdir(wd)
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')
 with open(README_PATH) as readme_file:
