@@ -73,7 +73,7 @@ def main():
     print(f"Trial Division Level: {(1<<result.x[1])}")
     print(f"Gear Factorization Level: {primes[result.x[2]]}")
     print(f"Wheel Factorization Level: {primes[result.x[3]]}")
-    print(f"Smoothness Bound Multiplier: {result.x[4]}")
+    print(f"Smoothness Bound Multiplier: {2**result.x[4]}")
     print(f"Batch Size Multiplier: {2**(result.x[5]-result.x[2])}")
     print(f"Minimum Factorization Time: {result.fun:.4f} seconds")
 
