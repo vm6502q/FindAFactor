@@ -15,7 +15,10 @@ endif (DEFINED ENV{BOOST_ROOT})
 
 if (MSVC)
   target_compile_options(_find_a_factor PUBLIC /O2 /std:c++14)
-else (MSVC)
+  set_target_properties(_find_a_factor PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/.."
+  )
+e1lse (MSVC)
   target_compile_options(_find_a_factor PUBLIC -O3 -std=c++14 -lpthread)
 endif (MSVC)
 
