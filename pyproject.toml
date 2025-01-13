@@ -10,4 +10,11 @@ build-backend = "setuptools.build_meta"
 name = "FindAFactor"
 version = "3.8.0"
 description = "Find any nontrivial factor of a number"
-readme = "README.md"
+readme = {file = "README.txt", content-type = "text/markdown"}
+license = {text = "MIT"}
+authors = [
+  {name = "Dan Strano", email = "stranoj@gmail.com"}
+]
+maintainers = [
+  {name = "Dan Strano", email = "stranoj@gmail.com"}
+]

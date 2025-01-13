@@ -31,7 +31,7 @@ setup(
     name='FindAFactor',
     version='3.8.0',
     author='Dan Strano',
-    author_email='dan@unitary.fund',
+    author_email='stranoj@gmail.com',
     description='Find any nontrivial factor of a number',
     long_description=README,
     long_description_content_type='text/markdown',
