@@ -9,3 +9,5 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "FindAFactor"
 version = "3.8.0"
+description = "Find any nontrivial factor of a number"
+readme = "README.md"
