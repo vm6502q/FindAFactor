@@ -171,7 +171,7 @@ jobs:
       - name: Prepare Build Environment (MacOS)
         run: |
           brew upgrade
-          brew install pybind11 boost
+          brew install pybind11 boost python-build
 
       - name: Build Wheel
         run: |
@@ -204,7 +204,7 @@ jobs:
       - name: Prepare Build Environment (MacOS)
         run: |
           brew upgrade
-          brew install pybind11 boost
+          brew install pybind11 boost python-build
 
       - name: Build Wheel
         run: |
@@ -237,7 +237,7 @@ jobs:
       - name: Prepare Build Environment (MacOS)
         run: |
           brew upgrade rustup
-          brew install pybind11 boost
+          brew install pybind11 boost python-build
 
       - name: Build Wheel
         run: |
