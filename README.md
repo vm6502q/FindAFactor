@@ -31,7 +31,7 @@ factor = find_a_factor(
     use_gaussian_elimination=False,
     node_count=1, node_id=0,
     trial_division_level=2**20,
-    gear_factorization_level=13,
+    gear_factorization_level=11,
     wheel_factorization_level=7,
     smoothness_bound_multiplier=1.0,
     batch_size_multiplier=2048.0
