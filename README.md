@@ -32,7 +32,7 @@ factor = find_a_factor(
     node_count=1, node_id=0,
     trial_division_level=2**20,
     gear_factorization_level=11,
-    wheel_factorization_level=7,
+    wheel_factorization_level=11,
     smoothness_bound_multiplier=1.0,
     batch_size_multiplier=2048.0
 )
@@ -46,7 +46,7 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `node_id` (default value: `0`): This is the identifier of this node, when performing distributed factorization with `node_count` higher than `1`. `node_id` values start at `0` and go as high as `(node_count - 1)`.
 - `trial_division_level` (default value: `2**20`): Trial division is carried out as a preliminary round for all primes up this number. If you need more primes for your smoothness bound, increase this level.
 - `gear_factorization_level` (default value: `11`): This is the value up to which "wheel (and gear) factorization" and trial division are used to check factors and optimize "brute force," in general. The default value of `11` includes all prime factors of `11` and below and works well in general, though significantly higher might be preferred in certain cases.
-- `wheel_factorization_level` (default value: `7`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. Optimized implementation for wheels is only available up to `11`. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization.
+- `wheel_factorization_level` (default value: `11`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. Optimized implementation for wheels is only available up to `13`. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization.
 - `smoothness_bound_multiplier` (default value: `1.0`): starting with the first prime number after wheel factorization, the congruence of squares approach (with Quadratic Sieve) takes a default "smoothness bound" with as many distinct prime numbers as bits in the number to factor (for default argument of `1.0` multiplier). To increase or decrease this number, consider it multiplied by the value of `smoothness_bound_multiplier`.
 - `batch_size_multiplier` (default value: `2048.0`): Each `1.0` increment of the multiplier is 2 cycles of gear and wheel factorization, alternating every other cycle between bottom of guessing range and top of guessing range, for every thread in use.
 
