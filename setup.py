@@ -8,9 +8,9 @@ import setuptools
 from distutils.core import setup, Extension
 
 if os.name == 'nt':
-    cpp_args = ['/std:c++17', '/O3']
+    cpp_args = ['/std:c++11', '/O3']
 else:
-    cpp_args = ['-O3', '-std=c++17', '-lpthread']
+    cpp_args = ['-O3', '-std=c++11', '-lpthread']
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')
 with open(README_PATH) as readme_file:
@@ -36,12 +36,12 @@ setup(
     long_description=README,
     long_description_content_type='text/markdown',
     url="https://github.com/vm6502q/FindAFactor",
-    license="MIT",
+    license="MIT License",
     classifiers=[
         "Environment :: Console",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
-        "Operating System :: POSIX :: Linux",
+        "License :: OSI Approved :: MIT License",
         "Programming Language :: C++",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",

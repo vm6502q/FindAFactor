@@ -14,9 +14,9 @@ else (DEFINED ENV{BOOST_ROOT})
 endif (DEFINED ENV{BOOST_ROOT})
 
 if (MSVC)
-  target_compile_options(_find_a_factor PUBLIC /O3 /std:c++17)
+  target_compile_options(_find_a_factor PUBLIC /O3 /std:c++11)
 else (MSVC)
-  target_compile_options(_find_a_factor PUBLIC -O3 -std=c++17 -lpthread)
+  target_compile_options(_find_a_factor PUBLIC -O3 -std=c++11 -lpthread)
 endif (MSVC)
 
 install(TARGETS _find_a_factor DESTINATION .)

@@ -41,7 +41,6 @@
 #include "dispatchqueue.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <future>
 #include <iostream>
 #include <map>
@@ -315,7 +314,7 @@ std::vector<size_t> SieveOfEratosthenes(const size_t &n) {
     return std::vector<size_t>(knownPrimes.begin(), highestPrimeIt);
   }
 
-  knownPrimes.reserve(std::expint(log((double)n)) - std::expint(log(2)));
+  knownPrimes.reserve((size_t)(((double)n) / log((double)n)));
 
   // We are excluding multiples of the first few
   // small primes from outset. For multiples of
