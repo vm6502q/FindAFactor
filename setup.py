@@ -1,31 +1,39 @@
+from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext
+import sys
 import os
-try:
-    import pybind11
-    PYBIND11_Found = True
-except ImportError:
-    PYBIND11_Found = False
-import setuptools
-from distutils.core import setup, Extension
 
-if os.name == 'nt':
-    cpp_args = ['/std:c++14', '/O3']
-else:
-    cpp_args = ['-O3', '-std=c++14', '-lpthread']
+class CMakeExtension(Extension):
+    def __init__(self, name, sourcedir=''):
+        Extension.__init__(self, name, sources=[])
+        self.sourcedir = os.path.abspath(sourcedir)
+
+class CMakeBuild(build_ext):
+    def run(self):
+        try:
+            import cmake
+        except ImportError:
+            raise RuntimeError("CMake must be installed to build the following extensions: " +
+                               ", ".join(e.name for e in self.extensions))
+
+        for ext in self.extensions:
+            self.build_extension(ext)
+
+    def build_extension(self, ext):
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
+                      '-DPYTHON_EXECUTABLE=' + sys.executable]
+
+        os.makedirs(self.build_temp, exist_ok=True)
+        os.chdir(self.build_temp)
+        self.spawn(['cmake', ext.sourcedir] + cmake_args)
+        self.spawn(['cmake', '--build', '.'])
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')
 with open(README_PATH) as readme_file:
     README = readme_file.read()
 
-ext_modules = [
-    Extension(
-        '_find_a_factor',
-        ["FindAFactor/_find_a_factor.cpp", "FindAFactor/dispatchqueue.cpp"],
-        include_dirs=['FindAFactor/include', pybind11.get_include() if PYBIND11_Found else 'pybind11/include', '/usr/local/include', '/opt/homebrew/include',
-                      (os.environ.get('BOOST_ROOT') if os.environ.get('BOOST_ROOT') else 'C:\\boost') + '\\include\\boost'],
-        language='c++',
-        extra_compile_args = cpp_args,
-    ),
-]
+ext_modules = [CMakeExtension('_find_a_factor')]
 
 setup(
     name='FindAFactor',

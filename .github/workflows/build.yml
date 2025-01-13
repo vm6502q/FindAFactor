@@ -175,8 +175,8 @@ jobs:
 
       - name: Build Wheel
         run: |
-          python -m build --wheel
           python -m wheel tags --platform-tag ${{ matrix.platform }}
+          python -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -209,8 +209,8 @@ jobs:
 
       - name: Build Wheel
         run: |
-          python -m build --wheel
           python -m wheel tags --platform-tag ${{ matrix.platform }}
+          python -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -243,8 +243,8 @@ jobs:
 
       - name: Build Wheel
         run: |
-          python -m build --wheel
           python -m wheel tags --platform-tag ${{ matrix.platform }}
+          python -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
