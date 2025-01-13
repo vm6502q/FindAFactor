@@ -8,9 +8,9 @@ import setuptools
 from distutils.core import setup, Extension
 
 if os.name == 'nt':
-    cpp_args = ['/std:c++17 /O3']
+    cpp_args = ['/std:c++17', '/O3']
 else:
-    cpp_args = ['-std=c++17 -O3 -lpthread']
+    cpp_args = ['-std=c++17', '-O3', '-lpthread']
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')
 with open(README_PATH) as readme_file:
