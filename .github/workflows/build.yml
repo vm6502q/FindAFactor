@@ -138,6 +138,16 @@ jobs:
         with:
           boost_version: 1.87.0
 
+      - name: Mount vcpkg cache
+        uses: actions/cache@v4
+        with:
+          path: "~/.cache/vcpkg/archives"
+          key: vcpkg-${{ matrix.os }}
+
+      - name: Install vcpkg dependencies
+        run: |
+          vcpkg install pybind11
+
       - name: Build Wheel
         env:
           BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
