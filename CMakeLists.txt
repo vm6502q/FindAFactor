@@ -8,7 +8,7 @@ find_package(Boost CONFIG REQUIRED)
 pybind11_add_module(_find_a_factor FindAFactor/_find_a_factor.cpp FindAFactor/dispatchqueue.cpp)
 
 if (DEFINED ENV{BOOST_ROOT})
-  target_include_directories(_find_a_factor PUBLIC FindAFactor/include ENV{BOOST_ROOT}/include/boost)
+  target_include_directories(_find_a_factor PUBLIC FindAFactor/include $ENV{BOOST_ROOT}/include/boost)
 else (DEFINED ENV{BOOST_ROOT})
   target_include_directories(_find_a_factor PUBLIC FindAFactor/include)
 endif (DEFINED ENV{BOOST_ROOT})
