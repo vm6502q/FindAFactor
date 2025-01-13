@@ -15,7 +15,7 @@ def optimization_objective(to_factor, params):
     method, trial_division_level, gear_factorization_level, wheel_factorization_level, smoothness_bound_multiplier, batch_size_multiplier = params
 
     # Start timing
-    start_time = time.time()
+    start_time = time.perf_counter()
 
     # Run the factorization function
     result = find_a_factor(
@@ -32,7 +32,7 @@ def optimization_objective(to_factor, params):
     )
 
     # Measure elapsed time
-    elapsed_time = time.time() - start_time
+    elapsed_time = time.perf_counter() - start_time
 
     # Penalize failed factorizations (return large time if the factorization fails)
     if result == 1 or result == to_factor or (to_factor % result) != 0:
