@@ -35,7 +35,7 @@ jobs:
       - name: Build Wheel
         run: |
           source venv/bin/activate
-          python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
+          python3 -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -69,7 +69,7 @@ jobs:
       - name: Build Wheel
         run: |
           source venv/bin/activate
-          python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
+          python3 -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -103,7 +103,7 @@ jobs:
       - name: Build Wheel
         run: |
           source venv/bin/activate
-          python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
+          python3 -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -142,7 +142,7 @@ jobs:
         env:
           BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
         run: |
-          python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
+          python3 -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -175,7 +175,7 @@ jobs:
 
       - name: Build Wheel
         run: |
-          python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
+          python3 -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -208,7 +208,7 @@ jobs:
 
       - name: Build Wheel
         run: |
-          python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
+          python3 -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -241,7 +241,7 @@ jobs:
 
       - name: Build Wheel
         run: |
-          python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
+          python3 -m build --wheel
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
