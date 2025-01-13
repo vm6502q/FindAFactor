@@ -1,6 +1,5 @@
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
-import sys
 import os
 
 class CMakeExtension(Extension):
@@ -37,7 +36,7 @@ ext_modules = [CMakeExtension('_find_a_factor')]
 
 setup(
     name='FindAFactor',
-    version='3.8.1',
+    version='3.8.2',
     author='Dan Strano',
     author_email='stranoj@gmail.com',
     description='Find any nontrivial factor of a number',
