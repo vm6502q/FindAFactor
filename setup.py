@@ -26,6 +26,10 @@ class CMakeBuild(build_ext):
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir]
         self.spawn(['cmake', ext.sourcedir] + cmake_args)
         self.spawn(['cmake', '--build', '.', '--config', 'Release'])
+        if os.name == 'nt':
+            os.chdir(extdir)
+            os.rename('Release/_find_a_factor.cp312-win_amd64.pyd', '_find_a_factor.cp312-win_amd64.pyd')
+            os.rmdir('Release')
         os.chdir(wd)
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')
