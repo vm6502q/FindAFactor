@@ -7,7 +7,10 @@ except ImportError:
 import setuptools
 from distutils.core import setup, Extension
 
-cpp_args = ['-std=c++17', '-lpthread', '-O3']
+if os.name == 'nt':
+    cpp_args = ['/std:c++17' '/O3']
+else:
+    cpp_args = ['-std=c++17', '-lpthread', '-O3']
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')
 with open(README_PATH) as readme_file:
@@ -26,7 +29,7 @@ ext_modules = [
 
 setup(
     name='FindAFactor',
-    version='3.7.1',
+    version='3.8.0',
     author='Dan Strano',
     author_email='dan@unitary.fund',
     description='Find any nontrivial factor of a number',
