@@ -1174,7 +1174,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                     wheelEntryCount, (size_t)((wheelEntryCount << 1U) * batchSizeMultiplier),
                     smoothPrimes, forward(SMALLEST_WHEEL));
 
-  const auto workerFn = [&inc_seqs, &worker] {
+  const auto workerFn = [isConOfSqr, &inc_seqs, &worker] {
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
