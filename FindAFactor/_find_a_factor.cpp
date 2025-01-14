@@ -738,6 +738,27 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
   return result;
 }
 
+// Helper function: Compute modular inverse using Extended Euclidean Algorithm
+BigInteger modInverse(BigInteger a, BigInteger m) {
+    BigInteger m0 = m, t, q;
+    BigInteger x0 = 0, x1 = 1;
+    if (m == 1) {
+      return 0;
+    }
+    while (a > 1) {
+        q = a / m;
+        t = m;
+        m = a % m, a = t;
+        t = x0;
+        x0 = x1 - q * x0;
+        x1 = t;
+    }
+    if (x1 < 0) {
+      x1 += m0;
+    }
+    return x1;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                  WRITTEN WITH ELARA (GPT) ABOVE                                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -853,6 +874,66 @@ struct Factorizer {
     return 1U;
   }
 
+  // Function: Generate and evaluate QS polynomials
+BigInteger generateQuadraticSievePolynomials() {
+    // Step 1: Choose A as a product of small primes in the factor base
+    BigInteger A = 1;
+    std::set<size_t> primesUsed;
+    for (size_t i = 0; i < 3 && i < primes.size(); ++i) { // Use the first 3 primes
+      const size_t p = primes[dis(gen)];
+      if (primesUsed.find(p) == primesUsed.end()) {
+        A *= p;
+        primesUsed.insert(p);
+      }
+    }
+
+    // Step 2: Compute B such that B^2 ≡ toFactor (mod A)
+    BigInteger B = toFactorSqrt % A;
+    B = (B + A) % A; // Ensure B is positive
+    BigInteger B2 = (B * B) % A;
+    if ((B2 - toFactor) % A) {
+      B = modInverse(B, A); // Adjust B if necessary
+    }
+
+    // Step 3: Compute C = (B^2 - toFactor) / A
+    BigInteger C = (B * B - toFactor) / A;
+
+    // Step 4: Evaluate Q(x) = A*x^2 + B*x + C
+    BigInteger smoothNumber = 1;
+    boost::dynamic_bitset<size_t> fv(primes.size(), 0);
+    for (BigInteger x = -toFactorSqrt; x <= toFactorSqrt; ++x) {
+      const BigInteger Qx = A * x * x + B * x + C;
+      // Check for smoothness (trial division against factor base)
+      const boost::dynamic_bitset<size_t> pfv = factorizationVector(Qx);
+      if (!pfv.size()) {
+        continue;
+      }
+      // If number is smooth
+      fv ^= pfv;
+      smoothNumber *= Qx;
+      if (smoothNumber < toFactor) {
+        continue;
+      }
+      std::vector<BigInteger> smoothNumberKeys(bigPrimes);
+      std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
+      smoothNumberValues.reserve(smoothNumberKeys.size() + 1U);
+      for (const auto& f : primeFactors) {
+        smoothNumberValues.emplace_back(f);
+      }
+      smoothNumberKeys.push_back(smoothNumber);
+      smoothNumberValues.emplace_back(fv);
+      const BigInteger factor = findFactor(smoothNumberKeys, smoothNumberValues);
+      if (!(toFactor % factor) && (factor != 1U) && (factor != toFactor)) {
+        return factor;
+      }
+      // Reset "smoothNumber" and its factorization vector.
+      smoothNumber = 1U;
+      fv = boost::dynamic_bitset<size_t>(primes.size(), 0);
+    }
+
+    return 1U;
+}
+
   // Compute the prime factorization modulo 2
   boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
@@ -874,11 +955,11 @@ struct Factorizer {
           break;
         }
       }
-      if (num == 1U) {
+      if (abs(num) == 1U) {
         return vec;
       }
     }
-    if (num != 1U) {
+    if (abs(num) != 1U) {
       return boost::dynamic_bitset<size_t>();
     }
 
@@ -1061,10 +1142,9 @@ struct Factorizer {
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
                           size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
   // (At least) level 11 wheel factorization is baked into basic functions.
-  if (method > 1U) {
-    std::cout << "FACTOR_FINDER mode not yet implemented. Defaulting to MIXED." << std::endl;
+  if (method > 2U) {
+    std::cout << "Method not found. Defaulting to FACTOR_FINDER." << std::endl;
   }
-  const bool isConOfSqr = (method > 0);
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
   } else if (wheelFactorizationLevel > 13U) {
@@ -1141,7 +1221,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       smoothPrimes.push_back(p);
     }
   }
-  if (isConOfSqr && (smoothPrimes.size() < maxPrimeCount)) {
+  if (method && (smoothPrimes.size() < maxPrimeCount)) {
     std::cout << "Warning: Factor base truncated to " << smoothPrimes.size() << " factors. If you don't want to truncate, set the trial division level option higher." << std::endl;
   }
   // From 1, this is a period for wheel factorization
@@ -1174,7 +1254,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                     wheelEntryCount, (size_t)((wheelEntryCount << 1U) * batchSizeMultiplier),
                     smoothPrimes, forward(SMALLEST_WHEEL));
 
-  if (!isConOfSqr) {
+  if (!method) {
     const auto workerFn = [&inc_seqs, &worker] {
       // inc_seq needs to be independent per thread.
       std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
@@ -1204,16 +1284,39 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     return boost::lexical_cast<std::string>(result);
   }
 
-  const auto workerFn = [&inc_seqs, &wheelEntryCount, &batchSizeMultiplier, &worker] {
-    // inc_seq needs to be independent per thread.
-    std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
-    inc_seqs_clone.reserve(inc_seqs.size());
-    for (const boost::dynamic_bitset<size_t> &b : inc_seqs) {
-      inc_seqs_clone.emplace_back(b);
+  if (method == 1U) {
+    const auto workerFn = [&inc_seqs, &wheelEntryCount, &batchSizeMultiplier, &worker] {
+      // inc_seq needs to be independent per thread.
+      std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
+      inc_seqs_clone.reserve(inc_seqs.size());
+      for (const boost::dynamic_bitset<size_t> &b : inc_seqs) {
+        inc_seqs_clone.emplace_back(b);
+      }
+
+      // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
+      return worker.smoothCongruences(&inc_seqs_clone);
+    };
+
+    std::vector<std::future<BigInteger>> futures;
+    futures.reserve(CpuCount);
+
+    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
+      futures.push_back(std::async(std::launch::async, workerFn));
     }
 
-    // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
-    return worker.smoothCongruences(&inc_seqs_clone);
+    for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
+      const BigInteger r = futures[cpu].get();
+      if ((r > result) && (r != toFactor)) {
+        result = r;
+      }
+    }
+
+    return boost::lexical_cast<std::string>(result);
+  }
+
+  const auto workerFn = [&worker] {
+    // Use generator polynomials
+    return worker.generateQuadraticSievePolynomials();
   };
 
   std::vector<std::future<BigInteger>> futures;
