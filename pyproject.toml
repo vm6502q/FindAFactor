@@ -2,13 +2,9 @@
 requires = [
     "cmake",
     "pybind11",
-    "setuptools",
-    "scikit-build"
+    "setuptools"
 ]
-build-backend = "scikit_build.build"
-
-[tool.scikit-build]
-cmake.args = ["-DCMAKE_BUILD_TYPE=Release"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "FindAFactor"

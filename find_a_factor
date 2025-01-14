@@ -4,7 +4,7 @@ import os
 import sys
 import time
 
-from FindAFactor import find_a_factor
+from FindAFactor import find_a_factor, FactoringMethod
 
 def main():
     argv_len = len(sys.argv)
@@ -14,7 +14,7 @@ def main():
         return 1
 
     to_factor = int(sys.argv[1])
-    use_congruence_of_squares = True if os.environ.get('FINDAFACTOR_USE_CONGRUENCE_OF_SQUARES') else False
+    method=FactoringMethod(int(os.environ.get('FINDAFACTOR_METHOD'))) if os.environ.get('FINDAFACTOR_METHOD') else FactoringMethod.PRIME_SOLVER
     node_count = int(os.environ.get('FINDAFACTOR_NODE_COUNT')) if os.environ.get('FINDAFACTOR_NODE_COUNT') else 1
     node_id = int(os.environ.get('FINDAFACTOR_NODE_ID')) if os.environ.get('FINDAFACTOR_NODE_ID') else 0
     trial_division_level=int(os.environ.get('FINDAFACTOR_TRIAL_DIVISION_LEVEL')) if os.environ.get('FINDAFACTOR_TRIAL_DIVISION_LEVEL') else (1<<20)
@@ -24,7 +24,7 @@ def main():
     batch_size_multiplier=float(os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER') else 128.0
 
     if argv_len > 2:
-        use_congruence_of_squares = (sys.argv[2] not in ["False", "0"])
+        method = FactoringMethod(int(sys.argv[2]))
     if argv_len > 4:
         node_count = int(sys.argv[3])
         node_id = int(sys.argv[4])
@@ -42,7 +42,7 @@ def main():
     start = time.perf_counter()
     result = find_a_factor(
         to_factor,
-        use_congruence_of_squares = use_congruence_of_squares,
+        method = method,
         node_count = node_count,
         node_id = node_id,
         trial_division_level = trial_division_level,
