@@ -52,7 +52,7 @@ def main():
         Integer(12, 24, name="trial_division_level"),             # Range for trial division level
         Integer(4, 6, name="gear_factorization_level"),           # Gear factorization level
         Integer(4, 5, name="wheel_factorization_level"),          # Wheel factorization level
-        Real(-3.0, 3.0, name="smoothness_bound_multiplier"),       # Smoothness bound multiplier
+        Real(-3.0, 3.0, name="smoothness_bound_multiplier"),      # Smoothness bound multiplier
         Real(10.0, 15.0, name="batch_size_multiplier")            # Batch size multiplier
     ]
 
