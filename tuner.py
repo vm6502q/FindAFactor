@@ -20,7 +20,7 @@ def optimization_objective(to_factor, params):
     # Run the factorization function
     result = find_a_factor(
         to_factor,
-        use_congruence_of_squares=True,
+        method=1,
         node_count=1,
         node_id=0,
         trial_division_level=(1<<int(trial_division_level)),
@@ -49,11 +49,11 @@ def main():
 
     # Define the parameter space for optimization
     param_space = [
-        Integer(12, 24, name="trial_division_level"),             # Range for trial division level
+        Integer(16, 24, name="trial_division_level"),             # Range for trial division level
         Integer(4, 6, name="gear_factorization_level"),           # Gear factorization level
         Integer(4, 5, name="wheel_factorization_level"),          # Wheel factorization level
         Real(-3.0, 3.0, name="smoothness_bound_multiplier"),      # Smoothness bound multiplier
-        Real(10.0, 15.0, name="batch_size_multiplier")            # Batch size multiplier
+        Real(7.0, 15.0, name="batch_size_multiplier")            # Batch size multiplier
     ]
 
     # Run Bayesian optimization

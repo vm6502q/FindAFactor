@@ -760,7 +760,9 @@ struct Factorizer {
   size_t rowOffset;
   bool isIncomplete;
   std::vector<size_t> primes;
+  std::vector<BigInteger> bigPrimes;
   std::vector<BigInteger> sqrPrimes;
+  std::vector<boost::dynamic_bitset<size_t>> primeFactors;
   ForwardFn forwardFn;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
@@ -771,7 +773,10 @@ struct Factorizer {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
       wheelRadius *= p;
+      bigPrimes.push_back(p);
       sqrPrimes.push_back(p * p);
+      primeFactors.emplace_back(primes.size(), 0);
+      primeFactors.back()[i] = true;
     }
   }
 
@@ -834,10 +839,9 @@ struct Factorizer {
         // Skip increments on the "wheels" (or "gears").
         p += GetWheelIncrement(inc_seqs);
       }
-      numberCount += wheelEntryCount;
 
       // Batch this work, to reduce contention.
-      if (numberCount >= smoothPartsLimit) {
+      if (smoothParts.size() >= smoothPartsLimit) {
         const BigInteger n = makeSmoothNumbers(smoothParts, smoothPartsMap);
         if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
@@ -887,8 +891,12 @@ struct Factorizer {
     // Now that smooth parts have been shuffled, just multiply down the list until they are larger than square root of toFactor.
     BigInteger smoothNumber = 1U;
     boost::dynamic_bitset<size_t> fv(primes.size(), 0);
+    std::vector<BigInteger> smoothNumberKeys(bigPrimes);
     std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
-    std::vector<BigInteger> smoothNumberKeys;
+    smoothNumberValues.reserve(primeFactors.size());
+    for (const auto& f : primeFactors) {
+      smoothNumberValues.emplace_back(f);
+    }
     smoothNumberKeys.reserve(smoothParts.size());
     for (size_t spi = 0U; spi < smoothParts.size(); ++spi) {
       const BigInteger &sp = smoothParts[spi];
@@ -900,10 +908,8 @@ struct Factorizer {
       if (smoothNumber <= toFactor) {
         continue;
       }
-      if (true) {
-        smoothNumberValues.emplace_back(fv);
-        smoothNumberKeys.push_back(smoothNumber);
-      }
+      smoothNumberValues.emplace_back(fv);
+      smoothNumberKeys.push_back(smoothNumber);
       // Reset "smoothNumber" and its factorization vector.
       smoothNumber = 1U;
       fv = boost::dynamic_bitset<size_t>(primes.size(), 0);
