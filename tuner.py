@@ -21,7 +21,6 @@ def optimization_objective(to_factor, params):
     result = find_a_factor(
         to_factor,
         use_congruence_of_squares=(method > 0),
-        use_gaussian_elimination=(method == 2),
         node_count=1,
         node_id=0,
         trial_division_level=(1<<int(trial_division_level)),
@@ -50,12 +49,12 @@ def main():
 
     # Define the parameter space for optimization
     param_space = [
-        Integer(0, 2, name="method"),                             # Enumeration of bools
+        Integer(0, 1, name="use_congruence_of_squares"),          # Enumeration of bool
         Integer(12, 24, name="trial_division_level"),             # Range for trial division level
         Integer(4, 6, name="gear_factorization_level"),           # Gear factorization level
         Integer(4, 5, name="wheel_factorization_level"),          # Wheel factorization level
         Real(-1.0, 1.0, name="smoothness_bound_multiplier"),      # Smoothness bound multiplier
-        Real(10.0, 15.0, name="batch_size_multiplier")             # Batch size multiplier
+        Real(10.0, 15.0, name="batch_size_multiplier")            # Batch size multiplier
     ]
 
     # Run Bayesian optimization
@@ -69,7 +68,6 @@ def main():
     # Print the results
     print("Optimal Parameters:")
     print(f"Use Congruence of Squaes: {(result.x[0] > 0)}")
-    print(f"Use Gaussian Elimination: {(result.x[0] == 2)}")
     print(f"Trial Division Level: {(1<<result.x[1])}")
     print(f"Gear Factorization Level: {primes[result.x[2]]}")
     print(f"Wheel Factorization Level: {primes[result.x[3]]}")
