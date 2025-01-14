@@ -809,10 +809,14 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs, std::vector<BigInteger> *semiSmoothParts, bool isGaussElim) {
+  BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs,
+                               std::vector<BigInteger> &smoothParts,
+                               std::map<BigInteger, boost::dynamic_bitset<size_t>> &smoothPartsMap,
+                               bool isGaussElim) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     // Since the largest prime factors of these numbers is relatively small,
     // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
+    BigInteger numberCount = 0;
     for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
       const BigInteger batchEnd = batchStart + wheelEntryCount;
@@ -825,14 +829,20 @@ struct Factorizer {
           return n;
         }
         // Use the "exhaust" to produce smoother numbers.
-        semiSmoothParts->push_back(n);
+        const boost::dynamic_bitset<size_t> fv = factorizationVector(n);
+        if (fv.size()) {
+            smoothPartsMap[n] = fv;
+            smoothParts.push_back(n);
+        }
         // Skip increments on the "wheels" (or "gears").
         p += GetWheelIncrement(inc_seqs);
       }
+      numberCount += wheelEntryCount;
 
       // Batch this work, to reduce contention.
-      if (semiSmoothParts->size() >= smoothPartsLimit) {
-        makeSmoothNumbers(semiSmoothParts, isGaussElim);
+      if (numberCount >= smoothPartsLimit) {
+        std::cout << smoothParts.size() / numberCount.convert_to<double>() << std::endl;
+        makeSmoothNumbers(smoothParts, smoothPartsMap, isGaussElim);
 
         return 1U;
       }
@@ -873,25 +883,11 @@ struct Factorizer {
     return vec;
   }
 
-  void makeSmoothNumbers(std::vector<BigInteger> *semiSmoothParts, bool isGaussElim) {
-    // Factorize all "smooth parts."
-    std::vector<BigInteger> smoothParts;
-    std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothPartsMap;
-    for (const BigInteger &n : (*semiSmoothParts)) {
-      const boost::dynamic_bitset<size_t> fv = factorizationVector(n);
-      if (fv.size()) {
-        smoothPartsMap[n] = fv;
-        smoothParts.push_back(n);
-      }
-    }
-    // We can clear the thread's buffer vector.
-    semiSmoothParts->clear();
-
+  void makeSmoothNumbers(std::vector<BigInteger> &smoothParts, std::map<BigInteger, boost::dynamic_bitset<size_t>> &smoothPartsMap, bool isGaussElim) {
+    // How large we want the smooth numbers depends on algorithm.
+    const BigInteger limit = isGaussElim ? toFactor : toFactorSqrt;
     // This is the only nondeterminism in the algorithm.
     std::shuffle(smoothParts.begin(), smoothParts.end(), rng);
-
-    const BigInteger limit = isGaussElim ? toFactor : toFactorSqrt;
-
     // Now that smooth parts have been shuffled, just multiply down the list until they are larger than square root of toFactor.
     BigInteger smoothNumber = 1U;
     boost::dynamic_bitset<size_t> fv(primes.size(), 0);
@@ -914,6 +910,8 @@ struct Factorizer {
       smoothNumber = 1U;
       fv = boost::dynamic_bitset<size_t>(primes.size(), 0);
     }
+    smoothParts.clear();
+    smoothPartsMap.clear();
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1265,11 +1263,12 @@ std::string find_a_factor(const std::string &toFactorStr, const bool &isConOfSqr
     }
 
     // Different collections per thread;
-    std::vector<BigInteger> semiSmoothParts;
-    semiSmoothParts.reserve((size_t)((wheelEntryCount << 1U) * batchSizeMultiplier));
+    std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothPartsMap;
+    std::vector<BigInteger> smoothParts;
+    smoothParts.reserve((size_t)((wheelEntryCount << 1U) * batchSizeMultiplier));
 
     // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
-    return worker.smoothCongruences(&inc_seqs_clone, &semiSmoothParts, isGaussElim);
+    return worker.smoothCongruences(&inc_seqs_clone, smoothParts, smoothPartsMap, isGaussElim);
   };
 
   std::vector<std::future<BigInteger>> futures;

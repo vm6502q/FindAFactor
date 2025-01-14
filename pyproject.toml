@@ -12,7 +12,7 @@ cmake.args = ["-DCMAKE_BUILD_TYPE=Release"]
 
 [project]
 name = "FindAFactor"
-version = "3.9.0"
+version = "3.9.1"
 requires-python = ">=3.8"
 description = "Find any nontrivial factor of a number"
 readme = {file = "README.txt", content-type = "text/markdown"}

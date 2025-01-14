@@ -25,9 +25,9 @@ def main():
     batch_size_multiplier=float(os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER') else 2048.0
 
     if argv_len > 2:
-        use_congruence_of_squares = ((sys.argv[2] != "False") and (sys.argv[2] != "0"))
+        use_congruence_of_squares = (sys.argv[2] not in ["False", "0"])
     if argv_len > 3:
-        use_gaussian_elimination = ((sys.argv[3] != "False") and (sys.argv[3] != "0"))
+        use_gaussian_elimination = (sys.argv[3] not in ["False", "0"])
     if argv_len > 5:
         node_count = int(sys.argv[4])
         node_id = int(sys.argv[5])
