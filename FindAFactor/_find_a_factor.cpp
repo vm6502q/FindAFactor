@@ -1174,37 +1174,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                     wheelEntryCount, (size_t)((wheelEntryCount << 1U) * batchSizeMultiplier),
                     smoothPrimes, forward(SMALLEST_WHEEL));
 
-  if (!isConOfSqr) {
-    const auto workerFn = [&inc_seqs, &worker] {
-      // inc_seq needs to be independent per thread.
-      std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
-      inc_seqs_clone.reserve(inc_seqs.size());
-      for (const boost::dynamic_bitset<size_t> &b : inc_seqs) {
-        inc_seqs_clone.emplace_back(b);
-      }
-
-      // "Brute force" includes extensive wheel multiplication and can be faster.
-      return worker.bruteForce(&inc_seqs_clone);
-    };
-
-    std::vector<std::future<BigInteger>> futures;
-    futures.reserve(CpuCount);
-
-    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      futures.push_back(std::async(std::launch::async, workerFn));
-    }
-
-    for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
-      const BigInteger r = futures[cpu].get();
-      if ((r > result) && (r != toFactor)) {
-        result = r;
-      }
-    }
-
-    return boost::lexical_cast<std::string>(result);
-  }
-
-  const auto workerFn = [&inc_seqs, &wheelEntryCount, &batchSizeMultiplier, &worker] {
+  const auto workerFn = [&inc_seqs, &worker] {
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
@@ -1212,8 +1182,8 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       inc_seqs_clone.emplace_back(b);
     }
 
-    // While brute-forcing, use the "exhaust" to feed "smooth" number generation and check conguence of squares.
-    return worker.smoothCongruences(&inc_seqs_clone);
+    // "Brute force" includes extensive wheel multiplication and can be faster.
+    return isConOfSqr ? worker.smoothCongruences(&inc_seqs_clone) : worker.bruteForce(&inc_seqs_clone);
   };
 
   std::vector<std::future<BigInteger>> futures;
