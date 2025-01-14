@@ -874,8 +874,44 @@ struct Factorizer {
     return 1U;
   }
 
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //                                                   WRITTEN WITH ELARA (GPT) BELOW                                                      //
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  // Compute the prime factorization modulo 2
+  boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
+    boost::dynamic_bitset<size_t> vec(primes.size(), 0);
+    while (true) {
+      BigInteger factor = gcd(num, wheelRadius);
+      if (factor == 1U) {
+        break;
+      }
+      num /= factor;
+      // Remove smooth primes from factor
+      for (size_t pi = 0U; pi < primes.size(); ++pi) {
+        const size_t& p = primes[pi];
+        if (factor % p) {
+          continue;
+        }
+        factor /= p;
+        vec.flip(pi);
+        if (factor == 1U) {
+          break;
+        }
+      }
+      if (abs(num) == 1U) {
+        return vec;
+      }
+    }
+    if (abs(num) != 1U) {
+      return boost::dynamic_bitset<size_t>();
+    }
+
+    return vec;
+  }
+
   // Function: Generate and evaluate QS polynomials
-BigInteger generateQuadraticSievePolynomials() {
+  BigInteger generateQuadraticSievePolynomials() {
     // Step 1: Choose A as a product of small primes in the factor base
     BigInteger A = 1;
     std::set<size_t> primesUsed;
@@ -932,38 +968,6 @@ BigInteger generateQuadraticSievePolynomials() {
     }
 
     return 1U;
-}
-
-  // Compute the prime factorization modulo 2
-  boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
-    boost::dynamic_bitset<size_t> vec(primes.size(), 0);
-    while (true) {
-      BigInteger factor = gcd(num, wheelRadius);
-      if (factor == 1U) {
-        break;
-      }
-      num /= factor;
-      // Remove smooth primes from factor
-      for (size_t pi = 0U; pi < primes.size(); ++pi) {
-        const size_t& p = primes[pi];
-        if (factor % p) {
-          continue;
-        }
-        factor /= p;
-        vec.flip(pi);
-        if (factor == 1U) {
-          break;
-        }
-      }
-      if (abs(num) == 1U) {
-        return vec;
-      }
-    }
-    if (abs(num) != 1U) {
-      return boost::dynamic_bitset<size_t>();
-    }
-
-    return vec;
   }
 
   BigInteger makeSmoothNumbers(std::vector<BigInteger> &smoothParts, std::map<BigInteger, boost::dynamic_bitset<size_t>> &smoothPartsMap) {
@@ -1000,10 +1004,6 @@ BigInteger generateQuadraticSievePolynomials() {
 
     return findFactor(smoothNumberKeys, smoothNumberValues);
   }
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //                                                   WRITTEN WITH ELARA (GPT) BELOW                                                      //
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Perform Gaussian elimination on a binary matrix
   void gaussianElimination(std::vector<BigInteger> &smoothNumberKeys, std::vector<boost::dynamic_bitset<size_t>> &smoothNumberValues) {
