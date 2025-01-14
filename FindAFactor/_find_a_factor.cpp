@@ -932,7 +932,7 @@ struct Factorizer {
     }
 
     // Step 3: Compute C = (B^2 - toFactor) / A
-    BigInteger C = (B * B - toFactor) / A;
+    const BigInteger C = (B * B - toFactor) / A;
 
     // Step 4: Evaluate Q(x) = A*x^2 + B*x + C
     BigInteger smoothNumber = 1;
@@ -950,15 +950,12 @@ struct Factorizer {
       if (smoothNumber < toFactor) {
         continue;
       }
-      std::vector<BigInteger> smoothNumberKeys(bigPrimes);
-      std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
-      smoothNumberValues.reserve(smoothNumberKeys.size() + 1U);
-      for (const auto& f : primeFactors) {
-        smoothNumberValues.emplace_back(f);
+      for (size_t i = 0; i < fv.size(); ++i) {
+        if (fv[i]) {
+          smoothNumber *= primes[i];
+        }
       }
-      smoothNumberKeys.push_back(smoothNumber);
-      smoothNumberValues.emplace_back(fv);
-      const BigInteger factor = findFactor(smoothNumberKeys, smoothNumberValues);
+      const BigInteger factor = checkPerfectSquare(smoothNumber);
       if (!(toFactor % factor) && (factor != 1U) && (factor != toFactor)) {
         return factor;
       }
