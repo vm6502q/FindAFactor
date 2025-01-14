@@ -937,7 +937,7 @@ struct Factorizer {
     // Step 4: Evaluate Q(x) = A*x^2 + B*x + C
     BigInteger smoothNumber = 1;
     boost::dynamic_bitset<size_t> fv(primes.size(), 0);
-    for (BigInteger x = -toFactorSqrt; x <= toFactorSqrt; ++x) {
+    for (BigInteger x = -toFactorSqrt; isIncomplete && (x <= toFactorSqrt); ++x) {
       const BigInteger Qx = A * x * x + B * x + C;
       // Check for smoothness (trial division against factor base)
       const boost::dynamic_bitset<size_t> pfv = factorizationVector(Qx);
@@ -957,6 +957,7 @@ struct Factorizer {
       }
       const BigInteger factor = checkPerfectSquare(smoothNumber);
       if (!(toFactor % factor) && (factor != 1U) && (factor != toFactor)) {
+        isIncomplete = false;
         return factor;
       }
       // Reset "smoothNumber" and its factorization vector.
