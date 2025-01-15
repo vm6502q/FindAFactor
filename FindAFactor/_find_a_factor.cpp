@@ -1077,8 +1077,9 @@ struct Factorizer {
   }
 #endif
 
-  BigInteger ascendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fv) {
+  BigInteger ascendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fvPtr) {
     BigInteger& perfectSquare = *perfectSquarePtr;
+    std::vector<BigInteger>& fv = *fvPtr;
     while (perfectSquare < toFactorSqr) {
       const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
       if ((factor != 1U) && (factor != toFactor)) {
@@ -1086,7 +1087,7 @@ struct Factorizer {
       }
       const size_t pi = dis(gen);
       perfectSquare *= sqrPrimes[pi];
-      ++((*fv)[pi]);
+      ++(fv[pi]);
     }
 
     return 1U;
@@ -1105,8 +1106,9 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger descendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fv) {
+  BigInteger descendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fvPtr) {
     BigInteger& perfectSquare = *perfectSquarePtr;
+    std::vector<BigInteger>& fv = *fvPtr;
     while (perfectSquare > toFactor) {
       const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
       if ((factor != 1U) && (factor != toFactor)) {
@@ -1117,10 +1119,10 @@ struct Factorizer {
       BigInteger fc = 0U;
       while (!fc) {
         pi = dis(gen);
-        fc = (*fv)[pi];
+        fc = fv[pi];
       }
       perfectSquare /= sqrPrimes[pi];
-      --((*fv)[pi]);
+      --(fv[pi]);
     }
 
     return 1U;
