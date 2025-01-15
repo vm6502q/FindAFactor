@@ -815,7 +815,7 @@ struct Factorizer {
     BigInteger n;
     std::vector<BigInteger> fv;
     while (!fv.size()) {
-      n = forwardFn(rng() * wheelEntryCount + rng());
+      n = forwardFn(((rng() * wheelEntryCount) % batchTotal) + (rng() % wheelEntryCount));
       fv = factorizationVector(n);
     }
 
@@ -829,6 +829,10 @@ struct Factorizer {
         isIncomplete = false;
 
         return factor;
+      }
+
+      if (!isIncomplete) {
+        return 1U;
       }
 
       factor = descendPerfectSquare(&n, &fv);
