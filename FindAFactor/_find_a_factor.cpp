@@ -1011,6 +1011,7 @@ struct Factorizer {
   //                                                   WRITTEN WITH ELARA (GPT) BELOW                                                      //
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#if 0
   // Perform Gaussian elimination on a binary matrix
   void gaussianElimination(std::vector<BigInteger> &smoothNumberKeys, std::vector<boost::dynamic_bitset<size_t>> &smoothNumberValues) {
     const unsigned cpuCount = CpuCount;
@@ -1074,6 +1075,7 @@ struct Factorizer {
       ++nColIt;
     }
   }
+#endif
 
   BigInteger ascendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fv) {
     BigInteger& perfectSquare = *perfectSquarePtr;
