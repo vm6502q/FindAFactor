@@ -756,7 +756,7 @@ struct Factorizer {
   BigInteger batchTotal;
   BigInteger wheelRadius;
   size_t wheelEntryCount;
-  size_t smoothPartsLimit;
+  size_t smoothBatchLimit;
   size_t rowOffset;
   bool isIncomplete;
   std::vector<size_t> primes;
@@ -768,7 +768,7 @@ struct Factorizer {
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<size_t> &p, ForwardFn fn)
     : rng({}), gen(rng()), dis(0U, p.size() - 1U), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelRadius(1U), wheelEntryCount(w), smoothPartsLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
+    wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
@@ -813,102 +813,108 @@ struct Factorizer {
   BigInteger monteCarlo() {
     // This function enters only once per thread.
 
-    // Find any single smooth perfect square (per thread).
-    BigInteger perfectSquare;
-    std::vector<size_t> fv;
-    while (!fv.size()) {
-      perfectSquare = forwardFn(((rng() % batchTotal) * wheelEntryCount) + (rng() % wheelEntryCount));
-      fv = factorizationVector(&perfectSquare);
-    }
-
+    // This is the outer reseeding loop.
     while (isIncomplete) {
-      // Multiply the random smooth perfect square by the squares of smooth primes.
-      while (perfectSquare < toFactor) {
-        const size_t pi = dis(gen);
-        perfectSquare *= sqrPrimes[pi];
-        ++(fv[pi]);
+      // Find any single smooth perfect square (per thread).
+      BigInteger perfectSquare;
+      std::vector<size_t> fv;
+      while (!fv.size()) {
+        perfectSquare = forwardFn(((rng() % batchTotal) * wheelEntryCount) + (rng() % wheelEntryCount));
+        fv = factorizationVector(&perfectSquare);
       }
 
-      // The number is now a smooth perfect square larger than toFactor.
-      // Keep going until we exceed the square of toFactor.
-      // We are given a smooth perfect square as input.
-      while (perfectSquare < toFactorSqr) {
-        // Compute x and y
-        const BigInteger x = perfectSquare % toFactor;
-        const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
-
-        // Check congruence of squares
-        BigInteger factor = gcd(toFactor, x + y);
-        if ((factor != 1U) && (factor != toFactor)) {
-          isIncomplete = false;
-
-          return factor;
+      size_t batchId = 0U;
+      while (isIncomplete && (batchId < smoothBatchLimit)) {
+        // Multiply the random smooth perfect square by the squares of smooth primes.
+        while (perfectSquare < toFactor) {
+          const size_t pi = dis(gen);
+          perfectSquare *= sqrPrimes[pi];
+          ++(fv[pi]);
         }
 
-        if (x != y) {
-          // Try x - y as well
-          factor = gcd(toFactor, x - y);
+        // The number is now a smooth perfect square larger than toFactor.
+        // Keep going until we exceed the square of toFactor.
+        // We are given a smooth perfect square as input.
+        while (perfectSquare < toFactorSqr) {
+          // Compute x and y
+          const BigInteger x = perfectSquare % toFactor;
+          const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
+
+          // Check congruence of squares
+          BigInteger factor = gcd(toFactor, x + y);
           if ((factor != 1U) && (factor != toFactor)) {
             isIncomplete = false;
 
             return factor;
           }
-        }
-        // Multiplying any smooth perfect square by the square of any smooth prime
-        // necessarily creates a new smooth perfect square.
-        const size_t pi = dis(gen);
-        perfectSquare *= sqrPrimes[pi];
-        // Update the factorization vector to reflect the new square prime factor.
-        // (The factorization vector assumes that each increment is a square prime factor,
-        // not a single prime factor.)
-        ++(fv[pi]);
-      }
 
-      if (!isIncomplete) {
-        return 1U;
-      }
+          if (x != y) {
+            // Try x - y as well
+            factor = gcd(toFactor, x - y);
+            if ((factor != 1U) && (factor != toFactor)) {
+              isIncomplete = false;
 
-      // Descend until we are less than toFactor, again.
-      // We are given a smooth perfect square as input.
-      while (perfectSquare > toFactor) {
-        // Compute x and y
-        const BigInteger x = perfectSquare % toFactor;
-        const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
-
-        // Check congruence of squares
-        BigInteger factor = gcd(toFactor, x + y);
-        if ((factor != 1U) && (factor != toFactor)) {
-          isIncomplete = false;
-
-          return factor;
+              return factor;
+            }
+          }
+          // Multiplying any smooth perfect square by the square of any smooth prime
+          // necessarily creates a new smooth perfect square.
+          const size_t pi = dis(gen);
+          perfectSquare *= sqrPrimes[pi];
+          // Update the factorization vector to reflect the new square prime factor.
+          // (The factorization vector assumes that each increment is a square prime factor,
+          // not a single prime factor.)
+          ++(fv[pi]);
         }
 
-        if (x != y) {
-          // Try x - y as well
-          factor = gcd(toFactor, x - y);
+        if (!isIncomplete) {
+          return 1U;
+        }
+
+        // Descend until we are less than toFactor, again.
+        // We are given a smooth perfect square as input.
+        while (perfectSquare > toFactor) {
+          // Compute x and y
+          const BigInteger x = perfectSquare % toFactor;
+          const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
+
+          // Check congruence of squares
+          BigInteger factor = gcd(toFactor, x + y);
           if ((factor != 1U) && (factor != toFactor)) {
             isIncomplete = false;
 
             return factor;
           }
+
+          if (x != y) {
+            // Try x - y as well
+            factor = gcd(toFactor, x - y);
+            if ((factor != 1U) && (factor != toFactor)) {
+              isIncomplete = false;
+
+              return factor;
+            }
+          }
+
+          // Dividing any smooth perfect square by the square of any smooth prime
+          // necessarily creates a new smooth perfect square, so long as
+          // the random square prime factor is actually present in the number.
+          size_t pi;
+          do {
+            // Loop until the population is nonzero (with guaranteed even parity).
+            pi = dis(gen);
+          } while (!fv[pi]);
+
+          perfectSquare /= sqrPrimes[pi];
+          // Update the factorization vector to reflect the new square prime factor.
+          // (The factorization vector assumes that each increment is a square prime factor,
+          // not a single prime factor.)
+          --(fv[pi]);
         }
 
-        // Dividing any smooth perfect square by the square of any smooth prime
-        // necessarily creates a new smooth perfect square, so long as
-        // the random square prime factor is actually present in the number.
-        size_t pi;
-        do {
-          // Loop until the population is nonzero (with guaranteed even parity).
-          pi = dis(gen);
-        } while (!fv[pi]);
-
-        perfectSquare /= sqrPrimes[pi];
-        // Update the factorization vector to reflect the new square prime factor.
-        // (The factorization vector assumes that each increment is a square prime factor,
-        // not a single prime factor.)
-        --(fv[pi]);
+        // Repeat indefinitely until reseeding.
+        ++batchId;
       }
-
       // Repeat indefinitely until success.
     }
 
@@ -922,7 +928,7 @@ struct Factorizer {
     // Different collections per thread;
     std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothPartsMap;
     std::vector<BigInteger> smoothParts;
-    smoothParts.reserve(smoothPartsLimit);
+    smoothParts.reserve(smoothBatchLimit);
     BigInteger numberCount = 0;
     for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
@@ -946,7 +952,7 @@ struct Factorizer {
       }
 
       // Batch this work, to reduce contention.
-      if (smoothParts.size() >= smoothPartsLimit) {
+      if (smoothParts.size() >= smoothBatchLimit) {
         const BigInteger n = makeSmoothNumbers(smoothParts, smoothPartsMap);
         if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
@@ -1351,7 +1357,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // This manages the work of all threads.
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
-                    wheelEntryCount, (size_t)((wheelEntryCount << 1U) * batchSizeMultiplier),
+                    wheelEntryCount, batchSizeMultiplier * (isFactorFinder ? smoothPrimes.size() * smoothPrimes.size() : (wheelEntryCount << 1U)),
                     smoothPrimes, forward(SMALLEST_WHEEL));
 
   std::vector<std::future<BigInteger>> futures;
