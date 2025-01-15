@@ -813,7 +813,7 @@ struct Factorizer {
   BigInteger monteCarlo() {
     // This function enters only once per thread.
 
-    // Find any single smooth number (per thread).
+    // Find any single smooth perfect square (per thread).
     BigInteger n;
     std::vector<size_t> fv;
     while (!fv.size()) {
@@ -822,7 +822,7 @@ struct Factorizer {
     }
 
     while (isIncomplete) {
-      // Multiply the random smooth number by the squares of smooth primes.
+      // Multiply the random smooth perfect square by the squares of smooth primes.
       while (n < toFactor) {
         const size_t pi = dis(gen);
         n *= sqrPrimes[pi];
