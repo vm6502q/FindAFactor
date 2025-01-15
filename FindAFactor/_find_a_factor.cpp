@@ -812,6 +812,8 @@ struct Factorizer {
 
   BigInteger monteCarlo() {
     // This function enters only once per thread.
+
+    // Find any single smooth number (per thread).
     BigInteger n;
     std::vector<BigInteger> fv;
     while (!fv.size()) {
@@ -820,8 +822,11 @@ struct Factorizer {
     }
 
     while (isIncomplete) {
+      // Multiply the random smooth number by sq
       while (n < toFactor) {
-        n *= sqrPrimes[dis(gen)];
+        const size_t pi = dis(gen);
+        n *= sqrPrimes[pi];
+        ++(fv[pi]);
       }
 
       BigInteger factor = ascendPerfectSquare(&n, &fv);
