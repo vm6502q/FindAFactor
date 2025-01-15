@@ -20,7 +20,7 @@ def optimization_objective(to_factor, params):
     # Run the factorization function
     result = find_a_factor(
         to_factor,
-        method=1,
+        method=2,
         node_count=1,
         node_id=0,
         trial_division_level=(1<<int(trial_division_level)),

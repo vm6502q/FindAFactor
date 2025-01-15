@@ -815,7 +815,7 @@ struct Factorizer {
 
     // Find any single smooth number (per thread).
     BigInteger n;
-    std::vector<BigInteger> fv;
+    std::vector<size_t> fv;
     while (!fv.size()) {
       n = forwardFn(((rng() * wheelEntryCount) % batchTotal) + (rng() % wheelEntryCount));
       fv = factorizationVector(&n);
@@ -942,9 +942,9 @@ struct Factorizer {
   }
 
   // Compute the prime factorization.
-  std::vector<BigInteger> factorizationVector(BigInteger* numPtr) {
+  std::vector<size_t> factorizationVector(BigInteger* numPtr) {
     BigInteger& num = *numPtr;
-    std::vector<BigInteger> vec(primes.size(), 0);
+    std::vector<size_t> vec(primes.size(), 0);
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
       BigInteger factor = gcd(num, wheelRadius);
@@ -973,12 +973,12 @@ struct Factorizer {
     if (num != 1U) {
       // The number was not fully factored,
       // because it is not smooth.
-      return std::vector<BigInteger>();
+      return std::vector<size_t>();
     }
     // We actually want not just a smooth number,
     // but a smooth perfect square.
     for (size_t pi = 0U; pi < primes.size(); ++pi) {
-      BigInteger& vp = vec[pi];
+      size_t& vp = vec[pi];
       if (vp & 1U) {
         // If the prime factor component parity is odd,
         // multiply by the prime once to make it even.
@@ -1115,10 +1115,10 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger ascendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fvPtr) {
+  BigInteger ascendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<size_t>* fvPtr) {
     // We are given a smooth perfect square as input.
     BigInteger& perfectSquare = *perfectSquarePtr;
-    std::vector<BigInteger>& fv = *fvPtr;
+    std::vector<size_t>& fv = *fvPtr;
     while (perfectSquare < toFactorSqr) {
       const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
       if ((factor != 1U) && (factor != toFactor)) {
@@ -1137,10 +1137,10 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger descendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fvPtr) {
+  BigInteger descendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<size_t>* fvPtr) {
     // We are given a smooth perfect square as input.
     BigInteger& perfectSquare = *perfectSquarePtr;
-    std::vector<BigInteger>& fv = *fvPtr;
+    std::vector<size_t>& fv = *fvPtr;
     while (perfectSquare > toFactor) {
       const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
       if ((factor != 1U) && (factor != toFactor)) {
