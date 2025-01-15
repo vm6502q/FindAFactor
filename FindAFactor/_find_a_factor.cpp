@@ -1154,7 +1154,9 @@ struct Factorizer {
   BigInteger findFactor(std::vector<BigInteger> &smoothNumberKeys, std::vector<boost::dynamic_bitset<size_t>> &smoothNumberValues) {
     // Gaussian elimination multiplies these numbers
     // with small primes, to produce squares
-    gaussianElimination(smoothNumberKeys, smoothNumberValues);
+    // gaussianElimination(smoothNumberKeys, smoothNumberValues);
+    // NOTE: The reason this is turned off above is that
+    // perfect squares are augmented entirely in factorizationVector().
 
     // Check for linear dependencies and find a congruence of squares
     std::mutex rowMutex;
