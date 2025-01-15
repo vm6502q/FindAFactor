@@ -899,12 +899,14 @@ struct Factorizer {
     BigInteger& num = *numPtr;
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
+      // Proceed in steps of the GCD with the smooth prime wheel radius.
       BigInteger factor = gcd(num, wheelRadius);
       if (factor == 1U) {
         break;
       }
       num /= factor;
-      // Remove smooth primes from factor
+      // Remove smooth primes from factor.
+      // (The GCD is necessarily smooth.)
       for (size_t pi = 0U; pi < primes.size(); ++pi) {
         const size_t& p = primes[pi];
         if (factor % p) {
@@ -916,37 +918,42 @@ struct Factorizer {
           break;
         }
       }
-      if (factor != 1U) {
-        return boost::dynamic_bitset<size_t>();
-      }
       if (num == 1U) {
+        // The number is fully factored and smooth.
         return vec;
       }
     }
     if (num != 1U) {
+      // The number was not fully factored,
+      // because it is not smooth.
       return boost::dynamic_bitset<size_t>();
     }
     for (size_t pi = 0U; pi < primes.size(); ++pi) {
       if (vec.test(pi)) {
+        // If the prime factor component parity is odd,
+        // multiply by the prime once to make it even.
         num *= primes[pi];
         vec.reset(pi);
       }
     }
 
+    // This number is necessarily a smooth perfect square.
     return vec;
   }
 
-  // Compute the prime factorization modulo 2
+  // Compute the prime factorization.
   std::vector<BigInteger> factorizationVector(BigInteger* numPtr) {
     BigInteger& num = *numPtr;
     std::vector<BigInteger> vec(primes.size(), 0);
     while (true) {
+      // Proceed in steps of the GCD with the smooth prime wheel radius.
       BigInteger factor = gcd(num, wheelRadius);
       if (factor == 1U) {
         break;
       }
       num /= factor;
-      // Remove smooth primes from factor
+      // Remove smooth primes from factor.
+      // (The GCD is necessarily smooth.)
       for (size_t pi = 0U; pi < primes.size(); ++pi) {
         const size_t& p = primes[pi];
         if (factor % p) {
@@ -959,21 +966,31 @@ struct Factorizer {
         }
       }
       if (num == 1U) {
+        // The number is fully factored and smooth.
         break;
       }
     }
     if (num != 1U) {
+      // The number was not fully factored,
+      // because it is not smooth.
       return std::vector<BigInteger>();
     }
+    // We actually want not just a smooth number,
+    // but a smooth perfect square.
     for (size_t pi = 0U; pi < primes.size(); ++pi) {
       BigInteger& vp = vec[pi];
       if (vp & 1U) {
+        // If the prime factor component parity is odd,
+        // multiply by the prime once to make it even.
         num *= primes[pi];
         ++vp;
       }
+      // The parity is necessarily even in this factor, by now.
+      // Divide by 2 to get the count of square prime factors.
       vp >>= 1U;
     }
 
+    // This number is necessarily a smooth perfect square.
     return vec;
   }
 
@@ -1082,36 +1099,46 @@ struct Factorizer {
   }
 #endif
 
-  BigInteger ascendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fvPtr) {
-    BigInteger& perfectSquare = *perfectSquarePtr;
-    std::vector<BigInteger>& fv = *fvPtr;
-    while (isIncomplete && (perfectSquare < toFactorSqr)) {
-      const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
-      if ((factor != 1U) && (factor != toFactor)) {
-        return factor;
-      }
-      const size_t pi = dis(gen);
-      perfectSquare *= sqrPrimes[pi];
-      ++(fv[pi]);
-    }
-
-    return 1U;
-  }
-
   BigInteger climbPerfectSquare(BigInteger* perfectSquarePtr) {
+    // We are given a smooth perfect square as input.
     BigInteger& perfectSquare = *perfectSquarePtr;
-    while (isIncomplete && (perfectSquare < toFactorSqr)) {
+    while (perfectSquare < toFactorSqr) {
       const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
       if ((factor != 1U) && (factor != toFactor)) {
         return factor;
       }
+      // Multiplying any smooth perfect square by the square of any smooth prime
+      // necessarily creates a new smooth perfect square.
       perfectSquare *= sqrPrimes[dis(gen)];
     }
 
     return 1U;
   }
 
+  BigInteger ascendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fvPtr) {
+    // We are given a smooth perfect square as input.
+    BigInteger& perfectSquare = *perfectSquarePtr;
+    std::vector<BigInteger>& fv = *fvPtr;
+    while (perfectSquare < toFactorSqr) {
+      const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
+      if ((factor != 1U) && (factor != toFactor)) {
+        return factor;
+      }
+      // Multiplying any smooth perfect square by the square of any smooth prime
+      // necessarily creates a new smooth perfect square.
+      const size_t pi = dis(gen);
+      perfectSquare *= sqrPrimes[pi];
+      // Update the factorization vector to reflect the new square prime factor.
+      // (The factorization vector assumes that each increment is a square prime factor,
+      // not a single prime factor.)
+      ++(fv[pi]);
+    }
+
+    return 1U;
+  }
+
   BigInteger descendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fvPtr) {
+    // We are given a smooth perfect square as input.
     BigInteger& perfectSquare = *perfectSquarePtr;
     std::vector<BigInteger>& fv = *fvPtr;
     while (perfectSquare > toFactor) {
@@ -1120,13 +1147,20 @@ struct Factorizer {
         return factor;
       }
 
+      // Dividing any smooth perfect square by the square of any smooth prime
+      // necessarily creates a new smooth perfect square, so long as
+      // the random square prime factor is actually present in the number.
       size_t pi = 0U;
       BigInteger fc = 0U;
       while (!fc) {
+        // Loop until the population is nonzero (with guaranteed even parity).
         pi = dis(gen);
         fc = fv[pi];
       }
       perfectSquare /= sqrPrimes[pi];
+      // Update the factorization vector to reflect the new square prime factor.
+      // (The factorization vector assumes that each increment is a square prime factor,
+      // not a single prime factor.)
       --(fv[pi]);
     }
 
