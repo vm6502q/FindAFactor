@@ -1085,7 +1085,7 @@ struct Factorizer {
   BigInteger ascendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fvPtr) {
     BigInteger& perfectSquare = *perfectSquarePtr;
     std::vector<BigInteger>& fv = *fvPtr;
-    while (perfectSquare < toFactorSqr) {
+    while (isIncomplete && (perfectSquare < toFactorSqr)) {
       const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
       if ((factor != 1U) && (factor != toFactor)) {
         return factor;
@@ -1100,7 +1100,7 @@ struct Factorizer {
 
   BigInteger climbPerfectSquare(BigInteger* perfectSquarePtr) {
     BigInteger& perfectSquare = *perfectSquarePtr;
-    while (perfectSquare < toFactorSqr) {
+    while (isIncomplete && (perfectSquare < toFactorSqr)) {
       const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
       if ((factor != 1U) && (factor != toFactor)) {
         return factor;
