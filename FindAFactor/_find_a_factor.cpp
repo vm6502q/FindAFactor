@@ -822,13 +822,15 @@ struct Factorizer {
     }
 
     while (isIncomplete) {
-      // Multiply the random smooth number by sq
+      // Multiply the random smooth number by the squares of smooth primes.
       while (n < toFactor) {
         const size_t pi = dis(gen);
         n *= sqrPrimes[pi];
         ++(fv[pi]);
       }
 
+      // The number is now a smooth perfect square larger than toFactor.
+      // Keep going until we exceed the square of toFactor.
       BigInteger factor = ascendPerfectSquare(&n, &fv);
       if ((factor != 1U) && (factor != toFactor)) {
         isIncomplete = false;
@@ -840,12 +842,15 @@ struct Factorizer {
         return 1U;
       }
 
+      // Descend until we are less than toFactor, again.
       factor = descendPerfectSquare(&n, &fv);
       if ((factor != 1U) && (factor != toFactor)) {
         isIncomplete = false;
 
         return factor;
       }
+
+      // Repeat indefinitely until success.
     }
 
     return 1U;
