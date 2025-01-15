@@ -817,7 +817,7 @@ struct Factorizer {
     BigInteger n;
     std::vector<size_t> fv;
     while (!fv.size()) {
-      n = forwardFn(((rng() * wheelEntryCount) % batchTotal) + (rng() % wheelEntryCount));
+      n = forwardFn(((rng() % batchTotal) * wheelEntryCount) + (rng() % wheelEntryCount));
       fv = factorizationVector(&n);
     }
 
