@@ -810,6 +810,38 @@ struct Factorizer {
     return 1U;
   }
 
+  BigInteger monteCarlo() {
+    // This function enters only once per thread.
+    BigInteger n;
+    std::vector<BigInteger> fv;
+    while (!fv.size()) {
+      n = forwardFn(rng() * wheelEntryCount + rng());
+      fv = factorizationVector(n);
+    }
+
+    while (isIncomplete) {
+      while (n < toFactor) {
+        n *= sqrPrimes[dis(gen)];
+      }
+
+      BigInteger factor = ascendPerfectSquare(&n, &fv);
+      if ((factor != 1U) && (factor != toFactor)) {
+        isIncomplete = false;
+
+        return factor;
+      }
+
+      factor = descendPerfectSquare(&n, &fv);
+      if ((factor != 1U) && (factor != toFactor)) {
+        isIncomplete = false;
+
+        return factor;
+      }
+    }
+
+    return 1U;
+  }
+
   BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     // Since the largest prime factors of these numbers is relatively small,
@@ -831,7 +863,7 @@ struct Factorizer {
           return n;
         }
         // Use the "exhaust" to produce smoother numbers.
-        const boost::dynamic_bitset<size_t> fv = factorizationVector(n);
+        const boost::dynamic_bitset<size_t> fv = factorizationParityVector(n);
         if (fv.size()) {
             smoothPartsMap[n] = fv;
             smoothParts.push_back(n);
@@ -854,7 +886,7 @@ struct Factorizer {
   }
 
   // Compute the prime factorization modulo 2
-  boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
+  boost::dynamic_bitset<size_t> factorizationParityVector(BigInteger num) {
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
       BigInteger factor = gcd(num, wheelRadius);
@@ -874,12 +906,54 @@ struct Factorizer {
           break;
         }
       }
+      if (factor != 1U) {
+        return boost::dynamic_bitset<size_t>();
+      }
       if (num == 1U) {
         return vec;
       }
     }
     if (num != 1U) {
       return boost::dynamic_bitset<size_t>();
+    }
+
+    return vec;
+  }
+
+  // Compute the prime factorization modulo 2
+  std::vector<BigInteger> factorizationVector(BigInteger num) {
+    std::vector<BigInteger> vec(primes.size(), 0);
+    while (true) {
+      BigInteger factor = gcd(num, wheelRadius);
+      if (factor == 1U) {
+        break;
+      }
+      num /= factor;
+      // Remove smooth primes from factor
+      for (size_t pi = 0U; pi < primes.size(); ++pi) {
+        const size_t& p = primes[pi];
+        if (factor % p) {
+          continue;
+        }
+        factor /= p;
+        ++vec[pi];
+        if (factor == 1U) {
+          break;
+        }
+      }
+      if (factor != 1U) {
+        return std::vector<BigInteger>();
+      }
+      if (num == 1U) {
+        break;
+      }
+    }
+    if (num != 1U) {
+      return std::vector<BigInteger>();
+    }
+
+    for (size_t pi = 0U; pi < primes.size(); ++pi) {
+      vec[pi] >>= 1U;
     }
 
     return vec;
@@ -988,29 +1062,76 @@ struct Factorizer {
     }
   }
 
-  BigInteger checkPerfectSquare(BigInteger perfectSquare) {
+  BigInteger ascendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fv) {
+    BigInteger& perfectSquare = *perfectSquarePtr;
     while (perfectSquare < toFactorSqr) {
-      // Compute x and y
-      const BigInteger x = perfectSquare % toFactor;
-      const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
-
-      // Check congruence of squares
-      BigInteger factor = gcd(toFactor, x + y);
+      const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
       if ((factor != 1U) && (factor != toFactor)) {
         return factor;
       }
+      const size_t pi = dis(gen);
+      perfectSquare *= sqrPrimes[pi];
+      ++((*fv)[pi]);
+    }
 
-      if (x == y) {
-        continue;
-      }
+    return 1U;
+  }
 
-      // Try x - y as well
-      factor = gcd(toFactor, x - y);
+  BigInteger climbPerfectSquare(BigInteger* perfectSquarePtr) {
+    BigInteger& perfectSquare = *perfectSquarePtr;
+    while (perfectSquare < toFactorSqr) {
+      const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
       if ((factor != 1U) && (factor != toFactor)) {
         return factor;
       }
-
       perfectSquare *= sqrPrimes[dis(gen)];
+    }
+
+    return 1U;
+  }
+
+  BigInteger descendPerfectSquare(BigInteger* perfectSquarePtr, std::vector<BigInteger>* fv) {
+    BigInteger& perfectSquare = *perfectSquarePtr;
+    while (perfectSquare < toFactorSqr) {
+      const BigInteger factor = checkPerfectSquare(perfectSquarePtr);
+      if ((factor != 1U) && (factor != toFactor)) {
+        return factor;
+      }
+
+      size_t pi = 0U;
+      BigInteger fc = 0U;
+      while (!fc) {
+        pi = dis(gen);
+        fc = (*fv)[pi];
+      }
+      perfectSquare /= sqrPrimes[pi];
+      --((*fv)[pi]);
+    }
+
+    return 1U;
+  }
+
+  BigInteger checkPerfectSquare(BigInteger* perfectSquarePtr) {
+    BigInteger& perfectSquare = *perfectSquarePtr;
+
+    // Compute x and y
+    const BigInteger x = perfectSquare % toFactor;
+    const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
+
+    // Check congruence of squares
+    BigInteger factor = gcd(toFactor, x + y);
+    if ((factor != 1U) && (factor != toFactor)) {
+      return factor;
+    }
+
+    if (x == y) {
+      return 1U;
+    }
+
+    // Try x - y as well
+    factor = gcd(toFactor, x - y);
+    if ((factor != 1U) && (factor != toFactor)) {
+      return factor;
     }
 
     return 1U;
@@ -1028,7 +1149,7 @@ struct Factorizer {
     const size_t rowCount = smoothNumberKeys.size();
     for (size_t i = primes.size(); (i < rowCount) && (result == 1U); ++i) {
       dispatch.dispatch([this, i, &result, &rowMutex, &smoothNumberKeys]() -> bool {
-        const BigInteger factor = checkPerfectSquare(smoothNumberKeys[i]);
+        const BigInteger factor = climbPerfectSquare(&(smoothNumberKeys[i]));
 
         if ((factor != 1U) && (factor != this->toFactor)) {
           std::lock_guard<std::mutex> lock(rowMutex);
@@ -1061,10 +1182,12 @@ struct Factorizer {
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
                           size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
   // (At least) level 11 wheel factorization is baked into basic functions.
-  if (method > 1U) {
-    std::cout << "FACTOR_FINDER mode not yet implemented. Defaulting to MIXED." << std::endl;
+  if (method > 2U) {
+    std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
+    method = 2U;
   }
-  const bool isConOfSqr = (method > 0);
+  const bool isFactorFinder = (method == 2U);
+  const bool isConOfSqr = (method > 0U);
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
   } else if (wheelFactorizationLevel > 13U) {
@@ -1174,23 +1297,34 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                     wheelEntryCount, (size_t)((wheelEntryCount << 1U) * batchSizeMultiplier),
                     smoothPrimes, forward(SMALLEST_WHEEL));
 
-  const auto workerFn = [isConOfSqr, &inc_seqs, &worker] {
-    // inc_seq needs to be independent per thread.
-    std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
-    inc_seqs_clone.reserve(inc_seqs.size());
-    for (const boost::dynamic_bitset<size_t> &b : inc_seqs) {
-      inc_seqs_clone.emplace_back(b);
-    }
-
-    // "Brute force" includes extensive wheel multiplication and can be faster.
-    return isConOfSqr ? worker.smoothCongruences(&inc_seqs_clone) : worker.bruteForce(&inc_seqs_clone);
-  };
-
   std::vector<std::future<BigInteger>> futures;
   futures.reserve(CpuCount);
 
-  for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-    futures.push_back(std::async(std::launch::async, workerFn));
+  if (isFactorFinder) {
+    const auto workerFn = [&worker] {
+      // This is as "embarrissingly parallel" as it gets.
+      return worker.monteCarlo();
+    };
+
+    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
+      futures.push_back(std::async(std::launch::async, workerFn));
+    }
+  } else {
+    const auto workerFn = [&isConOfSqr, &inc_seqs, &worker] {
+      // inc_seq needs to be independent per thread.
+      std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
+      inc_seqs_clone.reserve(inc_seqs.size());
+      for (const boost::dynamic_bitset<size_t> &b : inc_seqs) {
+        inc_seqs_clone.emplace_back(b);
+      }
+
+      // "Brute force" includes extensive wheel multiplication and can be faster.
+      return isConOfSqr ? worker.smoothCongruences(&inc_seqs_clone) : worker.bruteForce(&inc_seqs_clone);
+    };
+
+    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
+      futures.push_back(std::async(std::launch::async, workerFn));
+    }
   }
 
   for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
