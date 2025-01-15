@@ -816,7 +816,7 @@ struct Factorizer {
     std::vector<BigInteger> fv;
     while (!fv.size()) {
       n = forwardFn(((rng() * wheelEntryCount) % batchTotal) + (rng() % wheelEntryCount));
-      fv = factorizationVector(n);
+      fv = factorizationVector(&n);
     }
 
     while (isIncomplete) {
@@ -860,14 +860,14 @@ struct Factorizer {
       const BigInteger batchEnd = batchStart + wheelEntryCount;
       for (BigInteger p = batchStart; p < batchEnd;) {
         // Brute-force check if the sequential number is a factor.
-        const BigInteger n = forwardFn(p);
+        BigInteger n = forwardFn(p);
         // If so, terminate this node and return the answer.
         if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
           return n;
         }
         // Use the "exhaust" to produce smoother numbers.
-        const boost::dynamic_bitset<size_t> fv = factorizationParityVector(n);
+        const boost::dynamic_bitset<size_t> fv = factorizationParityVector(&n);
         if (fv.size()) {
             smoothPartsMap[n] = fv;
             smoothParts.push_back(n);
@@ -890,7 +890,8 @@ struct Factorizer {
   }
 
   // Compute the prime factorization modulo 2
-  boost::dynamic_bitset<size_t> factorizationParityVector(BigInteger num) {
+  boost::dynamic_bitset<size_t> factorizationParityVector(BigInteger* numPtr) {
+    BigInteger& num = *numPtr;
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
       BigInteger factor = gcd(num, wheelRadius);
@@ -920,12 +921,19 @@ struct Factorizer {
     if (num != 1U) {
       return boost::dynamic_bitset<size_t>();
     }
+    for (size_t pi = 0U; pi < primes.size(); ++pi) {
+      if (vec.test(pi)) {
+        num *= primes[pi];
+        vec.reset(pi);
+      }
+    }
 
     return vec;
   }
 
   // Compute the prime factorization modulo 2
-  std::vector<BigInteger> factorizationVector(BigInteger num) {
+  std::vector<BigInteger> factorizationVector(BigInteger* numPtr) {
+    BigInteger& num = *numPtr;
     std::vector<BigInteger> vec(primes.size(), 0);
     while (true) {
       BigInteger factor = gcd(num, wheelRadius);
@@ -940,13 +948,10 @@ struct Factorizer {
           continue;
         }
         factor /= p;
-        ++vec[pi];
+        ++(vec[pi]);
         if (factor == 1U) {
           break;
         }
-      }
-      if (factor != 1U) {
-        return std::vector<BigInteger>();
       }
       if (num == 1U) {
         break;
@@ -955,9 +960,13 @@ struct Factorizer {
     if (num != 1U) {
       return std::vector<BigInteger>();
     }
-
     for (size_t pi = 0U; pi < primes.size(); ++pi) {
-      vec[pi] >>= 1U;
+      BigInteger& vp = vec[pi];
+      if (vp & 1U) {
+        num *= primes[pi];
+        ++vp;
+      }
+      vp >>= 1U;
     }
 
     return vec;
