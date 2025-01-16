@@ -1130,7 +1130,6 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       // "Brute force" includes extensive wheel multiplication and can be faster.
       return worker.bruteForce(&inc_seqs_clone);
     };
-
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       futures.push_back(std::async(std::launch::async, workerFn));
     }

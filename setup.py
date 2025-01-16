@@ -40,7 +40,7 @@ ext_modules = [CMakeExtension('_find_a_factor')]
 
 setup(
     name='FindAFactor',
-    version='4.3.1',
+    version='4.4.0',
     author='Dan Strano',
     author_email='stranoj@gmail.com',
     description='Find any nontrivial factor of a number',
