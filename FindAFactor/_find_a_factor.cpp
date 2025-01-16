@@ -755,6 +755,7 @@ struct Factorizer {
   BigInteger batchOffset;
   BigInteger batchTotal;
   BigInteger wheelRadius;
+  std::uniform_int_distribution<size_t> mcDis;
   size_t wheelEntryCount;
   size_t smoothBatchLimit;
   size_t rowOffset;
@@ -768,7 +769,7 @@ struct Factorizer {
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<size_t> &p, ForwardFn fn)
     : rng({}), gen(rng()), dis(0U, p.size() - 1U), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
+    wheelRadius(1U), mcDis(0ULL, -1ULL), wheelEntryCount(w), smoothBatchLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
@@ -816,22 +817,22 @@ struct Factorizer {
     // This is the outer reseeding loop.
     while (isIncomplete) {
       // Find any single smooth perfect square (per thread).
-      BigInteger perfectSquare;
-      std::vector<size_t> fv;
-      while (!fv.size()) {
-        perfectSquare = forwardFn(((rng() % batchTotal) * wheelEntryCount) + (rng() % wheelEntryCount));
-        fv = factorizationVector(&perfectSquare);
+      BigInteger perfectSquare = 1U;
+      std::vector<size_t> fv(primes.size(), 0);
+      while (perfectSquare < toFactor) {
+        BigInteger n = forwardFn(((mcDis(gen) % batchTotal) * wheelEntryCount) + (mcDis(gen) % wheelEntryCount));
+        const std::vector<size_t> pfv = factorizationVector(&n);
+        if (!pfv.size()) {
+          continue;
+        }
+        perfectSquare *= n;
+        for (size_t pi = 0U; pi < primes.size(); ++pi) {
+          fv[pi] += pfv[pi];
+        }
       }
 
       size_t batchId = 0U;
       while (isIncomplete && (batchId < smoothBatchLimit)) {
-        // Multiply the random smooth perfect square by the squares of smooth primes.
-        while (perfectSquare < toFactor) {
-          const size_t pi = dis(gen);
-          perfectSquare *= sqrPrimes[pi];
-          ++(fv[pi]);
-        }
-
         // The number is now a smooth perfect square larger than toFactor.
         // Keep going until we exceed the square of toFactor.
         // We are given a smooth perfect square as input.
@@ -912,8 +913,19 @@ struct Factorizer {
           --(fv[pi]);
         }
 
+        if (!isIncomplete) {
+          return 1U;
+        }
+
         // Repeat indefinitely until reseeding.
         ++batchId;
+
+        // Multiply the random smooth perfect square by the squares of smooth primes.
+        while (perfectSquare < toFactor) {
+          const size_t pi = dis(gen);
+          perfectSquare *= sqrPrimes[pi];
+          ++(fv[pi]);
+        }
       }
       // Repeat indefinitely until success.
     }
