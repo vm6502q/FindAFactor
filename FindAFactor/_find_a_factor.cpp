@@ -1256,7 +1256,6 @@ struct Factorizer {
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
                           size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
-  // (At least) level 11 wheel factorization is baked into basic functions.
   if (method > 2U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
     method = 2U;
