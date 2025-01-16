@@ -832,7 +832,7 @@ struct Factorizer {
       }
 
       size_t batchId = 0U;
-      while (isIncomplete && (batchId < smoothBatchLimit)) {
+      while (isIncomplete) {
         // The number is now a smooth perfect square larger than toFactor.
         // Keep going until we exceed the square of toFactor.
         // We are given a smooth perfect square as input.
@@ -919,6 +919,9 @@ struct Factorizer {
 
         // Repeat indefinitely until reseeding.
         ++batchId;
+        if (batchId >= smoothBatchLimit) {
+          break;
+        }
 
         // Multiply the random smooth perfect square by the squares of smooth primes.
         while (perfectSquare < toFactor) {
