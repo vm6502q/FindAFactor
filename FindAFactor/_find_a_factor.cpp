@@ -832,7 +832,7 @@ struct Factorizer {
       }
 
       size_t batchId = 0U;
-      while (isIncomplete && (batchId < smoothBatchLimit)) {
+      while (isIncomplete) {
         // The number is now a smooth perfect square larger than toFactor.
         // Keep going until we exceed the square of toFactor.
         // We are given a smooth perfect square as input.
@@ -919,6 +919,9 @@ struct Factorizer {
 
         // Repeat indefinitely until reseeding.
         ++batchId;
+        if (batchId >= smoothBatchLimit) {
+          break;
+        }
 
         // Multiply the random smooth perfect square by the squares of smooth primes.
         while (perfectSquare < toFactor) {
@@ -931,96 +934,6 @@ struct Factorizer {
     }
 
     return 1U;
-  }
-
-  BigInteger smoothCongruences(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
-    // Up to wheel factorization, try all batches up to the square root of toFactor.
-    // Since the largest prime factors of these numbers is relatively small,
-    // use the "exhaust" of brute force to produce smooth numbers for Quadratic Sieve.
-    // Different collections per thread;
-    std::map<BigInteger, boost::dynamic_bitset<size_t>> smoothPartsMap;
-    std::vector<BigInteger> smoothParts;
-    smoothParts.reserve(smoothBatchLimit);
-    BigInteger numberCount = 0;
-    for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
-      const BigInteger batchStart = batchNum * wheelEntryCount;
-      const BigInteger batchEnd = batchStart + wheelEntryCount;
-      for (BigInteger p = batchStart; p < batchEnd;) {
-        // Brute-force check if the sequential number is a factor.
-        BigInteger n = forwardFn(p);
-        // If so, terminate this node and return the answer.
-        if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
-          isIncomplete = false;
-          return n;
-        }
-        // Use the "exhaust" to produce smoother numbers.
-        const boost::dynamic_bitset<size_t> fv = factorizationParityVector(&n);
-        if (fv.size()) {
-            smoothPartsMap[n] = fv;
-            smoothParts.push_back(n);
-        }
-        // Skip increments on the "wheels" (or "gears").
-        p += GetWheelIncrement(inc_seqs);
-      }
-
-      // Batch this work, to reduce contention.
-      if (smoothParts.size() >= smoothBatchLimit) {
-        const BigInteger n = makeSmoothNumbers(smoothParts, smoothPartsMap);
-        if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
-          isIncomplete = false;
-          return n;
-        }
-      }
-    }
-
-    return 1U;
-  }
-
-  // Compute the prime factorization modulo 2
-  boost::dynamic_bitset<size_t> factorizationParityVector(BigInteger* numPtr) {
-    BigInteger& num = *numPtr;
-    boost::dynamic_bitset<size_t> vec(primes.size(), 0);
-    while (true) {
-      // Proceed in steps of the GCD with the smooth prime wheel radius.
-      BigInteger factor = gcd(num, wheelRadius);
-      if (factor == 1U) {
-        break;
-      }
-      num /= factor;
-      // Remove smooth primes from factor.
-      // (The GCD is necessarily smooth.)
-      for (size_t pi = 0U; pi < primes.size(); ++pi) {
-        const size_t& p = primes[pi];
-        if (factor % p) {
-          continue;
-        }
-        factor /= p;
-        vec.flip(pi);
-        if (factor == 1U) {
-          break;
-        }
-      }
-      if (num == 1U) {
-        // The number is fully factored and smooth.
-        return vec;
-      }
-    }
-    if (num != 1U) {
-      // The number was not fully factored,
-      // because it is not smooth.
-      return boost::dynamic_bitset<size_t>();
-    }
-    for (size_t pi = 0U; pi < primes.size(); ++pi) {
-      if (vec.test(pi)) {
-        // If the prime factor component parity is odd,
-        // multiply by the prime once to make it even.
-        num *= primes[pi];
-        vec.reset(pi);
-      }
-    }
-
-    // This number is necessarily a smooth perfect square.
-    return vec;
   }
 
   // Compute the prime factorization.
@@ -1075,194 +988,16 @@ struct Factorizer {
     // This number is necessarily a smooth perfect square.
     return vec;
   }
-
-  BigInteger makeSmoothNumbers(std::vector<BigInteger> &smoothParts, std::map<BigInteger, boost::dynamic_bitset<size_t>> &smoothPartsMap) {
-    // This is the only nondeterminism in the algorithm.
-    std::shuffle(smoothParts.begin(), smoothParts.end(), rng);
-    // Now that smooth parts have been shuffled, just multiply down the list until they are larger than square root of toFactor.
-    BigInteger smoothNumber = 1U;
-    boost::dynamic_bitset<size_t> fv(primes.size(), 0);
-    std::vector<BigInteger> smoothNumberKeys(bigPrimes);
-    std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
-    smoothNumberValues.reserve(primeFactors.size());
-    for (const auto& f : primeFactors) {
-      smoothNumberValues.emplace_back(f);
-    }
-    smoothNumberKeys.reserve(smoothParts.size());
-    for (size_t spi = 0U; spi < smoothParts.size(); ++spi) {
-      const BigInteger &sp = smoothParts[spi];
-      // This multiplies together the factorizations of the smooth parts
-      // (producing the overall factorization of their multiplication)
-      fv ^= smoothPartsMap[sp];
-      smoothNumber *= sp;
-      // Check if the number is big enough
-      if (smoothNumber <= toFactor) {
-        continue;
-      }
-      smoothNumberValues.emplace_back(fv);
-      smoothNumberKeys.push_back(smoothNumber);
-      // Reset "smoothNumber" and its factorization vector.
-      smoothNumber = 1U;
-      fv = boost::dynamic_bitset<size_t>(primes.size(), 0);
-    }
-    smoothParts.clear();
-    smoothPartsMap.clear();
-
-    return findFactor(smoothNumberKeys, smoothNumberValues);
-  }
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //                                                   WRITTEN WITH ELARA (GPT) BELOW                                                      //
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#if 0
-  // Perform Gaussian elimination on a binary matrix
-  void gaussianElimination(std::vector<BigInteger> &smoothNumberKeys, std::vector<boost::dynamic_bitset<size_t>> &smoothNumberValues) {
-    const unsigned cpuCount = CpuCount;
-    auto mColIt = smoothNumberValues.begin();
-    auto nColIt = smoothNumberKeys.begin();
-    const size_t rows = smoothNumberValues.size();
-    for (size_t col = 0U; col < primes.size(); ++col) {
-      auto mRowIt = mColIt;
-      auto nRowIt = nColIt;
-
-      int64_t pivot = -1;
-      for (size_t row = col; row < rows; ++row) {
-        if ((*mRowIt)[col]) {
-          // Swapping matrix rows corresponds
-          // with swapping factorized numbers.
-          if (row != col) {
-            std::swap(*mColIt, *mRowIt);
-            std::swap(*nColIt, *nRowIt);
-          }
-          pivot = row;
-          break;
-        }
-        ++nRowIt;
-        ++mRowIt;
-      }
-
-      if (pivot != -1) {
-        const boost::dynamic_bitset<size_t> &cm = *mColIt;
-        const BigInteger &cn = *nColIt;
-        mRowIt = smoothNumberValues.begin();
-        nRowIt = smoothNumberKeys.begin();
-        for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
-          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
-            auto mrIt = mRowIt;
-            auto nrIt = nRowIt;
-            for (size_t row = cpu; ; row += cpuCount) {
-              boost::dynamic_bitset<size_t> &rm = *mrIt;
-              BigInteger &rn = *nrIt;
-              if ((row != col) && rm[col]) {
-                // XOR-ing factorization rows
-                // is like multiplying the numbers.
-                rm ^= cm;
-                rn *= cn;
-              }
-              if ((row + cpuCount) >= rows) {
-                return false;
-              }
-              std::advance(nrIt, cpuCount);
-              std::advance(mrIt, cpuCount);
-            }
-
-            return false;
-          });
-          ++mRowIt;
-          ++nRowIt;
-        }
-        dispatch.finish();
-      }
-
-      ++mColIt;
-      ++nColIt;
-    }
-  }
-#endif
-
-  BigInteger climbPerfectSquare(BigInteger* perfectSquarePtr) {
-    // We are given a smooth perfect square as input.
-    BigInteger& perfectSquare = *perfectSquarePtr;
-    while (perfectSquare < toFactorSqr) {
-      // Compute x and y
-      const BigInteger x = perfectSquare % toFactor;
-      const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
-
-      // Check congruence of squares
-      BigInteger factor = gcd(toFactor, x + y);
-      if ((factor != 1U) && (factor != toFactor)) {
-        return factor;
-      }
-
-      if (x != y) {
-        // Try x - y as well
-        factor = gcd(toFactor, x - y);
-        if ((factor != 1U) && (factor != toFactor)) {
-          return factor;
-        }
-      }
-      // Multiplying any smooth perfect square by the square of any smooth prime
-      // necessarily creates a new smooth perfect square.
-      perfectSquare *= sqrPrimes[dis(gen)];
-    }
-
-    return 1U;
-  }
-
-  // Use Gaussian elimination
-  BigInteger findFactor(std::vector<BigInteger> &smoothNumberKeys, std::vector<boost::dynamic_bitset<size_t>> &smoothNumberValues) {
-    // Gaussian elimination multiplies these numbers
-    // with small primes, to produce squares
-    // gaussianElimination(smoothNumberKeys, smoothNumberValues);
-    // NOTE: The reason this is turned off above is that
-    // perfect squares are augmented entirely in factorizationVector().
-
-    // Check for linear dependencies and find a congruence of squares
-    std::mutex rowMutex;
-    BigInteger result = 1U;
-    const size_t rowCount = smoothNumberKeys.size();
-    for (size_t i = primes.size(); (i < rowCount) && (result == 1U); ++i) {
-      dispatch.dispatch([this, i, &result, &rowMutex, &smoothNumberKeys]() -> bool {
-        const BigInteger factor = climbPerfectSquare(&(smoothNumberKeys[i]));
-
-        if ((factor != 1U) && (factor != this->toFactor)) {
-          std::lock_guard<std::mutex> lock(rowMutex);
-          result = factor;
-
-          return true;
-        }
-
-        return false;
-      });
-    }
-    dispatch.finish();
-
-    if (result != 1U) {
-      return result;
-    }
-
-    // These numbers have been tried already:
-    smoothNumberKeys.resize(primes.size());
-    smoothNumberValues.resize(primes.size());
-
-    return 1U; // No factor found
-  }
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //                                                   WRITTEN WITH ELARA (GPT) ABOVE                                                      //
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
                           size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
   // Validation section
-  if (method > 2U) {
+  if (method > 1U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
-    method = 2U;
+    method = 1U;
   }
-  const bool isFactorFinder = (method == 2U);
-  const bool isConOfSqr = (method > 0U);
+  const bool isFactorFinder = (method > 0);
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
   } else if (wheelFactorizationLevel > 13U) {
@@ -1340,7 +1075,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       smoothPrimes.push_back(p);
     }
   }
-  if (isConOfSqr && (smoothPrimes.size() < maxPrimeCount)) {
+  if (isFactorFinder && (smoothPrimes.size() < maxPrimeCount)) {
     std::cout << "Warning: Factor base truncated to " << smoothPrimes.size() << " factors. If you don't want to truncate, set the trial division level option higher." << std::endl;
   }
   // From 1, this is a period for wheel factorization
@@ -1387,7 +1122,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       futures.push_back(std::async(std::launch::async, workerFn));
     }
   } else {
-    const auto workerFn = [&isConOfSqr, &inc_seqs, &worker] {
+    const auto workerFn = [&inc_seqs, &worker] {
       // inc_seq needs to be independent per thread.
       std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
       inc_seqs_clone.reserve(inc_seqs.size());
@@ -1396,7 +1131,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       }
 
       // "Brute force" includes extensive wheel multiplication and can be faster.
-      return isConOfSqr ? worker.smoothCongruences(&inc_seqs_clone) : worker.bruteForce(&inc_seqs_clone);
+      return worker.bruteForce(&inc_seqs_clone);
     };
 
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
