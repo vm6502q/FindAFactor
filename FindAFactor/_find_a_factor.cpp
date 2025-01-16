@@ -1256,6 +1256,7 @@ struct Factorizer {
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
                           size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
+  // Validation section
   if (method > 2U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
     method = 2U;
@@ -1275,7 +1276,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     std::cout << "Warning: Gear factorization level must be at least as high as wheel level. (Parameter will be ignored and default to wheel level.)" << std::endl;
   }
 
-  // Convert from string.
+  // Convert number to factor from string.
   const BigInteger toFactor(toFactorStr);
 
   // The largest possible discrete factor of "toFactor" is its square root (as with any integer).
@@ -1284,7 +1285,8 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     return boost::lexical_cast<std::string>(fullMaxBase);
   }
 
-  // We only need to try trial division about as high as would be necessary for 4096 bits of semiprime.
+  // We only need to try trial division about as high as we would sieve for primes necessary
+  // to factor about 4096 bits of semiprime, possibly, via Quadratic Sieve (which is not high).
   const size_t primeCeiling = (trialDivisionLevel < fullMaxBase) ? trialDivisionLevel : (size_t)fullMaxBase;
   BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
