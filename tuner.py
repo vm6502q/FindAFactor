@@ -13,7 +13,7 @@ primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67
 def optimization_objective(to_factor, params):
     # Unpack parameters
     #trial_division_level, gear_factorization_level, wheel_factorization_level, smoothness_bound_multiplier, batch_size_multiplier = params
-    gear_factorization_level, wheel_factorization_level, smoothness_bound_multiplier = params
+    gear_factorization_level, wheel_factorization_level, smoothness_bound_multiplier, batch_size_multiplier = params
 
     # Start timing
     start_time = time.perf_counter()
@@ -29,7 +29,7 @@ def optimization_objective(to_factor, params):
         gear_factorization_level=primes[int(gear_factorization_level)],
         wheel_factorization_level=primes[int(wheel_factorization_level)],
         smoothness_bound_multiplier=2**smoothness_bound_multiplier,
-        # batch_size_multiplier=2**(batch_size_multiplier-gear_factorization_level)
+        batch_size_multiplier=batch_size_multiplier
     )
 
     # Measure elapsed time
@@ -51,11 +51,11 @@ def main():
 
     # Define the parameter space for optimization
     param_space = [
-        # Integer(16, 24, name="trial_division_level"),             # Range for trial division level
-        Integer(4, 6, name="gear_factorization_level"),           # Gear factorization level
+        # Integer(16, 24, name="trial_division_level"),           # Range for trial division level
+        Integer(4, 5, name="gear_factorization_level"),           # Gear factorization level
         Integer(4, 5, name="wheel_factorization_level"),          # Wheel factorization level
-        Real(-3.0, 3.0, name="smoothness_bound_multiplier"),      # Smoothness bound multiplier
-        # Real(7.0, 15.0, name="batch_size_multiplier")            # Batch size multiplier
+        Real(-1.0, 1.0, name="smoothness_bound_multiplier"),      # Smoothness bound multiplier
+        Real(4.0, 8.0, name="batch_size_multiplier")              # Batch size multiplier
     ]
 
     # Run Bayesian optimization
@@ -72,7 +72,7 @@ def main():
     print(f"Gear Factorization Level: {primes[result.x[0]]}")
     print(f"Wheel Factorization Level: {primes[result.x[1]]}")
     print(f"Smoothness Bound Multiplier: {2**result.x[2]}")
-    # print(f"Batch Size Multiplier: {2**(result.x[4]-result.x[1])}")
+    print(f"Batch Size Multiplier: {result.x[3]}")
     print(f"Minimum Factorization Time: {result.fun:.4f} seconds")
 
     return 0
