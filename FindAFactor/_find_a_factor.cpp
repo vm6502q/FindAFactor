@@ -756,15 +756,16 @@ struct Factorizer {
   BigInteger wheelRadius;
   size_t wheelEntryCount;
   size_t smoothBatchLimit;
+  size_t batchSizeVariance;
   bool isIncomplete;
   std::vector<size_t> primes;
   std::vector<size_t> sqrPrimes;
   ForwardFn forwardFn;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl, size_t bsv,
              const std::vector<size_t> &p, ForwardFn fn)
     : dis(0U, p.size() - 1U), wordDis(0ULL, -1ULL), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range),
-    batchTotal(nodeCount * range), wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), isIncomplete(true), primes(p), forwardFn(fn)
+    batchTotal(nodeCount * range), wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), batchSizeVariance(bsv), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
@@ -805,6 +806,7 @@ struct Factorizer {
 
   BigInteger monteCarlo(std::mt19937_64& gen) {
     // This function enters only once per thread.
+    size_t batchPower = 0U;
 
     // This is the outer reseeding loop.
     while (isIncomplete) {
@@ -823,6 +825,8 @@ struct Factorizer {
         }
       }
 
+      const size_t batchLimit = smoothBatchLimit * (1ULL << batchPower);
+      batchPower = (batchPower + 1U) % batchSizeVariance;
       size_t batchId = 0U;
       while (isIncomplete) {
         // The number is now a smooth perfect square larger than toFactor.
@@ -986,7 +990,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier) {
+                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier, size_t batchSizeVariance) {
   // Validation section
   if (method > 1U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
@@ -1100,7 +1104,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // This manages the work of all threads.
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
-                    wheelEntryCount, (size_t)(batchSizeMultiplier * smoothPrimes.size() * log(smoothPrimes.size())),
+                    wheelEntryCount, (size_t)(batchSizeMultiplier * smoothPrimes.size() * log(smoothPrimes.size())), batchSizeVariance,
                     smoothPrimes, forward(SMALLEST_WHEEL));
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 

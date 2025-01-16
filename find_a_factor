@@ -21,7 +21,8 @@ def main():
     gear_factorization_level = int(os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL') else 11
     wheel_factorization_level = int(os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL') else 11
     smoothness_bound_multiplier = float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0
-    batch_size_multiplier=float(os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER') else 192.0
+    batch_size_multiplier=float(os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER') else 128.0
+    batch_size_variance=int(os.environ.get('FINDAFACTOR_BATCH_SIZE_VARIANCE')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_VARIANCE') else 3
 
     if argv_len > 2:
         method = FactoringMethod(int(sys.argv[2]))
@@ -37,7 +38,9 @@ def main():
     if argv_len > 8:
         batch_size_multiplier = float(sys.argv[8])
     if argv_len > 9:
-        trial_division_level = int(sys.argv[9])
+        batch_size_variance = float(sys.argv[9])
+    if argv_len > 10:
+        trial_division_level = int(sys.argv[10])
 
     start = time.perf_counter()
     result = find_a_factor(
@@ -49,7 +52,8 @@ def main():
         gear_factorization_level = gear_factorization_level,
         wheel_factorization_level = wheel_factorization_level,
         smoothness_bound_multiplier = smoothness_bound_multiplier,
-        batch_size_multiplier = batch_size_multiplier
+        batch_size_multiplier = batch_size_multiplier,
+        batch_size_variance = batch_size_variance
     )
     print(time.perf_counter() - start)
     print(str(result) + " * " + str(to_factor // result) + " == " + str(to_factor))
