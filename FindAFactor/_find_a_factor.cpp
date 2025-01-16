@@ -813,7 +813,7 @@ struct Factorizer {
       BigInteger perfectSquare = 1U;
       std::vector<size_t> fv(primes.size(), 0);
       while (perfectSquare < toFactor) {
-        BigInteger n = forwardFn(((wordDis(gen) % batchTotal) * wheelEntryCount) + (wordDis(gen) % wheelEntryCount));
+        BigInteger n = forwardFn(((batchOffset + (wordDis(gen) % batchRange)) * wheelEntryCount) + (wordDis(gen) % wheelEntryCount));
         const std::vector<size_t> pfv = factorizationVector(&n);
         if (!pfv.size()) {
           continue;
