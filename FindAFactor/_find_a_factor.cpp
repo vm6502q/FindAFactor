@@ -1355,7 +1355,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     }
   }
   wheelFactorizationPrimes.clear();
-  // These are "gears," for wheel factorization (with a "wheel" already in place up to 11).
+  // These are "gears," for wheel factorization (on top of a "wheel" already in place up to the selected level).
   std::vector<boost::dynamic_bitset<size_t>> inc_seqs = wheel_gen(gearFactorizationPrimes);
   // We're done with the lowest primes.
   const size_t MIN_RTD_LEVEL = gearFactorizationPrimes.size() - wgDiff;
