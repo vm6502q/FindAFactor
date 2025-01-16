@@ -1371,7 +1371,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                     nodeRange, nodeCount, nodeId,
                     wheelEntryCount, batchSizeMultiplier * (isFactorFinder ? smoothPrimes.size() * smoothPrimes.size() : (wheelEntryCount << 1U)),
                     smoothPrimes, forward(SMALLEST_WHEEL));
-  // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was made by Lyra (OpenAI GPT)
+  // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
   std::vector<std::future<BigInteger>> futures;
   futures.reserve(CpuCount);
