@@ -744,9 +744,8 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 
 struct Factorizer {
   std::mutex batchMutex;
-  std::default_random_engine rng;
-  std::mt19937_64 gen;
   std::uniform_int_distribution<size_t> dis;
+  std::uniform_int_distribution<size_t> wordDis;
   BigInteger toFactorSqr;
   BigInteger toFactor;
   BigInteger toFactorSqrt;
@@ -755,29 +754,23 @@ struct Factorizer {
   BigInteger batchOffset;
   BigInteger batchTotal;
   BigInteger wheelRadius;
-  std::uniform_int_distribution<size_t> mcDis;
   size_t wheelEntryCount;
   size_t smoothBatchLimit;
   size_t rowOffset;
   bool isIncomplete;
   std::vector<size_t> primes;
-  std::vector<BigInteger> bigPrimes;
-  std::vector<BigInteger> sqrPrimes;
-  std::vector<boost::dynamic_bitset<size_t>> primeFactors;
+  std::vector<size_t> sqrPrimes;
   ForwardFn forwardFn;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl,
              const std::vector<size_t> &p, ForwardFn fn)
-    : rng({}), gen(rng()), dis(0U, p.size() - 1U), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelRadius(1U), mcDis(0ULL, -1ULL), wheelEntryCount(w), smoothBatchLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
+    : dis(0U, p.size() - 1U), wordDis(0ULL, -1ULL), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(0U), batchOffset(nodeId * range),
+    batchTotal(nodeCount * range), wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), rowOffset(p.size()), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
       wheelRadius *= p;
-      bigPrimes.push_back(p);
       sqrPrimes.push_back(p * p);
-      primeFactors.emplace_back(primes.size(), 0);
-      primeFactors.back()[i] = true;
     }
   }
 
@@ -811,7 +804,7 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger monteCarlo() {
+  BigInteger monteCarlo(std::mt19937_64& gen) {
     // This function enters only once per thread.
 
     // This is the outer reseeding loop.
@@ -820,7 +813,7 @@ struct Factorizer {
       BigInteger perfectSquare = 1U;
       std::vector<size_t> fv(primes.size(), 0);
       while (perfectSquare < toFactor) {
-        BigInteger n = forwardFn(((mcDis(gen) % batchTotal) * wheelEntryCount) + (mcDis(gen) % wheelEntryCount));
+        BigInteger n = forwardFn(((wordDis(gen) % batchTotal) * wheelEntryCount) + (wordDis(gen) % wheelEntryCount));
         const std::vector<size_t> pfv = factorizationVector(&n);
         if (!pfv.size()) {
           continue;
@@ -1112,14 +1105,18 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   std::vector<std::future<BigInteger>> futures;
   futures.reserve(CpuCount);
 
+  std::vector<std::mt19937_64> gen;
   if (isFactorFinder) {
-    const auto workerFn = [&worker] {
-      // This is as "embarrissingly parallel" as it gets.
-      return worker.monteCarlo();
-    };
-
+    std::default_random_engine rng{};
+    gen.reserve(CpuCount);
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      futures.push_back(std::async(std::launch::async, workerFn));
+      gen.emplace_back(rng());
+    }
+    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
+      futures.push_back(std::async(std::launch::async, [&worker, cpu, &gen] {
+        // This is as "embarrissingly parallel" as it gets.
+        return worker.monteCarlo(gen[cpu]);
+      }));
     }
   } else {
     const auto workerFn = [&inc_seqs, &worker] {
