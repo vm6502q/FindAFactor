@@ -753,8 +753,7 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 
 struct Factorizer {
   std::mutex batchMutex;
-  boost::uniform_smallint<size_t> dis;
-  std::uniform_int_distribution<size_t> wordDis;
+  std::uniform_int_distribution<size_t> dis;
   BigInteger toFactorSqr;
   BigInteger toFactor;
   BigInteger toFactorSqrt;
@@ -774,8 +773,8 @@ struct Factorizer {
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl, size_t bsv,
              size_t lm, size_t bn, const std::vector<size_t> &p, ForwardFn fn)
-    : dis(0U, p.size() - 1U), wordDis(0ULL, -1ULL), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range),
-    batchTotal(nodeCount * range), wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), batchSizeVariance(bsv), ladderMultiple(lm), isIncomplete(true), primes(p), forwardFn(fn)
+    : dis(0ULL, -1ULL), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
+    wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), batchSizeVariance(bsv), ladderMultiple(lm), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
@@ -824,7 +823,7 @@ struct Factorizer {
       BigInteger perfectSquare = 1U;
       std::vector<size_t> fv(primes.size(), 0);
       while (perfectSquare < toFactor) {
-        BigInteger n = forwardFn(((batchOffset + (wordDis(gen) % batchRange)) * wheelEntryCount) + (wordDis(gen) % wheelEntryCount));
+        BigInteger n = forwardFn(((batchOffset + (dis(gen) % batchRange)) * wheelEntryCount) + (dis(gen) % wheelEntryCount));
         const std::vector<size_t> pfv = factorizationVector(&n);
         if (!pfv.size()) {
           continue;
@@ -845,7 +844,7 @@ struct Factorizer {
         size_t batchPart = 0U;
         while (perfectSquare < toFactorSqr) {
           // Pick a random prime ordinal.
-          const size_t pi = dis(gen);
+          const size_t pi = dis(gen) % primes.size();
           // Retrieve the square prime for the ordinal.
           const size_t& rsp = sqrPrimes[pi];
           size_t& fvc = fv[pi];
@@ -918,7 +917,7 @@ struct Factorizer {
           size_t pi;
           do {
             // Loop until the population is nonzero (with guaranteed even parity).
-            pi = dis(gen);
+            pi = dis(gen) % primes.size();
           } while (!fv[pi]);
 
           perfectSquare /= sqrPrimes[pi];
@@ -941,7 +940,7 @@ struct Factorizer {
 
         // Multiply the random smooth perfect square by the squares of smooth primes.
         while (perfectSquare < toFactor) {
-          const size_t pi = dis(gen);
+          const size_t pi = dis(gen) % primes.size();
           perfectSquare *= sqrPrimes[pi];
           ++(fv[pi]);
         }
