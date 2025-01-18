@@ -5,9 +5,8 @@ set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 
-set(_USE_MT_RNG OFF)
 # Check if the system is Ubuntu
-if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     execute_process(
         COMMAND lsb_release -a
         OUTPUT_VARIABLE LSB_RELEASE_OUTPUT
@@ -21,11 +20,15 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     message(STATUS "Ubuntu version: ${UBUNTU_VERSION}")
 
     if ("${UBUNTU_VERSION}" STREQUAL "22.04")
-        set(_USE_MT_RNG ON)
+        option (USE_MT_RNG "Use mt19937 random number generator instead of taus88" ON)
+    else ("${UBUNTU_VERSION}" STREQUAL "22.04")
+        option (USE_MT_RNG "Use mt19937 random number generator instead of taus88" OFF)
     endif ("${UBUNTU_VERSION}" STREQUAL "22.04")
-endif()
+else (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    option (USE_MT_RNG "Use mt19937 random number generator instead of taus88" OFF)
+endif (CMAKE_SYSTEM_NAME MATCHES "Linux")
 
-option (USE_MT_RNG "Use mt19937 random number generator instead of taus88" _USE_MT_RNG)
+message(STATUS "USE_MT_RNG: ${USE_MT_RNG}")
 
 configure_file(FindAFactor/include/common/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/include/common/config.h @ONLY)
 
