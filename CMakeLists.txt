@@ -5,13 +5,14 @@ set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 
-option (USE_MT_RNG "Use mt19937 random number generator instead of taus88" OFF)
-
+set(_USE_MT_RNG OFF)
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     if (CMAKE_SYSTEM_VERSION MATCHES "22\\.04")
-        set(USE_MT_RNG ON)
+        set(_USE_MT_RNG ON)
     endif()
 endif()
+
+option (USE_MT_RNG "Use mt19937 random number generator instead of taus88" _USE_MT_RNG)
 
 configure_file(FindAFactor/include/common/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/include/common/config.h @ONLY)
 
