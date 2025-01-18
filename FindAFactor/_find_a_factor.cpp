@@ -824,9 +824,9 @@ struct Factorizer {
       BigInteger perfectSquare = 1U;
       std::vector<size_t> fv(primes.size(), 0);
       while (perfectSquare < toFactor) {
-        const BigInteger bIndex = threadOffset + (dis(gen) % threadRange);
-        const BigInteger halfBIndex = batchOffset + (bIndex >> 1U) + 1U;
-        const BigInteger bNum = (bIndex & 1U) ? batchTotal - halfBIndex : halfBIndex;
+        const BigInteger bIndex = dis(gen) % threadRange;
+        const BigInteger halfBIndex = threadOffset + (bIndex >> 1U) + 1U;
+        const BigInteger bNum = (bIndex & 1U) ? halfBIndex : (batchTotal - halfBIndex);
         BigInteger n = forwardFn((bNum * wheelEntryCount) + (dis(gen) % wheelEntryCount));
         const std::vector<size_t> pfv = factorizationVector(&n);
         if (!pfv.size()) {
