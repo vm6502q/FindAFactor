@@ -38,6 +38,7 @@
 // See LICENSE.md in the project root or
 // https://www.gnu.org/licenses/lgpl-3.0.en.html for details.
 
+#include "common/config.h"
 #include "dispatchqueue.hpp"
 
 #include <algorithm>
@@ -58,13 +59,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <cxxabi.h>
-
 namespace Qimcifa {
 
 typedef boost::multiprecision::cpp_int BigInteger;
 
-#if (__GLIBCXX__ >= 20350000) && (__GLIBCXX__ <= 20360000)
+#if USE_MT_RNG
 typedef std::mt19937 rngType;
 #else
 typedef boost::random::taus88 rngType;

@@ -1,0 +1,2 @@
+// Turn this on, if the build doesn't work with taus88 random number generator.
+#cmakedefine USE_MT_RNG 1
