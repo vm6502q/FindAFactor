@@ -54,7 +54,6 @@
 #include <boost/dynamic_bitset.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/random.hpp>
-#include <boost/random/uniform_smallint.hpp>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
