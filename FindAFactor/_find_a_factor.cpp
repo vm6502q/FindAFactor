@@ -58,9 +58,17 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cxxabi.h>
+
 namespace Qimcifa {
 
 typedef boost::multiprecision::cpp_int BigInteger;
+
+#if (__GLIBCXX__ >= 20350000) && (__GLIBCXX__ <= 20360000)
+typedef std::mt19937 rngType;
+#else
+typedef boost::random::taus88 rngType;
+#endif
 
 const unsigned CpuCount = std::thread::hardware_concurrency();
 DispatchQueue dispatch(CpuCount);
@@ -807,7 +815,7 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger monteCarlo(boost::random::taus88& gen) {
+  BigInteger monteCarlo(rngType& gen) {
     // This function enters only once per thread.
     size_t batchPower = 0U;
 
@@ -1123,7 +1131,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   std::vector<std::future<BigInteger>> futures;
   futures.reserve(CpuCount);
 
-  std::vector<boost::random::taus88> gen;
+  std::vector<rngType> gen;
   if (isFactorFinder) {
     std::default_random_engine rng{};
     gen.reserve(CpuCount);
