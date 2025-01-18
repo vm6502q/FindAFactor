@@ -6,10 +6,23 @@ find_package(pybind11 CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 
 set(_USE_MT_RNG OFF)
-if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-    if (CMAKE_SYSTEM_VERSION MATCHES "22\\.04")
+# Check if the system is Ubuntu
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    execute_process(
+        COMMAND lsb_release -a
+        OUTPUT_VARIABLE LSB_RELEASE_OUTPUT
+    )
+
+    # Extract the version number
+    string(REGEX MATCH "Release:[ \t]+([0-9.]+)" 
+           UBUNTU_VERSION "${LSB_RELEASE_OUTPUT}")
+    set(UBUNTU_VERSION "${CMAKE_MATCH_1}")
+
+    message(STATUS "Ubuntu version: ${UBUNTU_VERSION}")
+
+    if ("${UBUNTU_VERSION}" STREQUAL "22.04")
         set(_USE_MT_RNG ON)
-    endif()
+    endif ("${UBUNTU_VERSION}" STREQUAL "22.04")
 endif()
 
 option (USE_MT_RNG "Use mt19937 random number generator instead of taus88" _USE_MT_RNG)
