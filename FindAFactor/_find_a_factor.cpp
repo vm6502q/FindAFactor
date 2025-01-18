@@ -812,7 +812,7 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger monteCarlo(const size_t& CpuCount, const size_t& cpu, rngType& gen) {
+  BigInteger monteCarlo(const size_t& cpu, rngType& gen) {
     // This function enters only once per thread.
     const BigInteger threadRange = (batchRange + CpuCount - 1) / CpuCount;
     const BigInteger threadOffset = batchOffset + threadRange * cpu;
@@ -1141,9 +1141,9 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       gen.emplace_back(rng());
     }
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      futures.push_back(std::async(std::launch::async, [&worker, &CpuCount, cpu, &gen] {
+      futures.push_back(std::async(std::launch::async, [&worker, cpu, &gen] {
         // This is as "embarrissingly parallel" as it gets.
-        return worker.monteCarlo(CpuCount, cpu, gen[cpu]);
+        return worker.monteCarlo(cpu, gen[cpu]);
       }));
     }
   } else {
