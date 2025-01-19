@@ -849,10 +849,11 @@ struct Factorizer {
         while (perfectSquare < toFactorSqr) {
           // Pick a random prime ordinal.
           const size_t pi = dis(gen) % primes.size();
+          const size_t lm = (dis(gen) % ladderMultiple) + 1U;
           // Retrieve the square prime for the ordinal.
           const size_t& rsp = sqrPrimes[pi];
           size_t& fvc = fv[pi];
-          for (size_t i = 0U; i < ladderMultiple; ++i) {
+          for (size_t i = 0U; i < lm; ++i) {
             // Compute x and y
             const BigInteger x = perfectSquare % toFactor;
             const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
