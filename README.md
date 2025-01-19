@@ -33,7 +33,7 @@ factor = find_a_factor(
     gear_factorization_level=11,
     wheel_factorization_level=11,
     smoothness_bound_multiplier=1.0,
-    batch_size_multiplier=256.0,
+    batch_size_multiplier=512.0,
     batch_size_variance=2,
     ladder_multiple=5
 )
@@ -48,7 +48,7 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `gear_factorization_level` (default value: `11`): This is the value up to which "wheel (and gear) factorization" and trial division are used to check factors and optimize "brute force," in general. The default value of `11` includes all prime factors of `11` and below and works well in general, though significantly higher might be preferred in certain cases.
 - `wheel_factorization_level` (default value: `11`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. Optimized implementation for wheels is only available up to `13`. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization.
 - `smoothness_bound_multiplier` (default value: `1.0`): starting with the first prime number after wheel factorization, the congruence of squares approach (with Quadratic Sieve) has a "smoothness bound" unit with as many distinct prime numbers as bits in the number to factor (for argument of `1.0` multiplier). To increase or decrease this number, consider it multiplied by the value of `smoothness_bound_multiplier`.
-- `batch_size_multiplier` (default value: `256.0`): For `FACTOR_FINDER`/`1` method, each `1.0` increment of the multiplier adds `k ln k` Markov mixing replacement steps for `k` count of smooth primes, before reseeding Monte Carlo.
+- `batch_size_multiplier` (default value: `512.0`): For `FACTOR_FINDER`/`1` method, each `1.0` increment of the multiplier adds `k ln k` Markov mixing replacement steps for `k` count of smooth primes, before reseeding Monte Carlo.
 - `batch_size_variance` (default value: `2`): For `FACTOR_FINDER`/`1` method, `k ln k` is the right proportionality for a Markov mixing process, but a linear factor in front is hard to predict. As such, it can be useful to dynamically vary the batch size, as if to cover and amortize the cost of several different batch sizes at once. In sequence, each batch size will be multiplied by `2 ** i` for `i` in `range(batch_size_variance)`, repeating from `0`.
 - `ladder_multiple` (default value: `6`): Controls how many times randomly-selected square prime multiplication is repeated with the same square prime per random selection, in ascending a "ladder" of smooth perfect squares. A random number between `1` and `ladder_multiple` is selected for how many times the current smooth perfect square is multiplied each randomly selected square prime, while division still occurs 1 square prime multiple at a time. (Any smooth perfect square can be multiplied by any square prime in the factor base, or any other smooth perfect square, and produce a different smooth perfect square.)
 
