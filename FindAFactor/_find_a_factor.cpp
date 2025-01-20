@@ -827,11 +827,8 @@ struct Factorizer {
         const BigInteger bIndex = dis(gen) % threadRange;
         const BigInteger halfBIndex = threadOffset + (bIndex >> 1U) + 1U;
         const BigInteger bNum = (bIndex & 1U) ? halfBIndex : (batchTotal - halfBIndex);
-        const BigInteger n = forwardFn((bNum * wheelEntryCount) + (dis(gen) % wheelEntryCount));
-        const std::vector<size_t> pfv = factorizationVector(n);
-        if (!pfv.size()) {
-          continue;
-        }
+        BigInteger n = forwardFn((bNum * wheelEntryCount) + (dis(gen) % wheelEntryCount));
+        const std::vector<size_t> pfv = factorizationVector(&n);
         perfectSquare *= n;
         for (size_t pi = 0U; pi < primes.size(); ++pi) {
           fv[pi] += pfv[pi];
@@ -971,7 +968,8 @@ struct Factorizer {
   }
 
   // Compute the prime factorization.
-  std::vector<size_t> factorizationVector(BigInteger num) {
+  std::vector<size_t> factorizationVector(BigInteger* numPtr) {
+    BigInteger num = *numPtr;
     std::vector<size_t> vec(primes.size(), 0);
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
@@ -999,9 +997,9 @@ struct Factorizer {
       }
     }
     if (num != 1U) {
-      // The number was not fully factored,
-      // because it is not smooth.
-      return std::vector<size_t>();
+      // The number was not fully factored, because it is not smooth.
+      // Make it smooth, by dividing out the remaining non-smooth factors!
+      (*numPtr) /= num;
     }
 
     // This number is necessarily a smooth perfect square.
