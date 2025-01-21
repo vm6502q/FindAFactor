@@ -1008,7 +1008,8 @@ struct Factorizer {
 };
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier, size_t batchSizeVariance, size_t ladderMultiple) {
+                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier, size_t batchSizeVariance, size_t ladderMultiple,
+                          bool skipTrialDivision) {
   // Validation section
   if (method > 1U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
@@ -1048,26 +1049,28 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const auto itg = std::upper_bound(primes.begin(), primes.end(), gearFactorizationLevel);
   const size_t wgDiff = std::distance(itw, itg);
 
-  // This is simply trial division up to the ceiling.
-  std::mutex trialDivisionMutex;
-  for (size_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
-    dispatch.dispatch([&toFactor, &primes, &result, &trialDivisionMutex, primeIndex]() -> bool {
-      const size_t maxLcv = std::min(primeIndex + 64U, primes.size());
-      for (size_t pi = primeIndex; pi < maxLcv; ++pi) {
-        const size_t& currentPrime = primes[pi];
-        if (!(toFactor % currentPrime)) {
-          std::lock_guard<std::mutex> lock(trialDivisionMutex);
-          result = currentPrime;
-          return true;
+  if (!skipTrialDivision) {
+    // This is simply trial division up to the ceiling.
+    std::mutex trialDivisionMutex;
+    for (size_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
+      dispatch.dispatch([&toFactor, &primes, &result, &trialDivisionMutex, primeIndex]() -> bool {
+        const size_t maxLcv = std::min(primeIndex + 64U, primes.size());
+        for (size_t pi = primeIndex; pi < maxLcv; ++pi) {
+          const size_t& currentPrime = primes[pi];
+          if (!(toFactor % currentPrime)) {
+            std::lock_guard<std::mutex> lock(trialDivisionMutex);
+            result = currentPrime;
+            return true;
+          }
         }
-      }
-      return false;
-    });
-  }
-  dispatch.finish();
-  // If we've checked all primes below the square root of toFactor, then it's prime.
-  if ((result != 1U) || (toFactor <= (primeCeiling * primeCeiling))) {
-    return boost::lexical_cast<std::string>(result);
+        return false;
+      });
+    }
+    dispatch.finish();
+    // If we've checked all primes below the square root of toFactor, then it's prime.
+    if ((result != 1U) || (toFactor <= (primeCeiling * primeCeiling))) {
+      return boost::lexical_cast<std::string>(result);
+    }
   }
 
   // Set up wheel factorization (or "gear" factorization)

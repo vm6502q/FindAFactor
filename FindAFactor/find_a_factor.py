@@ -19,7 +19,8 @@ def find_a_factor(n,
                   smoothness_bound_multiplier=float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0,
                   batch_size_multiplier=float(os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER') else 512.0,
                   batch_size_variance=int(os.environ.get('FINDAFACTOR_BATCH_SIZE_VARIANCE')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_VARIANCE') else 2,
-                  ladder_multiple=int(os.environ.get('FINDAFACTOR_LADDER_MULTIPLE')) if os.environ.get('FINDAFACTOR_LADDER_MULTIPLE') else 6):
+                  ladder_multiple=int(os.environ.get('FINDAFACTOR_LADDER_MULTIPLE')) if os.environ.get('FINDAFACTOR_LADDER_MULTIPLE') else 6,
+                  skip_trial_division=True if os.environ.get('FINDAFACTOR_SKIP_TRIAL_DIVISION') else False):
     return int(_find_a_factor._find_a_factor(str(n),
                                              int(method),
                                              node_count, node_id,
@@ -29,4 +30,5 @@ def find_a_factor(n,
                                              smoothness_bound_multiplier,
                                              batch_size_multiplier,
                                              batch_size_variance,
-                                             ladder_multiple))
+                                             ladder_multiple,
+                                             skip_trial_division))

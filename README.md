@@ -35,7 +35,8 @@ factor = find_a_factor(
     smoothness_bound_multiplier=1.0,
     batch_size_multiplier=512.0,
     batch_size_variance=2,
-    ladder_multiple=5
+    ladder_multiple=5,
+    skip_trial_division=False
 )
 ```
 
@@ -51,6 +52,7 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `batch_size_multiplier` (default value: `512.0`): For `FACTOR_FINDER`/`1` method, each `1.0` increment of the multiplier adds `k ln k` Markov mixing replacement steps for `k` count of smooth primes, before reseeding Monte Carlo.
 - `batch_size_variance` (default value: `2`): For `FACTOR_FINDER`/`1` method, `k ln k` is the right proportionality for a Markov mixing process, but a linear factor in front is hard to predict. As such, it can be useful to dynamically vary the batch size, as if to cover and amortize the cost of several different batch sizes at once. In sequence, each batch size will be multiplied by `2 ** i` for `i` in `range(batch_size_variance)`, repeating from `0`.
 - `ladder_multiple` (default value: `6`): Controls how many times randomly-selected square prime multiplication is repeated with the same square prime per random selection, in ascending a "ladder" of smooth perfect squares. A random number between `1` and `ladder_multiple` is selected for how many times the current smooth perfect square is multiplied each randomly selected square prime, while division still occurs 1 square prime multiple at a time. (Any smooth perfect square can be multiplied by any square prime in the factor base, or any other smooth perfect square, and produce a different smooth perfect square.)
+- `skip_trial_division` (default value: `False`): `False` performs initial-phase trial division, and `True` skips it. Note that `trial_division_level` still functions as the input to Sieve of Eratosthenes to collect a list of primes from which (`FACTOR_FINDER`) smooth primes can be selected. If `skip_trial_division=True`, simply set `trial_division_level` high enough to avoid truncation warnings, unless otherwise desired.
 
 All variables defaults can also be controlled by environment variables:
 - `FINDAFACTOR_METHOD` (integer value)
