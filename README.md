@@ -68,4 +68,16 @@ All variables defaults can also be controlled by environment variables:
 ## About 
 This library was originally called ["Qimcifa"](https://github.com/vm6502q/qimcifa) and demonstrated a (Shor's-like) "quantum-inspired" algorithm for integer factoring. It has since been developed into a general factoring algorithm and tool.
 
+Let's try to explain the algorithm of `FACTOR_FINDER` mode as briefly as possible. If you want background in Quadratic Sieve or GNFS, and what terms like "smooth numbers" and "smooth perfect squares" mean, you're likely going to have to do some background reading to have basis in Dixon/QS/GNFS-family factoring algorithms, which are regarded the fastest at cryptographically-relevant scales.
+
+QS/GNFS have one _ultimate_ goal: factor via a congruence of squares. To serve this goal, they have one _penultimate_ goal: find a lot of smooth perfect squares. Anything that gets you more smooth perfect squares asymptotically faster is an improvement.
+
+This is the kick in the head that no one's noticed since only the '80s: there is a (totally **non**-exotic) structure like a "ladder" (or "web," or "net") where basically all it takes is a single multiplication, or a single division, and some RNG, to successively produce all the (nearly unique and distinct) smooth perfect squares you could need, once you have any _single_ smooth perfect square: multiply (or divide) the single working smooth perfect square by any square of a smooth prime number.
+
+- A positive integer `s` is a "perfect square" if some number `x` exists such that `s = x^2`.
+- A square prime is `p^2` for some number `p` that is prime.
+- This is the **kick in the head**: `s * p^2 = x^2 * p^2 = (x * p)^2 = s'`
+
+It's that **painfully simple.** No sieving, no Gaussian elimination, no matrix storage and row operations, no memory requirements larger than a _single_ arbitrary precision "big integer" per thread, embarrassingly parallel, trivial to distribute, having no sequential dependence: **just apply RNG on this concept so it gets close to uniform coverage of the space**.
+
 **Special thanks to OpenAI GPT "Elara," for indicated region of contributed code!**
