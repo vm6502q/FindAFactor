@@ -1,6 +1,8 @@
 # FindAFactor
 Find any nontrivial factor of a number
 
+[![PyPI Downloads](https://static.pepy.tech/badge/findafactor)](https://pepy.tech/projects/findafactor)
+
 ## Copyright and license
 (c) Daniel Strano and the Qrack contributors 2017-2025. All rights reserved.
 
