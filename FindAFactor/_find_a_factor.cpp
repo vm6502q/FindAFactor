@@ -746,6 +746,7 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
   return result;
 }
 
+# if 0
 // Perform Gaussian elimination on a binary matrix
 void gaussianElimination(std::vector<BigInteger> &smoothNumberKeys, std::vector<boost::dynamic_bitset<size_t>> &smoothNumberValues) {
   const unsigned cpuCount = CpuCount;
@@ -809,6 +810,7 @@ void gaussianElimination(std::vector<BigInteger> &smoothNumberKeys, std::vector<
     ++nColIt;
   }
 }
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                            WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                    //
@@ -935,11 +937,13 @@ struct Factorizer {
           for (size_t i = 0U; i < lm; ++i) {
             // The current working smooth perfect square has not yet been saved.
             // Sieve for a perfect-square residue.
-            const size_t residue = perfectSquare % toFactor;
-            const std::vector<size_t> rfv = factorizationVector(residue);
+            const BigInteger residue = perfectSquare % toFactor;
+            const boost::dynamic_bitset<size_t> rfv = factorizationVector(residue);
             if (rfv.size()) {
-              smoothNumberKeys.push_back(perfectSquare)
+              smoothNumberKeys.push_back(perfectSquare);
               smoothNumberValues.push_back(rfv);
+            } else {
+              std::cout << "This actually happens." << std::endl;
             }
             // Multiplying any smooth perfect square by the square of any smooth prime
             // necessarily creates a new smooth perfect square.
@@ -962,11 +966,13 @@ struct Factorizer {
         while (perfectSquare > toFactor) {
           // The current working smooth perfect square has not yet been saved.
           // Sieve for a perfect-square residue.
-          const size_t residue = perfectSquare % toFactor;
-          const std::vector<size_t> rfv = factorizationVector(residue);
+          const BigInteger residue = perfectSquare % toFactor;
+          const boost::dynamic_bitset<size_t> rfv = factorizationVector(residue);
           if (rfv.size()) {
-            smoothNumberKeys.push_back(perfectSquare)
+            smoothNumberKeys.push_back(perfectSquare);
             smoothNumberValues.push_back(rfv);
+          } else {
+            std::cout << "This actually happens." << std::endl;
           }
           // Dividing any smooth perfect square by the square of any smooth prime
           // necessarily creates a new smooth perfect square, so long as
@@ -1069,44 +1075,38 @@ struct Factorizer {
     return vec;
   }
 
-  // Produce a smooth number with its factorization vector.
-  std::vector<size_t> factorizationVector(BigInteger num) {
-    std::vector<size_t> vec(primes.size(), 0);
+  // Compute the prime factorization modulo 2
+  boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
+    boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
-      // Proceed in steps of the GCD with the smooth prime wheel radius.
       BigInteger factor = gcd(num, wheelRadius);
       if (factor == 1U) {
         break;
       }
       num /= factor;
-      // Remove smooth primes from factor.
-      // (The GCD is necessarily smooth.)
+      // Remove smooth primes from factor
       for (size_t pi = 0U; pi < primes.size(); ++pi) {
         const size_t& p = primes[pi];
         if (factor % p) {
           continue;
         }
         factor /= p;
-        ++(vec[pi]);
+        vec.flip(pi);
         if (factor == 1U) {
           break;
         }
       }
       if (num == 1U) {
-        // The number is fully factored and smooth.
-        break;
+        return vec;
       }
     }
     if (num != 1U) {
-      // The number was not fully factored, because it is not smooth.
-      // Since this method is for the residue, we need to reject it.
-      return std::vector<size_t>();
+      return boost::dynamic_bitset<size_t>();
     }
 
-    // This number is necessarily a smooth perfect square.
     return vec;
   }
-}
+};
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
                           size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier, size_t batchSizeVariance, size_t ladderMultiple,
