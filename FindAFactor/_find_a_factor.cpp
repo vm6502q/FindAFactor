@@ -729,7 +729,7 @@ size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                  WRITTEN WITH ELARA (GPT) BELOW                                        //
+//                            WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Utility to perform modular exponentiation
@@ -746,8 +746,72 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
   return result;
 }
 
+// Perform Gaussian elimination on a binary matrix
+void gaussianElimination(std::vector<BigInteger> &smoothNumberKeys, std::vector<boost::dynamic_bitset<size_t>> &smoothNumberValues) {
+  const unsigned cpuCount = CpuCount;
+  auto mColIt = smoothNumberValues.begin();
+  auto nColIt = smoothNumberKeys.begin();
+  const size_t rows = smoothNumberValues.size();
+  for (size_t col = 0U; col < primes.size(); ++col) {
+    auto mRowIt = mColIt;
+    auto nRowIt = nColIt;
+
+    int64_t pivot = -1;
+    for (size_t row = col; row < rows; ++row) {
+      if ((*mRowIt)[col]) {
+        // Swapping matrix rows corresponds
+        // with swapping factorized numbers.
+        if (row != col) {
+          std::swap(*mColIt, *mRowIt);
+          std::swap(*nColIt, *nRowIt);
+        }
+        pivot = row;
+        break;
+      }
+      ++nRowIt;
+      ++mRowIt;
+    }
+
+    if (pivot != -1) {
+      const boost::dynamic_bitset<size_t> &cm = *mColIt;
+      const BigInteger &cn = *nColIt;
+      mRowIt = smoothNumberValues.begin();
+      nRowIt = smoothNumberKeys.begin();
+      for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
+        dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
+          auto mrIt = mRowIt;
+          auto nrIt = nRowIt;
+          for (size_t row = cpu; ; row += cpuCount) {
+            boost::dynamic_bitset<size_t> &rm = *mrIt;
+            BigInteger &rn = *nrIt;
+            if ((row != col) && rm[col]) {
+              // XOR-ing factorization rows
+              // is like multiplying the numbers.
+              rm ^= cm;
+              rn *= cn;
+            }
+            if ((row + cpuCount) >= rows) {
+              return false;
+            }
+            std::advance(nrIt, cpuCount);
+            std::advance(mrIt, cpuCount);
+          }
+
+          return false;
+        });
+        ++mRowIt;
+        ++nRowIt;
+      }
+      dispatch.finish();
+    }
+
+    ++mColIt;
+    ++nColIt;
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                  WRITTEN WITH ELARA (GPT) ABOVE                                        //
+//                            WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct Factorizer {
@@ -817,6 +881,10 @@ struct Factorizer {
     const BigInteger threadRange = (batchRange + CpuCount - 1) / CpuCount;
     const BigInteger threadOffset = batchOffset + threadRange * cpu;
     size_t batchPower = 0U;
+    std::vector<BigInteger> smoothNumberKeys;
+    std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
+    smoothNumberKeys.reserve(smoothBatchLimit);
+    smoothNumberValues.reserve(smoothBatchLimit);
 
     // This is the outer reseeding loop.
     while (isIncomplete) {
@@ -828,7 +896,7 @@ struct Factorizer {
         const BigInteger halfBIndex = threadOffset + (bIndex >> 1U) + 1U;
         const BigInteger bNum = (bIndex & 1U) ? halfBIndex : (batchTotal - halfBIndex);
         BigInteger n = forwardFn((bNum * wheelEntryCount) + (dis(gen) % wheelEntryCount));
-        const std::vector<size_t> pfv = factorizationVector(&n);
+        const std::vector<size_t> pfv = smoothFactorizationVector(&n);
         perfectSquare *= n;
         for (size_t pi = 0U; pi < primes.size(); ++pi) {
           fv[pi] += pfv[pi];
@@ -847,7 +915,7 @@ struct Factorizer {
         // The parity is necessarily even in this factor, by now.
         // Divide by 2 to get the count of square prime factors.
         vp >>= 1U;
-    }
+      }
 
       const size_t batchLimit = smoothBatchLimit * (1ULL << batchPower);
       batchPower = (batchPower + 1U) % batchSizeVariance;
@@ -865,26 +933,13 @@ struct Factorizer {
           const size_t& rsp = sqrPrimes[pi];
           size_t& fvc = fv[pi];
           for (size_t i = 0U; i < lm; ++i) {
-            // Compute x and y
-            const BigInteger x = perfectSquare % toFactor;
-            const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
-
-            // Check congruence of squares
-            BigInteger factor = gcd(toFactor, x + y);
-            if ((factor != 1U) && (factor != toFactor)) {
-              isIncomplete = false;
-
-              return factor;
-            }
-
-            if (x != y) {
-              // Try x - y as well
-              factor = gcd(toFactor, x - y);
-              if ((factor != 1U) && (factor != toFactor)) {
-                isIncomplete = false;
-
-                return factor;
-              }
+            // The current working smooth perfect square has not yet been saved.
+            // Sieve for a perfect-square residue.
+            const size_t residue = perfectSquare % toFactor;
+            const std::vector<size_t> rfv = factorizationVector(residue);
+            if (rfv.size()) {
+              smoothNumberKeys.push_back(perfectSquare)
+              smoothNumberValues.push_back(rfv);
             }
             // Multiplying any smooth perfect square by the square of any smooth prime
             // necessarily creates a new smooth perfect square.
@@ -905,28 +960,14 @@ struct Factorizer {
         // Descend until we are less than toFactor, again.
         // We are given a smooth perfect square as input.
         while (perfectSquare > toFactor) {
-          // Compute x and y
-          const BigInteger x = perfectSquare % toFactor;
-          const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
-
-          // Check congruence of squares
-          BigInteger factor = gcd(toFactor, x + y);
-          if ((factor != 1U) && (factor != toFactor)) {
-            isIncomplete = false;
-
-            return factor;
+          // The current working smooth perfect square has not yet been saved.
+          // Sieve for a perfect-square residue.
+          const size_t residue = perfectSquare % toFactor;
+          const std::vector<size_t> rfv = factorizationVector(residue);
+          if (rfv.size()) {
+            smoothNumberKeys.push_back(perfectSquare)
+            smoothNumberValues.push_back(rfv);
           }
-
-          if (x != y) {
-            // Try x - y as well
-            factor = gcd(toFactor, x - y);
-            if ((factor != 1U) && (factor != toFactor)) {
-              isIncomplete = false;
-
-              return factor;
-            }
-          }
-
           // Dividing any smooth perfect square by the square of any smooth prime
           // necessarily creates a new smooth perfect square, so long as
           // the random square prime factor is actually present in the number.
@@ -962,13 +1003,35 @@ struct Factorizer {
         }
       }
       // Repeat indefinitely until success.
+
+      // Compute x and y
+      const BigInteger x = perfectSquare % toFactor;
+      const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
+
+      // Check congruence of squares
+      BigInteger factor = gcd(toFactor, x + y);
+      if ((factor != 1U) && (factor != toFactor)) {
+        isIncomplete = false;
+
+        return factor;
+      }
+
+      if (x != y) {
+        // Try x - y as well
+        factor = gcd(toFactor, x - y);
+        if ((factor != 1U) && (factor != toFactor)) {
+          isIncomplete = false;
+
+          return factor;
+        }
+      }
     }
 
     return 1U;
   }
 
-  // Compute the prime factorization.
-  std::vector<size_t> factorizationVector(BigInteger* numPtr) {
+  // Produce a smooth number with its factorization vector.
+  std::vector<size_t> smoothFactorizationVector(BigInteger* numPtr) {
     BigInteger num = *numPtr;
     std::vector<size_t> vec(primes.size(), 0);
     while (true) {
@@ -1005,7 +1068,45 @@ struct Factorizer {
     // This number is necessarily a smooth perfect square.
     return vec;
   }
-};
+
+  // Produce a smooth number with its factorization vector.
+  std::vector<size_t> factorizationVector(BigInteger num) {
+    std::vector<size_t> vec(primes.size(), 0);
+    while (true) {
+      // Proceed in steps of the GCD with the smooth prime wheel radius.
+      BigInteger factor = gcd(num, wheelRadius);
+      if (factor == 1U) {
+        break;
+      }
+      num /= factor;
+      // Remove smooth primes from factor.
+      // (The GCD is necessarily smooth.)
+      for (size_t pi = 0U; pi < primes.size(); ++pi) {
+        const size_t& p = primes[pi];
+        if (factor % p) {
+          continue;
+        }
+        factor /= p;
+        ++(vec[pi]);
+        if (factor == 1U) {
+          break;
+        }
+      }
+      if (num == 1U) {
+        // The number is fully factored and smooth.
+        break;
+      }
+    }
+    if (num != 1U) {
+      // The number was not fully factored, because it is not smooth.
+      // Since this method is for the residue, we need to reject it.
+      return std::vector<size_t>();
+    }
+
+    // This number is necessarily a smooth perfect square.
+    return vec;
+  }
+}
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
                           size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier, size_t batchSizeVariance, size_t ladderMultiple,
