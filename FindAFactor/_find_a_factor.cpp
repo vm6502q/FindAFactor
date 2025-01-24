@@ -776,7 +776,7 @@ struct Factorizer {
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl, size_t rl,
              size_t bsv, size_t lm, size_t bn, const std::vector<size_t> &p, ForwardFn fn)
     : dis(0ULL, -1ULL), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), batchSizeVariance(bsv), ladderMultiple(lm), isIncomplete(true), primes(p), forwardFn(fn)
+    wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), batchSizeVariance(bsv), ladderMultiple(lm), rowLimit(rl), isIncomplete(true), primes(p), forwardFn(fn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
@@ -1238,8 +1238,9 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // This manages the work of all threads.
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
-                    wheelEntryCount, (size_t)(batchSizeMultiplier * smoothPrimes.size() * log(smoothPrimes.size())), batchSizeVariance,
-                    gaussianEliminationRowMultiplier * smoothPrimes.size(), ladderMultiple, batchStart, smoothPrimes, forward(SMALLEST_WHEEL));
+                    wheelEntryCount, (size_t)(batchSizeMultiplier * smoothPrimes.size() * log(smoothPrimes.size())),
+                    gaussianEliminationRowMultiplier * smoothPrimes.size(), batchSizeVariance,
+                    ladderMultiple, batchStart, smoothPrimes, forward(SMALLEST_WHEEL));
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
   if (isFactorFinder) {
