@@ -857,7 +857,7 @@ struct Factorizer {
       const size_t batchLimit = smoothBatchLimit * (1ULL << batchPower);
       batchPower = (batchPower + 1U) % batchSizeVariance;
       size_t batchId = 0U;
-      while (isIncomplete) {
+      while (true) {
         // The number is now a smooth perfect square larger than toFactor.
         // Keep going until we exceed the square of toFactor.
         // We are given a smooth perfect square as input.
@@ -891,10 +891,6 @@ struct Factorizer {
           }
         }
 
-        if (!isIncomplete) {
-          return;
-        }
-
         // Descend until we are less than toFactor, again.
         // We are given a smooth perfect square as input.
         while (perfectSquare > toFactor) {
@@ -922,10 +918,6 @@ struct Factorizer {
           // not a single prime factor.)
           --(fv[pi]);
           ++batchPart;
-        }
-
-        if (!isIncomplete) {
-          return;
         }
 
         // Repeat indefinitely until reseeding.
