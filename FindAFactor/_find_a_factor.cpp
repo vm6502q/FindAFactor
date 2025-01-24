@@ -746,72 +746,6 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
   return result;
 }
 
-# if 0
-// Perform Gaussian elimination on a binary matrix
-void gaussianElimination(std::vector<BigInteger> &smoothNumberKeys, std::vector<boost::dynamic_bitset<size_t>> &smoothNumberValues) {
-  const unsigned cpuCount = CpuCount;
-  auto mColIt = smoothNumberValues.begin();
-  auto nColIt = smoothNumberKeys.begin();
-  const size_t rows = smoothNumberValues.size();
-  for (size_t col = 0U; col < primes.size(); ++col) {
-    auto mRowIt = mColIt;
-    auto nRowIt = nColIt;
-
-    int64_t pivot = -1;
-    for (size_t row = col; row < rows; ++row) {
-      if ((*mRowIt)[col]) {
-        // Swapping matrix rows corresponds
-        // with swapping factorized numbers.
-        if (row != col) {
-          std::swap(*mColIt, *mRowIt);
-          std::swap(*nColIt, *nRowIt);
-        }
-        pivot = row;
-        break;
-      }
-      ++nRowIt;
-      ++mRowIt;
-    }
-
-    if (pivot != -1) {
-      const boost::dynamic_bitset<size_t> &cm = *mColIt;
-      const BigInteger &cn = *nColIt;
-      mRowIt = smoothNumberValues.begin();
-      nRowIt = smoothNumberKeys.begin();
-      for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
-        dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
-          auto mrIt = mRowIt;
-          auto nrIt = nRowIt;
-          for (size_t row = cpu; ; row += cpuCount) {
-            boost::dynamic_bitset<size_t> &rm = *mrIt;
-            BigInteger &rn = *nrIt;
-            if ((row != col) && rm[col]) {
-              // XOR-ing factorization rows
-              // is like multiplying the numbers.
-              rm ^= cm;
-              rn *= cn;
-            }
-            if ((row + cpuCount) >= rows) {
-              return false;
-            }
-            std::advance(nrIt, cpuCount);
-            std::advance(mrIt, cpuCount);
-          }
-
-          return false;
-        });
-        ++mRowIt;
-        ++nRowIt;
-      }
-      dispatch.finish();
-    }
-
-    ++mColIt;
-    ++nColIt;
-  }
-}
-#endif
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                            WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -831,13 +765,16 @@ struct Factorizer {
   size_t smoothBatchLimit;
   size_t batchSizeVariance;
   size_t ladderMultiple;
+  size_t rowLimit;
   bool isIncomplete;
   std::vector<size_t> primes;
   std::vector<size_t> sqrPrimes;
+  std::vector<BigInteger> smoothNumberKeys;
+  std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
   ForwardFn forwardFn;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl, size_t bsv,
-             size_t lm, size_t bn, const std::vector<size_t> &p, ForwardFn fn)
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl, size_t rl,
+             size_t bsv, size_t lm, size_t bn, const std::vector<size_t> &p, ForwardFn fn)
     : dis(0ULL, -1ULL), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), batchSizeVariance(bsv), ladderMultiple(lm), isIncomplete(true), primes(p), forwardFn(fn)
   {
@@ -846,6 +783,8 @@ struct Factorizer {
       wheelRadius *= p;
       sqrPrimes.push_back(p * p);
     }
+    smoothNumberKeys.reserve(smoothBatchLimit);
+    smoothNumberValues.reserve(smoothBatchLimit);
   }
 
   BigInteger getNextAltBatch() {
@@ -878,18 +817,14 @@ struct Factorizer {
     return 1U;
   }
 
-  BigInteger monteCarlo(const size_t& cpu, rngType& gen) {
+  void monteCarlo(const size_t& cpu, rngType& gen) {
     // This function enters only once per thread.
     const BigInteger threadRange = (batchRange + CpuCount - 1) / CpuCount;
     const BigInteger threadOffset = batchOffset + threadRange * cpu;
     size_t batchPower = 0U;
-    std::vector<BigInteger> smoothNumberKeys;
-    std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
-    smoothNumberKeys.reserve(smoothBatchLimit);
-    smoothNumberValues.reserve(smoothBatchLimit);
 
     // This is the outer reseeding loop.
-    while (isIncomplete) {
+    while (smoothNumberKeys.size() < rowLimit) {
       // Find any single smooth perfect square (per thread).
       BigInteger perfectSquare = 1U;
       std::vector<size_t> fv(primes.size(), 0);
@@ -940,10 +875,9 @@ struct Factorizer {
             const BigInteger residue = perfectSquare % toFactor;
             const boost::dynamic_bitset<size_t> rfv = factorizationVector(residue);
             if (rfv.size()) {
+              std::lock_guard<std::mutex> lock(batchMutex);
               smoothNumberKeys.push_back(perfectSquare);
               smoothNumberValues.push_back(rfv);
-            } else {
-              std::cout << "This actually happens." << std::endl;
             }
             // Multiplying any smooth perfect square by the square of any smooth prime
             // necessarily creates a new smooth perfect square.
@@ -958,7 +892,7 @@ struct Factorizer {
         }
 
         if (!isIncomplete) {
-          return 1U;
+          return;
         }
 
         // Descend until we are less than toFactor, again.
@@ -969,10 +903,9 @@ struct Factorizer {
           const BigInteger residue = perfectSquare % toFactor;
           const boost::dynamic_bitset<size_t> rfv = factorizationVector(residue);
           if (rfv.size()) {
+            std::lock_guard<std::mutex> lock(batchMutex);
             smoothNumberKeys.push_back(perfectSquare);
             smoothNumberValues.push_back(rfv);
-          } else {
-            std::cout << "This actually happens." << std::endl;
           }
           // Dividing any smooth perfect square by the square of any smooth prime
           // necessarily creates a new smooth perfect square, so long as
@@ -992,7 +925,7 @@ struct Factorizer {
         }
 
         if (!isIncomplete) {
-          return 1U;
+          return;
         }
 
         // Repeat indefinitely until reseeding.
@@ -1009,28 +942,113 @@ struct Factorizer {
         }
       }
       // Repeat indefinitely until success.
+    }
+  }
 
-      // Compute x and y
-      const BigInteger x = perfectSquare % toFactor;
-      const BigInteger y = modExp(x, toFactor >> 1U, toFactor);
+  // Perform Gaussian elimination on a binary matrix
+  void gaussianElimination() {
+    const unsigned cpuCount = CpuCount;
+    auto mColIt = smoothNumberValues.begin();
+    auto nColIt = smoothNumberKeys.begin();
+    const size_t rows = smoothNumberValues.size();
+    for (size_t col = 0U; col < primes.size(); ++col) {
+      auto mRowIt = mColIt;
+      auto nRowIt = nColIt;
 
-      // Check congruence of squares
-      BigInteger factor = gcd(toFactor, x + y);
-      if ((factor != 1U) && (factor != toFactor)) {
-        isIncomplete = false;
-
-        return factor;
+      int64_t pivot = -1;
+      for (size_t row = col; row < rows; ++row) {
+        if ((*mRowIt)[col]) {
+          // Swapping matrix rows corresponds
+          // with swapping factorized numbers.
+          if (row != col) {
+            std::swap(*mColIt, *mRowIt);
+            std::swap(*nColIt, *nRowIt);
+          }
+          pivot = row;
+          break;
+        }
+        ++nRowIt;
+        ++mRowIt;
       }
 
-      if (x != y) {
+      if (pivot != -1) {
+        const boost::dynamic_bitset<size_t> &cm = *mColIt;
+        const BigInteger &cn = *nColIt;
+        mRowIt = smoothNumberValues.begin();
+        nRowIt = smoothNumberKeys.begin();
+        for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
+          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
+            auto mrIt = mRowIt;
+            auto nrIt = nRowIt;
+            for (size_t row = cpu; ; row += cpuCount) {
+              boost::dynamic_bitset<size_t> &rm = *mrIt;
+              BigInteger &rn = *nrIt;
+              if ((row != col) && rm[col]) {
+                // XOR-ing factorization rows
+                // is like multiplying the numbers.
+                rm ^= cm;
+                rn *= cn;
+              }
+              if ((row + cpuCount) >= rows) {
+                return false;
+              }
+              std::advance(nrIt, cpuCount);
+              std::advance(mrIt, cpuCount);
+            }
+
+            return false;
+          });
+          ++mRowIt;
+          ++nRowIt;
+        }
+        dispatch.finish();
+      }
+
+      ++mColIt;
+      ++nColIt;
+    }
+  }
+
+  BigInteger solveForFactor() {
+    // Perform Gaussian elimination
+    gaussianElimination();
+
+    // Check for linear dependencies and find a congruence of squares
+    auto imColIt = smoothNumberValues.begin();
+    auto inColIt = smoothNumberKeys.begin();
+    for (size_t i = 0U; i < smoothNumberValues.size(); ++i) {
+      auto jmColIt = imColIt;
+      auto jnColIt = inColIt;
+      for (size_t j = i + 1U; j < smoothNumberValues.size(); ++j) {
+        ++jmColIt;
+        ++jnColIt;
+
+        if ((*imColIt) != (*jmColIt)) {
+          continue;
+        }
+
+        // Compute x and y
+        const BigInteger x = ((*inColIt) * (*jnColIt)) % toFactor;
+        const BigInteger y = modExp(x, toFactor / 2, toFactor);
+
+        // Check congruence of squares
+        BigInteger factor = gcd(toFactor, x + y);
+        if ((factor != 1U) && (factor != toFactor)) {
+          return factor;
+        }
+
+        if (x == y) {
+          continue;
+        }
+
         // Try x - y as well
         factor = gcd(toFactor, x - y);
         if ((factor != 1U) && (factor != toFactor)) {
-          isIncomplete = false;
-
           return factor;
         }
       }
+      ++imColIt;
+      ++inColIt;
     }
 
     return 1U;
@@ -1110,7 +1128,7 @@ struct Factorizer {
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
                           size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier, size_t batchSizeVariance, size_t ladderMultiple,
-                          bool skipTrialDivision) {
+                          size_t gaussianEliminationRowMultiplier, bool skipTrialDivision) {
   // Validation section
   if (method > 1U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
@@ -1229,14 +1247,13 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
                     wheelEntryCount, (size_t)(batchSizeMultiplier * smoothPrimes.size() * log(smoothPrimes.size())), batchSizeVariance,
-                    ladderMultiple, batchStart, smoothPrimes, forward(SMALLEST_WHEEL));
+                    gaussianEliminationRowMultiplier * smoothPrimes.size(), ladderMultiple, batchStart, smoothPrimes, forward(SMALLEST_WHEEL));
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
-  std::vector<std::future<BigInteger>> futures;
-  futures.reserve(CpuCount);
-
-  std::vector<rngType> gen;
   if (isFactorFinder) {
+    std::vector<std::future<void>> futures;
+    std::vector<rngType> gen;
+    futures.reserve(CpuCount);
     std::default_random_engine rng{};
     gen.reserve(CpuCount);
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
@@ -1245,26 +1262,31 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       futures.push_back(std::async(std::launch::async, [&worker, cpu, &gen] {
         // This is as "embarrissingly parallel" as it gets.
-        return worker.monteCarlo(cpu, gen[cpu]);
+        worker.monteCarlo(cpu, gen[cpu]);
       }));
     }
-  } else {
-    const auto workerFn = [&inc_seqs, &worker] {
-      // inc_seq needs to be independent per thread.
-      std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
-      inc_seqs_clone.reserve(inc_seqs.size());
-      for (const boost::dynamic_bitset<size_t> &b : inc_seqs) {
-        inc_seqs_clone.emplace_back(b);
-      }
-
-      // "Brute force" includes extensive wheel multiplication and can be faster.
-      return worker.bruteForce(&inc_seqs_clone);
-    };
-    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      futures.push_back(std::async(std::launch::async, workerFn));
+    for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
+      futures[cpu].get();
     }
+    return boost::lexical_cast<std::string>(worker.solveForFactor());
   }
 
+  std::vector<std::future<BigInteger>> futures;
+  futures.reserve(CpuCount);
+  const auto workerFn = [&inc_seqs, &worker] {
+    // inc_seq needs to be independent per thread.
+    std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
+    inc_seqs_clone.reserve(inc_seqs.size());
+    for (const boost::dynamic_bitset<size_t> &b : inc_seqs) {
+      inc_seqs_clone.emplace_back(b);
+    }
+
+    // "Brute force" includes extensive wheel multiplication and can be faster.
+    return worker.bruteForce(&inc_seqs_clone);
+  };
+  for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
+    futures.push_back(std::async(std::launch::async, workerFn));
+  }
   for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
     const BigInteger r = futures[cpu].get();
     if ((r > result) && (r != toFactor)) {

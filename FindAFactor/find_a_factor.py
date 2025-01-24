@@ -20,7 +20,8 @@ def find_a_factor(n,
                   batch_size_multiplier=float(os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER') else 512.0,
                   batch_size_variance=int(os.environ.get('FINDAFACTOR_BATCH_SIZE_VARIANCE')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_VARIANCE') else 2,
                   ladder_multiple=int(os.environ.get('FINDAFACTOR_LADDER_MULTIPLE')) if os.environ.get('FINDAFACTOR_LADDER_MULTIPLE') else 6,
-                  skip_trial_division=True if os.environ.get('FINDAFACTOR_SKIP_TRIAL_DIVISION') else False):
+                  skip_trial_division=True if os.environ.get('FINDAFACTOR_SKIP_TRIAL_DIVISION') else False,
+                  gaussian_elimination_row_multiplier=int(os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_MULTIPLIER')) if os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_MULTIPLIER') else 2):
     return int(_find_a_factor._find_a_factor(str(n),
                                              int(method),
                                              node_count, node_id,
@@ -31,4 +32,5 @@ def find_a_factor(n,
                                              batch_size_multiplier,
                                              batch_size_variance,
                                              ladder_multiple,
+                                             gaussian_elimination_row_multiplier,
                                              skip_trial_division))
