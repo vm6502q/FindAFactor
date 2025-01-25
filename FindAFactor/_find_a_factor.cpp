@@ -823,9 +823,8 @@ struct Factorizer {
 
   // Sieving function
   void sievePolynomials(const BigInteger& low, const BigInteger& high) {
-    std::vector<BigInteger> smooth_candidates;
     const BigInteger maxLcv = toFactorSqrt + high;
-    for (BigInteger y = toFactorSqrt + 1U; y < maxLcv; y += wheelLevel) {
+    for (BigInteger y = toFactorSqrt + 1U + low; y < maxLcv; y += wheelLevel) {
       // Make the candidate NOT a multiple on the wheels.
       BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
