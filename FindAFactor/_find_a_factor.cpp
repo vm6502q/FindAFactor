@@ -835,8 +835,10 @@ struct Factorizer {
         // For lock_guard scope
         if (true) {
           std::lock_guard<std::mutex> lock(batchMutex);
-          smoothNumberKeys.push_back(candidate);
-          smoothNumberValues.push_back(rfv);
+          if (std::find(smoothNumberKeys.begin(), smoothNumberKeys.end(), candidate) == smoothNumberKeys.end()) {
+            smoothNumberKeys.push_back(candidate);
+            smoothNumberValues.push_back(rfv);
+          }
         }
         // If we have enough rows for Gaussian elimination already,
         // there's no reason to sieve any further.
