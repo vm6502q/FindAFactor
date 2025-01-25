@@ -762,6 +762,7 @@ struct Factorizer {
   BigInteger batchTotal;
   BigInteger wheelRadius;
   size_t wheelEntryCount;
+  size_t wheelLevel;
   size_t smoothBatchLimit;
   size_t batchSizeVariance;
   size_t ladderMultiple;
@@ -774,11 +775,11 @@ struct Factorizer {
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl, size_t rl,
-             size_t bsv, size_t lm, size_t bn, const std::vector<size_t> &p, ForwardFn ffn, ForwardFn bfn)
+  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t wl, size_t spl,
+             size_t rl, size_t bsv, size_t lm, size_t bn, const std::vector<size_t> &p, ForwardFn ffn, ForwardFn bfn)
     : dis(0ULL, -1ULL), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), batchSizeVariance(bsv), ladderMultiple(lm), rowLimit(rl), isIncomplete(true), primes(p), forwardFn(ffn),
-    backwardFn(bfn)
+    wheelRadius(1U), wheelEntryCount(w), wheelLevel(wl), smoothBatchLimit(spl), batchSizeVariance(bsv), ladderMultiple(lm), rowLimit(rl), isIncomplete(true), primes(p),
+    forwardFn(ffn), backwardFn(bfn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
@@ -826,10 +827,10 @@ struct Factorizer {
   // Sieving function
   void sievePolynomials(const BigInteger& low, const BigInteger& high) {
     std::vector<BigInteger> smooth_candidates;
-    for (BigInteger y = low; y < high; ++y) {
-      const BigInteger xpa = y + toFactorSqrt;
+    const BigInteger maxLcv = toFactorSqrt + high;
+    for (BigInteger y = toFactorSqrt; y < maxLcv; y += wheelLevel) {
       // Make the candidate NOT a multiple on the wheels.
-      BigInteger candidate = forwardFn(backwardFn(xpa * xpa - toFactor));
+      BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
       // the number into a "close-by" perfect square.
       makeSmoothPerfectSquare(&candidate);
@@ -1167,7 +1168,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // This manages the work of all threads.
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
-                    wheelEntryCount, (size_t)(batchSizeMultiplier * smoothPrimes.size() * log(smoothPrimes.size())),
+                    wheelEntryCount, gearFactorizationLevel, (size_t)(batchSizeMultiplier * smoothPrimes.size() * log(smoothPrimes.size())),
                     gaussianEliminationRowMultiplier * smoothPrimes.size(), batchSizeVariance,
                     ladderMultiple, batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
