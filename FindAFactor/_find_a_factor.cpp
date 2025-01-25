@@ -1114,6 +1114,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // Set up wheel factorization (or "gear" factorization)
   std::vector<size_t> gearFactorizationPrimes(primes.begin(), itg);
   std::vector<size_t> wheelFactorizationPrimes(primes.begin(), itw);
+  const size_t wheelLevel = wheelFactorizationPrimes.size() ? wheelFactorizationPrimes.back() : 1U;
   // Keep as many "smooth" primes as bits in number to factor.
   const size_t toFactorBits = (size_t)log2(toFactor);
   size_t smoothPrimeCount = (size_t)(smoothnessBoundMultiplier * toFactorBits);
@@ -1165,7 +1166,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // This manages the work of all threads.
   Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
                     nodeRange, nodeCount, nodeId,
-                    wheelEntryCount, gearFactorizationLevel, (size_t)(gaussianEliminationRowMultiplier * smoothPrimes.size()),
+                    wheelEntryCount, wheelLevel, (size_t)(gaussianEliminationRowMultiplier * smoothPrimes.size()),
                     batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
