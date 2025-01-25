@@ -772,11 +772,13 @@ struct Factorizer {
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
   ForwardFn forwardFn;
+  ForwardFn backwardFn;
 
   Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t spl, size_t rl,
-             size_t bsv, size_t lm, size_t bn, const std::vector<size_t> &p, ForwardFn fn)
+             size_t bsv, size_t lm, size_t bn, const std::vector<size_t> &p, ForwardFn ffn, ForwardFn bfn)
     : dis(0ULL, -1ULL), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), batchSizeVariance(bsv), ladderMultiple(lm), rowLimit(rl), isIncomplete(true), primes(p), forwardFn(fn)
+    wheelRadius(1U), wheelEntryCount(w), smoothBatchLimit(spl), batchSizeVariance(bsv), ladderMultiple(lm), rowLimit(rl), isIncomplete(true), primes(p), forwardFn(ffn),
+    backwardFn(bfn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
@@ -824,12 +826,12 @@ struct Factorizer {
   // Sieving function
   void sievePolynomials(const BigInteger& low, const BigInteger& high) {
     std::vector<BigInteger> smooth_candidates;
-    // Bound has already had "backwardFn()" applied.
     for (BigInteger y = low; y < high; ++y) {
-      const BigInteger xpa = forwardFn(y) + toFactorSqrt;
-      BigInteger candidate = xpa * xpa - toFactor;
+      const BigInteger xpa = y + toFactorSqrt;
+      // Make the candidate NOT a multiple on the wheels.
+      BigInteger candidate = forwardFn(backwardFn(xpa * xpa - toFactor));
       // This actually just goes ahead and FORCES
-      // the number into a close perfect square.
+      // the number into a "close-by" perfect square.
       makeSmoothPerfectSquare(&candidate);
       // The residue also needs to be smooth.
       const boost::dynamic_bitset<size_t> rfv = factorizationVector(candidate % toFactor);
@@ -1167,7 +1169,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                     nodeRange, nodeCount, nodeId,
                     wheelEntryCount, (size_t)(batchSizeMultiplier * smoothPrimes.size() * log(smoothPrimes.size())),
                     gaussianEliminationRowMultiplier * smoothPrimes.size(), batchSizeVariance,
-                    ladderMultiple, batchStart, smoothPrimes, forward(SMALLEST_WHEEL));
+                    ladderMultiple, batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
   if (isFactorFinder) {
@@ -1179,7 +1181,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       gen.emplace_back(rng());
     }
-    const BigInteger sievingRange = backwardFn(sievingBound / CpuCount);
+    const BigInteger sievingRange = sievingBound / CpuCount;
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       futures.push_back(std::async(std::launch::async, [&worker, cpu, &sievingRange] {
         const BigInteger low = cpu * sievingRange;

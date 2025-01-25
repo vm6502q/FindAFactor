@@ -22,7 +22,7 @@ def find_a_factor(n,
                   ladder_multiple=int(os.environ.get('FINDAFACTOR_LADDER_MULTIPLE')) if os.environ.get('FINDAFACTOR_LADDER_MULTIPLE') else 6,
                   skip_trial_division=True if os.environ.get('FINDAFACTOR_SKIP_TRIAL_DIVISION') else False,
                   gaussian_elimination_row_multiplier=int(os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_MULTIPLIER')) if os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_MULTIPLIER') else 2,
-                  sieving_bound=int(os.environ.get('FINDAFACTOR_SIEVING_BOUND')) if os.environ.get('FINDAFACTOR_SIEVING_BOUND') else 2):
+                  sieving_bound=int(os.environ.get('FINDAFACTOR_SIEVING_BOUND')) if os.environ.get('FINDAFACTOR_SIEVING_BOUND') else (1<<32)):
     return int(_find_a_factor._find_a_factor(str(n),
                                              int(method),
                                              node_count, node_id,
