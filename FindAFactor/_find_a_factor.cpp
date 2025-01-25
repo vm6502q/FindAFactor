@@ -817,140 +817,20 @@ struct Factorizer {
     return 1U;
   }
 
-  void monteCarlo(const size_t& cpu, rngType& gen) {
-    // This function enters only once per thread.
-    const BigInteger threadRange = (batchRange + CpuCount - 1) / CpuCount;
-    const BigInteger threadOffset = batchOffset + threadRange * cpu;
-    size_t batchPower = 0U;
-
-    // This is the outer reseeding loop.
-    while (smoothNumberKeys.size() < rowLimit) {
-      // Find any single smooth perfect square (per thread).
-      BigInteger perfectSquare = 1U;
-      std::vector<size_t> fv(primes.size(), 0);
-      while (perfectSquare < toFactor) {
-        const BigInteger bIndex = dis(gen) % threadRange;
-        const BigInteger halfBIndex = threadOffset + (bIndex >> 1U) + 1U;
-        const BigInteger bNum = (bIndex & 1U) ? halfBIndex : (batchTotal - halfBIndex);
-        BigInteger n = forwardFn((bNum * wheelEntryCount) + (dis(gen) % wheelEntryCount));
-        const std::vector<size_t> pfv = smoothFactorizationVector(&n);
-        perfectSquare *= n;
-        for (size_t pi = 0U; pi < primes.size(); ++pi) {
-          fv[pi] += pfv[pi];
-        }
-      }
-      // We actually want not just a smooth number,
-      // but a smooth perfect square.
-      for (size_t pi = 0U; pi < primes.size(); ++pi) {
-        size_t& vp = fv[pi];
-        if (vp & 1U) {
-          // If the prime factor component parity is odd,
-          // multiply by the prime once to make it even.
-          perfectSquare *= primes[pi];
-          ++vp;
-        }
-        // The parity is necessarily even in this factor, by now.
-        // Divide by 2 to get the count of square prime factors.
-        vp >>= 1U;
-      }
-
-      const size_t batchLimit = smoothBatchLimit * (1ULL << batchPower);
-      batchPower = (batchPower + 1U) % batchSizeVariance;
-      size_t batchId = 0U;
-      while (true) {
-        // The number is now a smooth perfect square larger than toFactor.
-        // Keep going until we exceed the square of toFactor.
-        // We are given a smooth perfect square as input.
-        size_t batchPart = 0U;
-        while (perfectSquare < toFactorSqr) {
-          // Pick a random prime ordinal.
-          const size_t pi = dis(gen) % primes.size();
-          const size_t lm = (dis(gen) % ladderMultiple) + 1U;
-          // Retrieve the square prime for the ordinal.
-          const size_t& rsp = sqrPrimes[pi];
-          size_t& fvc = fv[pi];
-          for (size_t i = 0U; i < lm; ++i) {
-            // The current working smooth perfect square has not yet been saved.
-            // Sieve for a perfect-square residue.
-            const BigInteger residue = perfectSquare % toFactor;
-            const boost::dynamic_bitset<size_t> rfv = factorizationVector(residue);
-            if (rfv.size()) {
-              std::lock_guard<std::mutex> lock(batchMutex);
-              smoothNumberKeys.push_back(perfectSquare);
-              smoothNumberValues.push_back(rfv);
-            }
-            // Multiplying any smooth perfect square by the square of any smooth prime
-            // necessarily creates a new smooth perfect square.
-            perfectSquare *= rsp;
-            // Update the factorization vector to reflect the new square prime factor.
-            // (The factorization vector assumes that each increment is a square prime factor,
-            // not a single prime factor.)
-            ++fvc;
-            // Update the batch item counter.
-            ++batchPart;
-          }
-        }
-
-        // Descend until we are less than toFactor, again.
-        // We are given a smooth perfect square as input.
-        while (perfectSquare > toFactor) {
-          // The current working smooth perfect square has not yet been saved.
-          // Sieve for a perfect-square residue.
-          const BigInteger residue = perfectSquare % toFactor;
-          const boost::dynamic_bitset<size_t> rfv = factorizationVector(residue);
-          if (rfv.size()) {
-            std::lock_guard<std::mutex> lock(batchMutex);
-            smoothNumberKeys.push_back(perfectSquare);
-            smoothNumberValues.push_back(rfv);
-          }
-          // Dividing any smooth perfect square by the square of any smooth prime
-          // necessarily creates a new smooth perfect square, so long as
-          // the random square prime factor is actually present in the number.
-          size_t pi;
-          do {
-            // Loop until the population is nonzero (with guaranteed even parity).
-            pi = dis(gen) % primes.size();
-          } while (!fv[pi]);
-
-          perfectSquare /= sqrPrimes[pi];
-          // Update the factorization vector to reflect the new square prime factor.
-          // (The factorization vector assumes that each increment is a square prime factor,
-          // not a single prime factor.)
-          --(fv[pi]);
-          ++batchPart;
-        }
-
-        // Repeat indefinitely until reseeding.
-        batchId += batchPart >> 1U;
-        if (batchId >= smoothBatchLimit) {
-          break;
-        }
-
-        // Multiply the random smooth perfect square by the squares of smooth primes.
-        while (perfectSquare < toFactor) {
-          const size_t pi = dis(gen) % primes.size();
-          perfectSquare *= sqrPrimes[pi];
-          ++(fv[pi]);
-        }
-      }
-      // Repeat indefinitely until success.
-    }
-  }
-
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //                              WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                  //
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Sieving function
-  void sievePolynomials(BigInteger bound) {
+  void sievePolynomials(const BigInteger& low, const BigInteger& high) {
     std::vector<BigInteger> smooth_candidates;
     // Bound has already had "backwardFn()" applied.
-    for (BigInteger y = 0; y < bound; ++y) {
+    for (BigInteger y = low; y < high; ++y) {
       const BigInteger xpa = forwardFn(y) + toFactorSqrt;
       BigInteger candidate = xpa * xpa - toFactor;
       // This actually just goes ahead and FORCES
       // the number into a close perfect square.
-      smoothFactorizationVector(&candidate);
+      makeSmoothPerfectSquare(&candidate);
       // The residue also needs to be smooth.
       const boost::dynamic_bitset<size_t> rfv = factorizationVector(candidate % toFactor);
       if (rfv.size()) {
@@ -961,7 +841,7 @@ struct Factorizer {
           smoothNumberValues.push_back(rfv);
         }
         // If we have enough rows for Gaussian elimination already,
-        // There's no reason to sieve any further.
+        // there's no reason to sieve any further.
         if (smoothNumberKeys.size() > rowLimit) {
           return;
         }
@@ -1083,9 +963,9 @@ struct Factorizer {
   }
 
   // Produce a smooth number with its factorization vector.
-  std::vector<size_t> smoothFactorizationVector(BigInteger* numPtr) {
+  boost::dynamic_bitset<size_t> makeSmoothPerfectSquare(BigInteger* numPtr) {
     BigInteger num = *numPtr;
-    std::vector<size_t> vec(primes.size(), 0);
+    boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
       BigInteger factor = gcd(num, wheelRadius);
@@ -1101,7 +981,7 @@ struct Factorizer {
           continue;
         }
         factor /= p;
-        ++(vec[pi]);
+        vec.flip(pi);
         if (factor == 1U) {
           break;
         }
@@ -1115,6 +995,16 @@ struct Factorizer {
       // The number was not fully factored, because it is not smooth.
       // Make it smooth, by dividing out the remaining non-smooth factors!
       (*numPtr) /= num;
+    }
+    // We actually want not just a smooth number,
+    // but a smooth perfect square.
+    for (size_t pi = 0U; pi < primes.size(); ++pi) {
+      if (vec.test(pi)) {
+        // If the prime factor component parity is odd,
+        // multiply by the prime once to make it even.
+        num *= primes[pi];
+      }
+      // The parity is necessarily even in this factor, by now.
     }
 
     // This number is necessarily a smooth perfect square.
@@ -1156,7 +1046,7 @@ struct Factorizer {
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
                           size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, double batchSizeMultiplier, size_t batchSizeVariance, size_t ladderMultiple,
-                          size_t gaussianEliminationRowMultiplier, bool skipTrialDivision) {
+                          size_t gaussianEliminationRowMultiplier, std::string sievingBoundStr, bool skipTrialDivision) {
   // Validation section
   if (method > 1U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
@@ -1178,6 +1068,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
 
   // Convert number to factor from string.
   const BigInteger toFactor(toFactorStr);
+  const BigInteger sievingBound(sievingBoundStr);
 
   // The largest possible discrete factor of "toFactor" is its square root (as with any integer).
   const BigInteger fullMaxBase = sqrt(toFactor);
@@ -1288,15 +1179,19 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       gen.emplace_back(rng());
     }
+    const BigInteger sievingRange = backwardFn(sievingBound / CpuCount);
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      futures.push_back(std::async(std::launch::async, [&worker, cpu, &gen] {
+      futures.push_back(std::async(std::launch::async, [&worker, cpu, &sievingRange] {
+        const BigInteger low = cpu * sievingRange;
+        const BigInteger high = (cpu + 1U) * sievingRange;
         // This is as "embarrissingly parallel" as it gets.
-        worker.monteCarlo(cpu, gen[cpu]);
+        worker.sievePolynomials(low, high);
       }));
     }
     for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
       futures[cpu].get();
     }
+
     return boost::lexical_cast<std::string>(worker.solveForFactor());
   }
 
