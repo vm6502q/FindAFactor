@@ -766,7 +766,7 @@ struct Factorizer {
   bool isIncomplete;
   std::vector<size_t> primes;
   std::vector<size_t> sqrPrimes;
-  std::vector<BigInteger> smoothNumberKeys;
+  std::set<BigInteger> smoothNumberKeys;
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
@@ -781,7 +781,6 @@ struct Factorizer {
       wheelRadius *= p;
       sqrPrimes.push_back(p * p);
     }
-    smoothNumberKeys.reserve(rowLimit);
   }
 
   BigInteger getNextAltBatch() {
@@ -836,8 +835,8 @@ struct Factorizer {
       // For lock_guard scope
       if (true) {
         std::lock_guard<std::mutex> lock(batchMutex);
-        if (std::find(smoothNumberKeys.begin(), smoothNumberKeys.end(), candidate) == smoothNumberKeys.end()) {
-          smoothNumberKeys.push_back(candidate);
+        if (smoothNumberKeys.find(candidate) == smoothNumberKeys.end()) {
+          smoothNumberKeys.insert(candidate);
         }
       }
       // If we have enough rows for Gaussian elimination already,
@@ -925,7 +924,7 @@ struct Factorizer {
     // We might need Gaussian elimination at a later time, but not now.
     // gaussianElimination();
 
-    // Check for linear dependencies and find a congruence of squares
+    // Find a congruence of squares:
     auto iIt = smoothNumberKeys.begin();
     BigInteger result;
     for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
