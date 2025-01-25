@@ -825,23 +825,25 @@ struct Factorizer {
       // Make the candidate NOT a multiple on the wheels.
       BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
-      // the number into a "close-by" perfect square.
+      // the number into a "close-by" smooth perfect square.
       makeSmoothPerfectSquare(&candidate);
-      // The residue also needs to be smooth.
-      const boost::dynamic_bitset<size_t> rfv = factorizationVector(candidate);
-      if (rfv.size()) {
-        // For lock_guard scope
-        if (true) {
-          std::lock_guard<std::mutex> lock(batchMutex);
-          if (std::find(smoothNumberKeys.begin(), smoothNumberKeys.end(), candidate) == smoothNumberKeys.end()) {
-            smoothNumberKeys.push_back(candidate);
-          }
+      // The residue (mod N) also ultimately needs to be smooth.
+      // (We don't enforce that here.)
+      if (candidate < toFactor) {
+        continue;
+      }
+
+      // For lock_guard scope
+      if (true) {
+        std::lock_guard<std::mutex> lock(batchMutex);
+        if (std::find(smoothNumberKeys.begin(), smoothNumberKeys.end(), candidate) == smoothNumberKeys.end()) {
+          smoothNumberKeys.push_back(candidate);
         }
-        // If we have enough rows for Gaussian elimination already,
-        // there's no reason to sieve any further.
-        if (smoothNumberKeys.size() > rowLimit) {
-          return;
-        }
+      }
+      // If we have enough rows for Gaussian elimination already,
+      // there's no reason to sieve any further.
+      if (smoothNumberKeys.size() > rowLimit) {
+        return;
       }
     }
   }
