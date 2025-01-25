@@ -729,7 +729,11 @@ size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+<<<<<<< Updated upstream
 //                            WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                    //
+=======
+//                              WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                  //
+>>>>>>> Stashed changes
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Utility to perform modular exponentiation
@@ -747,7 +751,11 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+<<<<<<< Updated upstream
 //                            WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                    //
+=======
+//                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
+>>>>>>> Stashed changes
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct Factorizer {
@@ -936,6 +944,42 @@ struct Factorizer {
       // Repeat indefinitely until success.
     }
   }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //                              WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                  //
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  // Sieving function
+  void sievePolynomials(BigInteger bound) {
+    std::vector<BigInteger> smooth_candidates;
+    // Bound has already had "backwardFn()" applied.
+    for (BigInteger y = 0; y < bound; ++y) {
+      const BigInteger xpa = forwardFn(y) + toFactorSqrt;
+      BigInteger candidate = xpa * xpa - toFactor;
+      // This actually just goes ahead and FORCES
+      // the number into a close perfect square.
+      smoothFactorizationVector(&candidate);
+      // The residue also needs to be smooth.
+      const boost::dynamic_bitset<size_t> rfv = factorizationVector(candidate % toFactor);
+      if (rfv.size()) {
+        // For lock_guard scope
+        if (true) {
+          std::lock_guard<std::mutex> lock(batchMutex);
+          smoothNumberKeys.push_back(candidate);
+          smoothNumberValues.push_back(rfv);
+        }
+        // If we have enough rows for Gaussian elimination already,
+        // There's no reason to sieve any further.
+        if (smoothNumberKeys.size() > rowLimit) {
+          return;
+        }
+      }
+    }
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Perform Gaussian elimination on a binary matrix
   void gaussianElimination() {
