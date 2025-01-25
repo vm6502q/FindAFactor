@@ -767,13 +767,12 @@ struct Factorizer {
   std::vector<size_t> primes;
   std::vector<size_t> sqrPrimes;
   std::vector<BigInteger> smoothNumberKeys;
-  std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
-  Factorizer(const BigInteger &tfsqr, const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, size_t bn,
+  Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, size_t bn,
              const std::vector<size_t> &p, ForwardFn ffn, ForwardFn bfn)
-    : dis(0ULL, -1ULL), toFactorSqr(tfsqr), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
+    : dis(0ULL, -1ULL), toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     wheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), primes(p),
     forwardFn(ffn), backwardFn(bfn)
   {
@@ -783,7 +782,6 @@ struct Factorizer {
       sqrPrimes.push_back(p * p);
     }
     smoothNumberKeys.reserve(rowLimit);
-    smoothNumberValues.reserve(rowLimit);
   }
 
   BigInteger getNextAltBatch() {
@@ -830,14 +828,13 @@ struct Factorizer {
       // the number into a "close-by" perfect square.
       makeSmoothPerfectSquare(&candidate);
       // The residue also needs to be smooth.
-      const boost::dynamic_bitset<size_t> rfv = factorizationVector(candidate % toFactor);
+      const boost::dynamic_bitset<size_t> rfv = factorizationVector(candidate);
       if (rfv.size()) {
         // For lock_guard scope
         if (true) {
           std::lock_guard<std::mutex> lock(batchMutex);
           if (std::find(smoothNumberKeys.begin(), smoothNumberKeys.end(), candidate) == smoothNumberKeys.end()) {
             smoothNumberKeys.push_back(candidate);
-            smoothNumberValues.push_back(rfv);
           }
         }
         // If we have enough rows for Gaussian elimination already,
@@ -849,6 +846,9 @@ struct Factorizer {
     }
   }
 
+// We don't actually need Gaussian elimination
+// (but this code is licensed to you as above).
+# if 0
   // Perform Gaussian elimination on a binary matrix
   void gaussianElimination() {
     const unsigned cpuCount = CpuCount;
@@ -912,51 +912,54 @@ struct Factorizer {
       ++nColIt;
     }
   }
+#endif
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   BigInteger solveForFactor() {
-    // Perform Gaussian elimination
-    gaussianElimination();
+    // Every single row is actually already a smooth perfect square by construction.
+    // We might need Gaussian elimination at a later time, but not now.
+    // gaussianElimination();
 
     // Check for linear dependencies and find a congruence of squares
-    auto imColIt = smoothNumberValues.begin();
-    auto inColIt = smoothNumberKeys.begin();
-    for (size_t i = 0U; i < smoothNumberValues.size(); ++i) {
-      auto jmColIt = imColIt;
-      auto jnColIt = inColIt;
-      for (size_t j = i + 1U; j < smoothNumberValues.size(); ++j) {
-        ++jmColIt;
-        ++jnColIt;
+    auto iIt = smoothNumberKeys.begin();
+    BigInteger result;
+    for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
+      dispatch.dispatch([this, i, iIt, &result]() -> bool {
+        auto jIt = iIt;
+        for (size_t j = i + 1U; j < this->smoothNumberKeys.size(); ++j) {
+          ++jIt;
 
-        if ((*imColIt) != (*jmColIt)) {
-          continue;
+          // Compute x and y
+          const BigInteger x = ((*iIt) * (*jIt)) % this->toFactor;
+          const BigInteger y = modExp(x, this->toFactor / 2, this->toFactor);
+
+          // Check congruence of squares
+          BigInteger factor = gcd(this->toFactor, x + y);
+          if ((factor != 1U) && (factor != this->toFactor)) {
+            result = factor;
+
+            return true;
+          }
+
+          if (x == y) {
+            continue;
+          }
+
+          // Try x - y as well
+          factor = gcd(this->toFactor, x - y);
+          if ((factor != 1U) && (factor != this->toFactor)) {
+            result = factor;
+
+            return true;
+          }
         }
 
-        // Compute x and y
-        const BigInteger x = ((*inColIt) * (*jnColIt)) % toFactor;
-        const BigInteger y = modExp(x, toFactor / 2, toFactor);
-
-        // Check congruence of squares
-        BigInteger factor = gcd(toFactor, x + y);
-        if ((factor != 1U) && (factor != toFactor)) {
-          return factor;
-        }
-
-        if (x == y) {
-          continue;
-        }
-
-        // Try x - y as well
-        factor = gcd(toFactor, x - y);
-        if ((factor != 1U) && (factor != toFactor)) {
-          return factor;
-        }
-      }
-      ++imColIt;
-      ++inColIt;
+        return false;
+      });
+      ++iIt;
     }
 
     return 1U;
@@ -1045,7 +1048,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, size_t gaussianEliminationRowMultiplier, std::string sievingBoundStr,
+                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, size_t gaussianEliminationRowMultiplier, double sievingBoundMultiplier,
                           bool skipTrialDivision) {
   // Validation section
   if (method > 1U) {
@@ -1068,7 +1071,6 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
 
   // Convert number to factor from string.
   const BigInteger toFactor(toFactorStr);
-  const BigInteger sievingBound(sievingBoundStr);
 
   // The largest possible discrete factor of "toFactor" is its square root (as with any integer).
   const BigInteger fullMaxBase = sqrt(toFactor);
@@ -1163,8 +1165,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const BigInteger nodeRange = (((backwardFn(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
   const size_t batchStart = ((size_t)backwardFn(trialDivisionLevel)) / wheelEntryCount;
   // This manages the work of all threads.
-  Factorizer worker(toFactor * toFactor, toFactor, fullMaxBase,
-                    nodeRange, nodeCount, nodeId,
+  Factorizer worker(toFactor, fullMaxBase, nodeRange, nodeCount, nodeId,
                     wheelEntryCount, (size_t)(gaussianEliminationRowMultiplier * smoothPrimes.size()),
                     batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
@@ -1178,7 +1179,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       gen.emplace_back(rng());
     }
-    const BigInteger sievingRange = sievingBound / CpuCount;
+    const BigInteger sievingRange = (BigInteger)((sievingBoundMultiplier / CpuCount) * fullMaxBase.convert_to<double>());
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       futures.push_back(std::async(std::launch::async, [&worker, cpu, &sievingRange] {
         const BigInteger low = cpu * sievingRange;

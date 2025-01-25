@@ -19,7 +19,7 @@ def find_a_factor(n,
                   smoothness_bound_multiplier=float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0,
                   skip_trial_division=True if os.environ.get('FINDAFACTOR_SKIP_TRIAL_DIVISION') else False,
                   gaussian_elimination_row_multiplier=int(os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_MULTIPLIER')) if os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_MULTIPLIER') else 2,
-                  sieving_bound=int(os.environ.get('FINDAFACTOR_SIEVING_BOUND')) if os.environ.get('FINDAFACTOR_SIEVING_BOUND') else (1<<32)):
+                  sieving_bound_multiplier=int(os.environ.get('FINDAFACTOR_SIEVING_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SIEVING_BOUND_MULTIPLIER') else 1.0):
     return int(_find_a_factor._find_a_factor(str(n),
                                              int(method),
                                              node_count, node_id,
@@ -28,5 +28,5 @@ def find_a_factor(n,
                                              wheel_factorization_level,
                                              smoothness_bound_multiplier,
                                              gaussian_elimination_row_multiplier,
-                                             str(sieving_bound),
+                                             sieving_bound_multiplier,
                                              skip_trial_division))
