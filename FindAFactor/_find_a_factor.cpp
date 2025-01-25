@@ -729,11 +729,7 @@ size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-<<<<<<< Updated upstream
 //                            WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                    //
-=======
-//                              WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                  //
->>>>>>> Stashed changes
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Utility to perform modular exponentiation
@@ -751,11 +747,7 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-<<<<<<< Updated upstream
 //                            WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                    //
-=======
-//                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
->>>>>>> Stashed changes
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct Factorizer {
@@ -977,10 +969,6 @@ struct Factorizer {
     }
   }
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
   // Perform Gaussian elimination on a binary matrix
   void gaussianElimination() {
     const unsigned cpuCount = CpuCount;
@@ -1044,6 +1032,10 @@ struct Factorizer {
       ++nColIt;
     }
   }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   BigInteger solveForFactor() {
     // Perform Gaussian elimination
