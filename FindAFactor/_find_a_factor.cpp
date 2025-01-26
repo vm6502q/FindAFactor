@@ -827,7 +827,7 @@ struct Factorizer {
       BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
       // the number into a "close-by" smooth perfect square.
-      makeSmoothPerfectSquare(&candidate);
+      candidate = makeSmoothPerfectSquare(candidate);
       // We want two numbers multiplied together to be larger than toFactor.
       if (candidate < toFactorSqrt) {
         continue;
@@ -982,8 +982,8 @@ struct Factorizer {
   }
 
   // Produce a smooth number with its factorization vector.
-  boost::dynamic_bitset<size_t> makeSmoothPerfectSquare(BigInteger* numPtr) {
-    BigInteger num = *numPtr;
+  BigInteger makeSmoothPerfectSquare(BigInteger num) {
+    BigInteger n = num;
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
@@ -991,7 +991,7 @@ struct Factorizer {
       if (factor == 1U) {
         break;
       }
-      num /= factor;
+      n /= factor;
       // Remove smooth primes from factor.
       // (The GCD is necessarily smooth.)
       for (size_t pi = 0U; pi < primes.size(); ++pi) {
@@ -1005,15 +1005,15 @@ struct Factorizer {
           break;
         }
       }
-      if (num == 1U) {
+      if (n == 1U) {
         // The number is fully factored and smooth.
         break;
       }
     }
-    if (num != 1U) {
+    if (n != 1U) {
       // The number was not fully factored, because it is not smooth.
       // Make it smooth, by dividing out the remaining non-smooth factors!
-      (*numPtr) /= num;
+      num /= n;
     }
     // We actually want not just a smooth number,
     // but a smooth perfect square.
@@ -1021,13 +1021,13 @@ struct Factorizer {
       if (vec.test(pi)) {
         // If the prime factor component parity is odd,
         // multiply by the prime once to make it even.
-        (*numPtr) *= primes[pi];
+        num *= primes[pi];
       }
       // The parity is necessarily even in this factor, by now.
     }
 
     // This number is necessarily a smooth perfect square.
-    return vec;
+    return num;
   }
 
   // Compute the prime factorization modulo 2
