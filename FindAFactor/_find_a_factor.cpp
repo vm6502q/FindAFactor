@@ -749,7 +749,8 @@ struct Factorizer {
   BigInteger batchNumber;
   BigInteger batchOffset;
   BigInteger batchTotal;
-  BigInteger wheelRadius;
+  BigInteger smoothWheelRadius;
+  BigInteger diffWheelRadius;
   size_t firstGaussianElimPrimeId;
   size_t wheelEntryCount;
   size_t rowLimit;
@@ -764,10 +765,15 @@ struct Factorizer {
   Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t fgepi, size_t w, size_t rl, size_t bn,
              const std::vector<size_t> &p, ForwardFn ffn, ForwardFn bfn)
     : toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    firstGaussianElimPrimeId(fgepi), wheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), primes(p), forwardFn(ffn), backwardFn(bfn)
+    firstGaussianElimPrimeId(fgepi), smoothWheelRadius(1U), diffWheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), primes(p), forwardFn(ffn), backwardFn(bfn)
   {
-    for (size_t i = 0U; i < primes.size(); ++i) {
-      wheelRadius *= primes[i];
+    for (size_t i = 0U; i < firstGaussianElimPrimeId; ++i) {
+      smoothWheelRadius *= primes[i];
+    }
+    for (size_t i = firstGaussianElimPrimeId; i < primes.size(); ++i) {
+      const size_t& p = primes[i];
+      smoothWheelRadius *= p;
+      diffWheelRadius *= p;
     }
   }
 
@@ -994,7 +1000,7 @@ struct Factorizer {
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
-      BigInteger factor = gcd(num, wheelRadius);
+      BigInteger factor = gcd(num, diffWheelRadius);
       if (factor == 1U) {
         break;
       }
@@ -1043,7 +1049,7 @@ struct Factorizer {
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
-      BigInteger factor = gcd(num, wheelRadius);
+      BigInteger factor = gcd(num, smoothWheelRadius);
       if (factor == 1U) {
         break;
       }
