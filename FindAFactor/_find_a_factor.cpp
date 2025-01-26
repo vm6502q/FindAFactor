@@ -761,6 +761,7 @@ struct Factorizer {
   BigInteger batchOffset;
   BigInteger batchTotal;
   BigInteger wheelRadius;
+  size_t firstGaussianElimPrimeId;
   size_t wheelEntryCount;
   size_t rowLimit;
   bool isIncomplete;
@@ -772,11 +773,10 @@ struct Factorizer {
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
-  Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, size_t bn,
+  Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t fgepi, size_t w, size_t rl, size_t bn,
              const std::vector<size_t> &p, ForwardFn ffn, ForwardFn bfn)
     : dis(0ULL, -1ULL), toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    wheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), primes(p),
-    forwardFn(ffn), backwardFn(bfn)
+    firstGaussianElimPrimeId(fgepi), wheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), primes(p), forwardFn(ffn), backwardFn(bfn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
       const size_t& p = primes[i];
@@ -994,7 +994,7 @@ struct Factorizer {
       n /= factor;
       // Remove smooth primes from factor.
       // (The GCD is necessarily smooth.)
-      for (size_t pi = 0U; pi < primes.size(); ++pi) {
+      for (size_t pi = firstGaussianElimPrimeId; pi < primes.size(); ++pi) {
         const size_t& p = primes[pi];
         if (factor % p) {
           continue;
@@ -1136,7 +1136,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // Keep as many "smooth" primes as bits in number to factor.
   const size_t toFactorBits = (size_t)log2(toFactor);
   // Primes are only present in range above wheel factorization level
-  primes.erase(primes.begin(), itg);
+  const size_t firstGaussianElimPrimeId = std::distance(primes.begin(), itg);
   std::vector<size_t> smoothPrimes;
   for (size_t primeId = 0U; primeId < primes.size(); ++primeId) {
     const size_t p = primes[primeId];
@@ -1173,7 +1173,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const BigInteger nodeRange = (((backwardFn(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
   const size_t batchStart = ((size_t)backwardFn(trialDivisionLevel)) / wheelEntryCount;
   // This manages the work of all threads.
-  Factorizer worker(toFactor, fullMaxBase, nodeRange, nodeCount, nodeId,
+  Factorizer worker(toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, firstGaussianElimPrimeId,
                     wheelEntryCount, (size_t)(gaussianEliminationRowMultiplier * smoothPrimes.size() + 0.5),
                     batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
