@@ -742,7 +742,6 @@ inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod)
 
 struct Factorizer {
   std::mutex batchMutex;
-  std::uniform_int_distribution<size_t> dis;
   BigInteger toFactorSqr;
   BigInteger toFactor;
   BigInteger toFactorSqrt;
@@ -764,7 +763,7 @@ struct Factorizer {
 
   Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t fgepi, size_t w, size_t rl, size_t bn,
              const std::vector<size_t> &p, ForwardFn ffn, ForwardFn bfn)
-    : dis(0ULL, -1ULL), toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
+    : toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     firstGaussianElimPrimeId(fgepi), wheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), primes(p), forwardFn(ffn), backwardFn(bfn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
