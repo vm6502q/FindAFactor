@@ -15,53 +15,14 @@ def main():
 
     to_factor = int(sys.argv[1])
     method=FactoringMethod(int(os.environ.get('FINDAFACTOR_METHOD'))) if os.environ.get('FINDAFACTOR_METHOD') else FactoringMethod.PRIME_SOLVER
-    node_count = int(os.environ.get('FINDAFACTOR_NODE_COUNT')) if os.environ.get('FINDAFACTOR_NODE_COUNT') else 1
-    node_id = int(os.environ.get('FINDAFACTOR_NODE_ID')) if os.environ.get('FINDAFACTOR_NODE_ID') else 0
-    trial_division_level=int(os.environ.get('FINDAFACTOR_TRIAL_DIVISION_LEVEL')) if os.environ.get('FINDAFACTOR_TRIAL_DIVISION_LEVEL') else (1<<20)
-    gear_factorization_level = int(os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL') else 11
-    wheel_factorization_level = int(os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL') else 11
-    smoothness_bound_multiplier = float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 2.0
-    batch_size_multiplier=float(os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_MULTIPLIER') else 256.0
-    batch_size_variance=int(os.environ.get('FINDAFACTOR_BATCH_SIZE_VARIANCE')) if os.environ.get('FINDAFACTOR_BATCH_SIZE_VARIANCE') else 2
-    ladder_multiple=int(os.environ.get('FINDAFACTOR_LADDER_MULTIPLE')) if os.environ.get('FINDAFACTOR_LADDER_MULTIPLE') else 6
-    skip_trial_division=True if os.environ.get('FINDAFACTOR_SKIP_TRIAL_DIVISION') else False
 
     if argv_len > 2:
         method = FactoringMethod(int(sys.argv[2]))
-    if argv_len > 4:
-        node_count = int(sys.argv[3])
-        node_id = int(sys.argv[4])
-    if argv_len > 5:
-        gear_factorization_level = int(sys.argv[5])
-    if argv_len > 6:
-        wheel_factorization_level = int(sys.argv[6])
-    if argv_len > 7:
-        smoothness_bound_multiplier = float(sys.argv[7])
-    if argv_len > 8:
-        batch_size_multiplier = float(sys.argv[8])
-    if argv_len > 9:
-        batch_size_variance = int(sys.argv[9])
-    if argv_len > 10:
-        ladder_multiple = int(sys.argv[10])
-    if argv_len > 11:
-        skip_trial_division = sys.argv[11] not in ['False', '0']
-    if argv_len > 12:
-        trial_division_level = int(sys.argv[12])
 
     start = time.perf_counter()
     result = find_a_factor(
         to_factor,
-        method = method,
-        node_count = node_count,
-        node_id = node_id,
-        trial_division_level = trial_division_level,
-        gear_factorization_level = gear_factorization_level,
-        wheel_factorization_level = wheel_factorization_level,
-        smoothness_bound_multiplier = smoothness_bound_multiplier,
-        batch_size_multiplier = batch_size_multiplier,
-        batch_size_variance = batch_size_variance,
-        ladder_multiple=ladder_multiple,
-        skip_trial_division=skip_trial_division
+        method = method
     )
     print(time.perf_counter() - start)
     print(str(result) + " * " + str(to_factor // result) + " == " + str(to_factor))
