@@ -824,7 +824,6 @@ struct Factorizer {
       if (!(rfv.size())) {
         continue;
       }
-      std::cout << "Found smooth number." << std::endl;
 
       // For lock_guard scope
       if (true) {
@@ -840,7 +839,6 @@ struct Factorizer {
       if (smoothNumberKeys.size() > rowLimit) {
         isIncomplete = false;
         smoothNumberSet.clear();
-        std::cout << "Sieving complete." << std::endl;
 
         return;
       }
