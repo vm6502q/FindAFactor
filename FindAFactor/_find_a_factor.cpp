@@ -1049,7 +1049,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, double smoothnessBoundMultiplier, size_t gaussianEliminationRowMultiplier, double sievingBoundMultiplier,
+                          size_t wheelFactorizationLevel, double sievingBoundMultiplier, double smoothnessBoundMultiplier, double gaussianEliminationRowMultiplier,
                           bool skipTrialDivision) {
   // Validation section
   if (method > 1U) {
