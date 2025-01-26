@@ -1186,11 +1186,13 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       gen.emplace_back(rng());
     }
-    const BigInteger sievingRange = (BigInteger)((sievingBoundMultiplier / CpuCount) * fullMaxBase.convert_to<double>());
+    const BigInteger sievingNodeRange = (BigInteger)((sievingBoundMultiplier / nodeCount) * fullMaxBase.convert_to<double>());
+    const BigInteger sievingThreadRange = sievingNodeRange / CpuCount;
+    const BigInteger nodeOffset = nodeId * sievingNodeRange;
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      futures.push_back(std::async(std::launch::async, [&worker, cpu, &sievingRange] {
-        const BigInteger low = cpu * sievingRange;
-        const BigInteger high = (cpu + 1U) * sievingRange;
+      futures.push_back(std::async(std::launch::async, [&worker, cpu, &nodeOffset, &sievingThreadRange] {
+        const BigInteger low = nodeOffset + cpu * sievingThreadRange;
+        const BigInteger high = (cpu + 1U) * sievingThreadRange;
         // This is as "embarrissingly parallel" as it gets.
         worker.sievePolynomials(low, high);
       }));
