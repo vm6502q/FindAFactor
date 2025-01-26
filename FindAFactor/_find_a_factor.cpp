@@ -585,6 +585,8 @@ std::vector<size_t> SieveOfEratosthenes(const size_t &n) {
   bool *notPrime = uNotPrime.get();
 
   // Get the remaining prime numbers.
+  // These wheel initializations are simply correct and optimal.
+  // The integral form is rather a distinguishable bit set form.
   unsigned short wheel5 = 129U;
   unsigned long long wheel7 = 9009416540524545ULL;
   size_t o = 1U;
