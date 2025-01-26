@@ -928,7 +928,7 @@ struct Factorizer {
 
   BigInteger solveForFactor() {
     // Every single row is actually already a smooth perfect square by construction.
-    // We might need Gaussian elimination at a later time, but not now.
+    // Gaussian elimination is used to create a perfect square of the residues.
     gaussianElimination();
 
     // Find a congruence of squares:
