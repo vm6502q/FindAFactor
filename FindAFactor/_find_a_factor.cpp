@@ -1095,7 +1095,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
 
   // We only need to try trial division about as high as we would sieve for primes necessary
   // to factor about 4096 bits of semiprime, possibly, via Quadratic Sieve (which is not high).
-  const BigInteger trialDivisionLevel = (BigInteger)(smoothnessBoundMultiplier * fullMaxBase.convert_to<double>());
+  const BigInteger trialDivisionLevel = (BigInteger)(smoothnessBoundMultiplier * fullMaxBase.convert_to<double>() + 0.5);
   const size_t primeCeiling = (trialDivisionLevel < fullMaxBase) ? (size_t)trialDivisionLevel : (size_t)fullMaxBase;
   BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
@@ -1173,7 +1173,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const size_t batchStart = ((size_t)backwardFn(trialDivisionLevel)) / wheelEntryCount;
   // This manages the work of all threads.
   Factorizer worker(toFactor, fullMaxBase, nodeRange, nodeCount, nodeId,
-                    wheelEntryCount, (size_t)(gaussianEliminationRowMultiplier * smoothPrimes.size()),
+                    wheelEntryCount, (size_t)(gaussianEliminationRowMultiplier * smoothPrimes.size() + 0.5),
                     batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
@@ -1186,7 +1186,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       gen.emplace_back(rng());
     }
-    const BigInteger sievingNodeRange = (BigInteger)(fullMaxBase.convert_to<double>() * sievingBoundMultiplier / nodeCount);
+    const BigInteger sievingNodeRange = (BigInteger)(fullMaxBase.convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5);
     const BigInteger sievingThreadRange = sievingNodeRange / CpuCount;
     const BigInteger nodeOffset = nodeId * sievingNodeRange;
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
