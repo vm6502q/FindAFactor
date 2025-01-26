@@ -826,11 +826,15 @@ struct Factorizer {
       // This actually just goes ahead and FORCES
       // the number into a "close-by" smooth perfect square.
       makeSmoothPerfectSquare(&candidate);
-      // The residue (mod N) also ultimately needs to be smooth.
-      // (We don't enforce that here.)
-      if (candidate < toFactor) {
+      // We want two numbers multiplied together to be larger than toFactor.
+      if (candidate < toFactorSqrt) {
         continue;
       }
+      // The residue (mod N) also ultimately needs to be smooth.
+      if (!(factorizationVector(candidate % toFactor).size())) {
+        continue;
+      }
+
 
       // For lock_guard scope
       if (true) {
@@ -1167,7 +1171,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const size_t batchStart = ((size_t)backwardFn(trialDivisionLevel)) / wheelEntryCount;
   // This manages the work of all threads.
   Factorizer worker(toFactor, fullMaxBase, nodeRange, nodeCount, nodeId,
-                    wheelEntryCount, (size_t)(gaussianEliminationRowMultiplier * fullMaxBase.convert_to<double>()),
+                    wheelEntryCount, (size_t)(gaussianEliminationRowMultiplier * smoothPrimes.size()),
                     batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
