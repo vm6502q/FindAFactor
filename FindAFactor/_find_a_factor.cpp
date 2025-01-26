@@ -1134,25 +1134,16 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   std::vector<size_t> wheelFactorizationPrimes(primes.begin(), itw);
   // Keep as many "smooth" primes as bits in number to factor.
   const size_t toFactorBits = (size_t)log2(toFactor);
-  size_t smoothPrimeCount = (size_t)(smoothnessBoundMultiplier * toFactorBits);
-  if (!smoothPrimeCount) {
-    smoothPrimeCount = 1U;
-    std::cout << "Warning: smoothness bound multiplier would retain no primes, but it must retain at least 1. (Defaulting to retaining 1 prime.)" << std::endl;
-  }
   // Primes are only present in range above wheel factorization level
   primes.erase(primes.begin(), itg);
-  const size_t maxPrimeCount = std::min(primes.size(), smoothPrimeCount);
   std::vector<size_t> smoothPrimes;
-  for (size_t primeId = 0U; (primeId < primes.size()) && (smoothPrimes.size() < maxPrimeCount); ++primeId) {
+  for (size_t primeId = 0U; primeId < primes.size(); ++primeId) {
     const size_t p = primes[primeId];
     const size_t residue = (size_t)(toFactor % p);
     const size_t sr = _sqrt(residue);
     if ((sr * sr) == residue) {
       smoothPrimes.push_back(p);
     }
-  }
-  if (isFactorFinder && (smoothPrimes.size() < maxPrimeCount)) {
-    std::cout << "Warning: Factor base truncated to " << smoothPrimes.size() << " factors. If you don't want to truncate, set the trial division level option higher." << std::endl;
   }
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
