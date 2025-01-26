@@ -940,43 +940,40 @@ struct Factorizer {
         auto jkit = ikit;
         auto jvit = ivit;
 
-        for (size_t j = i + 1U; j < this->smoothNumberKeys.size(); ++j) {
+        for (size_t j = i; j < this->smoothNumberKeys.size(); ++j) {
+          if ((*ivit) == (*jvit)) {
+            // Compute x and y
+            const BigInteger x = ((*ikit) * (*jkit)) % this->toFactor;
+            const BigInteger y = modExp(x, this->toFactor / 2, this->toFactor);
+
+            // Check congruence of squares
+            BigInteger factor = gcd(this->toFactor, x + y);
+            if ((factor != 1U) && (factor != this->toFactor)) {
+              std::lock_guard<std::mutex> lock(this->batchMutex);
+              result = factor;
+
+              return true;
+            }
+
+            if (x != y) {
+              // Try x - y as well
+              factor = gcd(this->toFactor, x - y);
+              if ((factor != 1U) && (factor != this->toFactor)) {
+                std::lock_guard<std::mutex> lock(this->batchMutex);
+                result = factor;
+
+                return true;
+              }
+            }
+          }
+
           ++jkit;
           ++jvit;
-
-          if ((*ivit) != (*jvit)) {
-            continue;
-          }
-
-          // Compute x and y
-          const BigInteger x = ((*ikit) * (*jkit)) % this->toFactor;
-          const BigInteger y = modExp(x, this->toFactor / 2, this->toFactor);
-
-          // Check congruence of squares
-          BigInteger factor = gcd(this->toFactor, x + y);
-          if ((factor != 1U) && (factor != this->toFactor)) {
-            std::lock_guard<std::mutex> lock(this->batchMutex);
-            result = factor;
-
-            return true;
-          }
-
-          if (x == y) {
-            continue;
-          }
-
-          // Try x - y as well
-          factor = gcd(this->toFactor, x - y);
-          if ((factor != 1U) && (factor != this->toFactor)) {
-            std::lock_guard<std::mutex> lock(this->batchMutex);
-            result = factor;
-
-            return true;
-          }
         }
 
         return false;
       });
+
       ++ikit;
       ++ivit;
     }
