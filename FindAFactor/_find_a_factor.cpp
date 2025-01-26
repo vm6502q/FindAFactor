@@ -699,7 +699,7 @@ std::vector<boost::dynamic_bitset<size_t>> generateGears(const std::vector<size_
   return output;
 }
 
-size_t GetWheelIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
+size_t GetGearIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
   size_t wheelIncrement = 0U;
   bool is_wheel_multiple = false;
   do {
@@ -794,7 +794,7 @@ struct Factorizer {
           isIncomplete = false;
           return n;
         }
-        p += GetWheelIncrement(inc_seqs);
+        p += GetGearIncrement(inc_seqs);
       }
     }
 
