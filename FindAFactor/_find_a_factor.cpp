@@ -766,7 +766,9 @@ struct Factorizer {
   bool isIncomplete;
   std::vector<size_t> primes;
   std::vector<size_t> sqrPrimes;
-  std::set<BigInteger> smoothNumberKeys;
+  std::set<BigInteger> smoothNumberSet;
+  std::vector<BigInteger> smoothNumberKeys;
+  std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
@@ -831,29 +833,30 @@ struct Factorizer {
         continue;
       }
       // The residue (mod N) also ultimately needs to be smooth.
-      if (!(factorizationVector(candidate % toFactor).size())) {
+      const boost::dynamic_bitset<size_t> rfv = factorizationVector(candidate % toFactor);
+      if (!(rfv.size())) {
         continue;
       }
-
 
       // For lock_guard scope
       if (true) {
         std::lock_guard<std::mutex> lock(batchMutex);
-        if (smoothNumberKeys.find(candidate) == smoothNumberKeys.end()) {
-          smoothNumberKeys.insert(candidate);
+        if (smoothNumberSet.find(candidate) == smoothNumberSet.end()) {
+          smoothNumberSet.insert(candidate);
+          smoothNumberKeys.push_back(candidate);
+          smoothNumberValues.push_back(rfv);
         }
       }
       // If we have enough rows for Gaussian elimination already,
       // there's no reason to sieve any further.
       if (smoothNumberKeys.size() > rowLimit) {
+        smoothNumberSet.clear();
+
         return;
       }
     }
   }
 
-// We don't actually need Gaussian elimination
-// (but this code is licensed to you as above).
-# if 0
   // Perform Gaussian elimination on a binary matrix
   void gaussianElimination() {
     const unsigned cpuCount = CpuCount;
@@ -917,7 +920,6 @@ struct Factorizer {
       ++nColIt;
     }
   }
-#endif
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
@@ -926,19 +928,27 @@ struct Factorizer {
   BigInteger solveForFactor() {
     // Every single row is actually already a smooth perfect square by construction.
     // We might need Gaussian elimination at a later time, but not now.
-    // gaussianElimination();
+    gaussianElimination();
 
     // Find a congruence of squares:
-    auto iIt = smoothNumberKeys.begin();
+    auto ikit = smoothNumberKeys.begin();
+    auto ivit = smoothNumberValues.begin();
     BigInteger result;
     for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
-      dispatch.dispatch([this, i, iIt, &result]() -> bool {
-        auto jIt = iIt;
+      dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
+        auto jkit = ikit;
+        auto jvit = ivit;
+
         for (size_t j = i + 1U; j < this->smoothNumberKeys.size(); ++j) {
-          ++jIt;
+          ++jkit;
+          ++jvit;
+
+          if (ivit != jvit) {
+            continue;
+          }
 
           // Compute x and y
-          const BigInteger x = ((*iIt) * (*jIt)) % this->toFactor;
+          const BigInteger x = ((*ikit) * (*jkit)) % this->toFactor;
           const BigInteger y = modExp(x, this->toFactor / 2, this->toFactor);
 
           // Check congruence of squares
@@ -964,7 +974,8 @@ struct Factorizer {
 
         return false;
       });
-      ++iIt;
+      ++ikit;
+      ++ivit;
     }
 
     return 1U;
