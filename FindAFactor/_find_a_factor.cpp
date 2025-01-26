@@ -826,10 +826,9 @@ struct Factorizer {
       // Make the candidate NOT a multiple on the wheels.
       BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
-      // the number into a "close-by" smooth perfect square.
-      makeSmoothPerfectSquare(&candidate);
-      // We want two numbers multiplied together to be larger than toFactor.
-      if (candidate < toFactorSqrt) {
+      // the number into a "close-by" smooth perfect square, and
+      // we want two numbers multiplied together to be larger than toFactor.
+      if (makeSmoothPerfectSquare(&candidate).size() && (candidate < toFactorSqrt)) {
         continue;
       }
       // The residue (mod N) also ultimately needs to be smooth.
@@ -1012,8 +1011,8 @@ struct Factorizer {
     }
     if (num != 1U) {
       // The number was not fully factored, because it is not smooth.
-      // Make it smooth, by dividing out the remaining non-smooth factors!
-      (*numPtr) /= num;
+      // Reject it.
+      return boost::dynamic_bitset<size_t>();
     }
     // We actually want not just a smooth number,
     // but a smooth perfect square.
@@ -1021,7 +1020,7 @@ struct Factorizer {
       if (vec.test(pi)) {
         // If the prime factor component parity is odd,
         // multiply by the prime once to make it even.
-        num *= primes[pi];
+        (*numPtr) *= primes[pi];
       }
       // The parity is necessarily even in this factor, by now.
     }
