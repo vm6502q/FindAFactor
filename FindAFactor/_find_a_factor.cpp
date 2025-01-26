@@ -38,22 +38,18 @@
 // See LICENSE.md in the project root or
 // https://www.gnu.org/licenses/lgpl-3.0.en.html for details.
 
-#include "common/config.h"
 #include "dispatchqueue.hpp"
 
 #include <algorithm>
 #include <future>
 #include <iostream>
-#include <map>
 #include <memory>
 #include <mutex>
-#include <random>
 #include <stdlib.h>
 #include <string>
 
 #include <boost/dynamic_bitset.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
-#include <boost/random.hpp>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -61,12 +57,6 @@
 namespace Qimcifa {
 
 typedef boost::multiprecision::cpp_int BigInteger;
-
-#if USE_MT_RNG
-typedef std::mt19937 rngType;
-#else
-typedef boost::random::taus88 rngType;
-#endif
 
 const unsigned CpuCount = std::thread::hardware_concurrency();
 DispatchQueue dispatch(CpuCount);
@@ -834,6 +824,7 @@ struct Factorizer {
       if (!(rfv.size())) {
         continue;
       }
+      std::cout << "Found smooth number." << std::endl;
 
       // For lock_guard scope
       if (true) {
@@ -849,6 +840,7 @@ struct Factorizer {
       if (smoothNumberKeys.size() > rowLimit) {
         isIncomplete = false;
         smoothNumberSet.clear();
+        std::cout << "Sieving complete." << std::endl;
 
         return;
       }
@@ -941,7 +933,7 @@ struct Factorizer {
           if ((*ivit) == (*jvit)) {
             // Compute x and y
             const BigInteger x = ((*ikit) * (*jkit)) % this->toFactor;
-            const BigInteger y = modExp(x, this->toFactor / 2, this->toFactor);
+            const BigInteger y = modExp(x, this->toFactor >> 1U, this->toFactor);
 
             // Check congruence of squares
             BigInteger factor = gcd(this->toFactor, x + y);
@@ -1135,8 +1127,6 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // Set up wheel factorization (or "gear" factorization)
   std::vector<size_t> gearFactorizationPrimes(primes.begin(), itg);
   std::vector<size_t> wheelFactorizationPrimes(primes.begin(), itw);
-  // Keep as many "smooth" primes as bits in number to factor.
-  const size_t toFactorBits = (size_t)log2(toFactor);
   // Primes are only present in range above wheel factorization level
   const size_t firstGaussianElimPrimeId = std::distance(primes.begin(), itg);
   std::vector<size_t> smoothPrimes;
@@ -1182,21 +1172,14 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
 
   if (isFactorFinder) {
     std::vector<std::future<void>> futures;
-    std::vector<rngType> gen;
     futures.reserve(CpuCount);
-    std::default_random_engine rng{};
-    gen.reserve(CpuCount);
-    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      gen.emplace_back(rng());
-    }
     const BigInteger sievingNodeRange = (BigInteger)(fullMaxBase.convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5);
     const BigInteger sievingThreadRange = sievingNodeRange / CpuCount;
     const BigInteger nodeOffset = nodeId * sievingNodeRange;
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
       futures.push_back(std::async(std::launch::async, [&worker, cpu, &nodeOffset, &sievingThreadRange] {
         const BigInteger low = nodeOffset + cpu * sievingThreadRange;
-        const BigInteger high = nodeOffset + (cpu + 1U) * sievingThreadRange;
-        // This is as "embarrissingly parallel" as it gets.
+        const BigInteger high = low + sievingThreadRange;
         worker.sievePolynomials(low, high);
       }));
     }
@@ -1238,5 +1221,5 @@ using namespace Qimcifa;
 
 PYBIND11_MODULE(_find_a_factor, m) {
   m.doc() = "pybind11 plugin to find any factor of input";
-  m.def("_find_a_factor", &find_a_factor, "Finds any nontrivial factor of input (or returns 1 or the number to factor if prime)");
+  m.def("_find_a_factor", &find_a_factor, "Finds any nontrivial factor of input.");
 }
