@@ -1048,9 +1048,8 @@ struct Factorizer {
   }
 };
 
-std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t trialDivisionLevel, size_t gearFactorizationLevel,
-                          size_t wheelFactorizationLevel, double sievingBoundMultiplier, double smoothnessBoundMultiplier, double gaussianEliminationRowMultiplier,
-                          bool skipTrialDivision) {
+std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t gearFactorizationLevel, size_t wheelFactorizationLevel,
+                          double sievingBoundMultiplier, double smoothnessBoundMultiplier, double gaussianEliminationRowMultiplier, bool skipTrialDivision) {
   // Validation section
   if (method > 1U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
@@ -1081,7 +1080,8 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
 
   // We only need to try trial division about as high as we would sieve for primes necessary
   // to factor about 4096 bits of semiprime, possibly, via Quadratic Sieve (which is not high).
-  const size_t primeCeiling = (trialDivisionLevel < fullMaxBase) ? trialDivisionLevel : (size_t)fullMaxBase;
+  const BigInteger trialDivisionLevel = (BigInteger)(smoothnessBoundMultiplier * fullMaxBase.convert_to<double>());
+  const size_t primeCeiling = (trialDivisionLevel < fullMaxBase) ? (size_t)trialDivisionLevel : (size_t)fullMaxBase;
   BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
   std::vector<size_t> primes = SieveOfEratosthenes(primeCeiling);
