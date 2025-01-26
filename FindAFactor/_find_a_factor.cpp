@@ -1219,5 +1219,5 @@ using namespace Qimcifa;
 
 PYBIND11_MODULE(_find_a_factor, m) {
   m.doc() = "pybind11 plugin to find any factor of input";
-  m.def("_find_a_factor", &find_a_factor, "Finds any nontrivial factor of input.");
+  m.def("_find_a_factor", &find_a_factor, "Finds any nontrivial factor of input");
 }
