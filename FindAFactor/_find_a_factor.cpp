@@ -766,7 +766,6 @@ struct Factorizer {
   size_t rowLimit;
   bool isIncomplete;
   std::vector<size_t> primes;
-  std::vector<size_t> sqrPrimes;
   std::set<BigInteger> smoothNumberSet;
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
@@ -779,9 +778,7 @@ struct Factorizer {
     firstGaussianElimPrimeId(fgepi), wheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), primes(p), forwardFn(ffn), backwardFn(bfn)
   {
     for (size_t i = 0U; i < primes.size(); ++i) {
-      const size_t& p = primes[i];
-      wheelRadius *= p;
-      sqrPrimes.push_back(p * p);
+      wheelRadius *= primes[i];
     }
   }
 
@@ -1098,8 +1095,11 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // This level default (scaling) was suggested by Elara (OpenAI GPT).
   const double N = fullMaxBase.convert_to<double>();
   const double logN = log(N);
-  const BigInteger trialDivisionLevel = (BigInteger)(smoothnessBoundMultiplier * exp(0.5 * std::sqrt(logN * log(logN))) + 0.5);
-  const size_t primeCeiling = (trialDivisionLevel < fullMaxBase) ? (size_t)trialDivisionLevel : (size_t)fullMaxBase;
+  const BigInteger primeCeilingBigInt = (BigInteger)(smoothnessBoundMultiplier * exp(0.5 * std::sqrt(logN * log(logN))) + 0.5);
+  const size_t primeCeiling = (size_t)primeCeilingBigInt;
+  if (((BigInteger)primeCeiling) != primeCeilingBigInt) {
+    throw std::runtime_error("Your primes are out of size_t range! You can modify the SieveOfEratosthenes() code slightly to allow for this.");
+  }
   BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
   std::vector<size_t> primes = SieveOfEratosthenes(primeCeiling);
@@ -1173,7 +1173,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // Range per parallel node
   const auto backwardFn = backward(SMALLEST_WHEEL);
   const BigInteger nodeRange = (((backwardFn(fullMaxBase) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
-  const size_t batchStart = ((size_t)backwardFn(trialDivisionLevel)) / wheelEntryCount;
+  const size_t batchStart = ((size_t)backwardFn(primeCeiling)) / wheelEntryCount;
   // This manages the work of all threads.
   Factorizer worker(toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, firstGaussianElimPrimeId,
                     wheelEntryCount, (size_t)(gaussianEliminationRowMultiplier * smoothPrimes.size() + 0.5),

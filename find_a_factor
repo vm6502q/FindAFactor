@@ -9,13 +9,11 @@ from FindAFactor import find_a_factor, FactoringMethod
 def main():
     argv_len = len(sys.argv)
 
-    if argv_len < 2:
-        print("Enter a number to factor on the command line when calling " + sys.argv[0])
-        return 1
-
-    to_factor = int(sys.argv[1])
+    to_factor = 13687458895616401843
     method=FactoringMethod(int(os.environ.get('FINDAFACTOR_METHOD'))) if os.environ.get('FINDAFACTOR_METHOD') else FactoringMethod.PRIME_SOLVER
 
+    if argv_len > 1:
+        to_factor = int(sys.argv[1])
     if argv_len > 2:
         method = FactoringMethod(int(sys.argv[2]))
 
