@@ -943,7 +943,7 @@ struct Factorizer {
           ++jkit;
           ++jvit;
 
-          if (ivit != jvit) {
+          if ((*ivit) != (*jvit)) {
             continue;
           }
 
