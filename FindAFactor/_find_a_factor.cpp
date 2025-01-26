@@ -822,7 +822,7 @@ struct Factorizer {
   // Sieving function
   void sievePolynomials(const BigInteger& low, const BigInteger& high) {
     const BigInteger maxLcv = toFactorSqrt + high;
-    for (BigInteger y = toFactorSqrt + 1U + low; y < maxLcv; ++y) {
+    for (BigInteger y = toFactorSqrt + 1U + low; isIncomplete && (y < maxLcv); ++y) {
       // Make the candidate NOT a multiple on the wheels.
       BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
@@ -850,6 +850,7 @@ struct Factorizer {
       // If we have enough rows for Gaussian elimination already,
       // there's no reason to sieve any further.
       if (smoothNumberKeys.size() > rowLimit) {
+        isIncomplete = false;
         smoothNumberSet.clear();
 
         return;
@@ -933,7 +934,7 @@ struct Factorizer {
     // Find a congruence of squares:
     auto ikit = smoothNumberKeys.begin();
     auto ivit = smoothNumberValues.begin();
-    BigInteger result;
+    BigInteger result = 1U;
     for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
       dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
         auto jkit = ikit;
@@ -954,6 +955,7 @@ struct Factorizer {
           // Check congruence of squares
           BigInteger factor = gcd(this->toFactor, x + y);
           if ((factor != 1U) && (factor != this->toFactor)) {
+            std::lock_guard<std::mutex> lock(this->batchMutex);
             result = factor;
 
             return true;
@@ -966,6 +968,7 @@ struct Factorizer {
           // Try x - y as well
           factor = gcd(this->toFactor, x - y);
           if ((factor != 1U) && (factor != this->toFactor)) {
+            std::lock_guard<std::mutex> lock(this->batchMutex);
             result = factor;
 
             return true;
@@ -978,7 +981,9 @@ struct Factorizer {
       ++ivit;
     }
 
-    return 1U;
+    dispatch.finish();
+
+    return result;
   }
 
   // Produce a smooth number with its factorization vector.
