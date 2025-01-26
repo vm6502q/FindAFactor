@@ -670,7 +670,7 @@ bool isMultiple(const BigInteger &p, const std::vector<size_t> &knownPrimes) {
   return false;
 }
 
-boost::dynamic_bitset<size_t> wheel_inc(std::vector<size_t> primes) {
+boost::dynamic_bitset<size_t> nestGearGeneration(std::vector<size_t> primes) {
   BigInteger radius = 1U;
   for (const size_t &i : primes) {
     radius *= i;
@@ -688,12 +688,12 @@ boost::dynamic_bitset<size_t> wheel_inc(std::vector<size_t> primes) {
   return o;
 }
 
-std::vector<boost::dynamic_bitset<size_t>> wheel_gen(const std::vector<size_t> &primes) {
+std::vector<boost::dynamic_bitset<size_t>> generateGears(const std::vector<size_t> &primes) {
   std::vector<boost::dynamic_bitset<size_t>> output;
   std::vector<size_t> wheelPrimes;
   for (const size_t &p : primes) {
     wheelPrimes.push_back(p);
-    output.push_back(wheel_inc(wheelPrimes));
+    output.push_back(nestGearGeneration(wheelPrimes));
   }
 
   return output;
@@ -818,15 +818,18 @@ struct Factorizer {
       if (candidate < toFactorSqrt) {
         continue;
       }
-      // The residue (mod N) also ultimately needs to be smooth.
-      const boost::dynamic_bitset<size_t> rfv = factorizationVector(candidate % toFactor);
+      // The residue (mod N) also needs to be smooth (but not a perfect square).
+      const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(candidate % toFactor);
       if (!(rfv.size())) {
+        // The number is useless to us.
         continue;
       }
+      // We have a successful candidate.
 
       // For lock_guard scope
       if (true) {
         std::lock_guard<std::mutex> lock(batchMutex);
+        // Insert the number if it isn't found (in a binary search) of the accepted set.
         if (smoothNumberSet.find(candidate) == smoothNumberSet.end()) {
           smoothNumberSet.insert(candidate);
           smoothNumberKeys.push_back(candidate);
@@ -854,6 +857,7 @@ struct Factorizer {
       auto mRowIt = mColIt;
       auto nRowIt = nColIt;
 
+      // Check all rows below the outer loop row.
       int64_t pivot = -1;
       for (size_t row = col; row < rows; ++row) {
         if ((*mRowIt)[col]) {
@@ -871,6 +875,7 @@ struct Factorizer {
       }
 
       if (pivot != -1) {
+        // We pivot.
         const boost::dynamic_bitset<size_t> &cm = *mColIt;
         const BigInteger &cn = *nColIt;
         mRowIt = smoothNumberValues.begin();
@@ -879,6 +884,8 @@ struct Factorizer {
           dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
             auto mrIt = mRowIt;
             auto nrIt = nRowIt;
+            // Notice that each thread updates rows with space increments of cpuCount,
+            // based on the same unchanged outer-loop row, and this covers the inner-loop set.
             for (size_t row = cpu; ; row += cpuCount) {
               boost::dynamic_bitset<size_t> &rm = *mrIt;
               BigInteger &rn = *nrIt;
@@ -889,20 +896,25 @@ struct Factorizer {
                 rn *= cn;
               }
               if ((row + cpuCount) >= rows) {
+                // This is the completion condition.
                 return false;
               }
+              // Every row advance is staggered according to cpuCount.
               std::advance(nrIt, cpuCount);
               std::advance(mrIt, cpuCount);
             }
 
             return false;
           });
+          // Next inner-loop row (all at once by dispatch).
           ++mRowIt;
           ++nRowIt;
         }
+        // All dispatched work must complete.
         dispatch.finish();
       }
 
+      // Next outer-loop row.
       ++mColIt;
       ++nColIt;
     }
@@ -928,6 +940,9 @@ struct Factorizer {
 
         for (size_t j = i; j < this->smoothNumberKeys.size(); ++j) {
           if ((*ivit) == (*jvit)) {
+            // The rows have the same value. Hence, multiplied together,
+            // they form a perfect square residue we can check for congruence.
+
             // Compute x and y
             const BigInteger x = ((*ikit) * (*jkit)) % this->toFactor;
             const BigInteger y = modExp(x, this->toFactor >> 1U, this->toFactor);
@@ -953,6 +968,7 @@ struct Factorizer {
             }
           }
 
+          // Next inner-loop row (synchronously).
           ++jkit;
           ++jvit;
         }
@@ -960,12 +976,15 @@ struct Factorizer {
         return false;
       });
 
+      // Next outer-loop row (all dispatched at once).
       ++ikit;
       ++ivit;
     }
 
+    // All work has been dispatched, but now we must complete it.
     dispatch.finish();
 
+    // Depending on row count, a successful result should be nearly guaranteed.
     return result;
   }
 
@@ -990,6 +1009,7 @@ struct Factorizer {
         factor /= p;
         vec.flip(pi);
         if (factor == 1U) {
+          // The step is fully factored.
           break;
         }
       }
@@ -1019,15 +1039,17 @@ struct Factorizer {
   }
 
   // Compute the prime factorization modulo 2
-  boost::dynamic_bitset<size_t> factorizationVector(BigInteger num) {
+  boost::dynamic_bitset<size_t> factorizationParityVector(BigInteger num) {
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
+      // Proceed in steps of the GCD with the smooth prime wheel radius.
       BigInteger factor = gcd(num, wheelRadius);
       if (factor == 1U) {
         break;
       }
       num /= factor;
-      // Remove smooth primes from factor
+      // Remove smooth primes from factor.
+      // (The GCD is necessarily smooth.)
       for (size_t pi = 0U; pi < primes.size(); ++pi) {
         const size_t& p = primes[pi];
         if (factor % p) {
@@ -1036,17 +1058,22 @@ struct Factorizer {
         factor /= p;
         vec.flip(pi);
         if (factor == 1U) {
+          // The step is fully factored.
           break;
         }
       }
       if (num == 1U) {
+        // The number is fully factored and smooth.
         return vec;
       }
     }
     if (num != 1U) {
+      // The number was not fully factored, because it is not smooth.
+      // We reject it as a sieving candidate.
       return boost::dynamic_bitset<size_t>();
     }
 
+    // This number is smooth, and we return its factorization parity.
     return vec;
   }
 };
@@ -1149,7 +1176,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   }
   wheelFactorizationPrimes.clear();
   // These are "gears," for wheel factorization (on top of a "wheel" already in place up to the selected level).
-  std::vector<boost::dynamic_bitset<size_t>> inc_seqs = wheel_gen(gearFactorizationPrimes);
+  std::vector<boost::dynamic_bitset<size_t>> inc_seqs = generateGears(gearFactorizationPrimes);
   // We're done with the lowest primes.
   const size_t MIN_RTD_LEVEL = gearFactorizationPrimes.size() - wgDiff;
   const Wheel SMALLEST_WHEEL = wheelByPrimeCardinal(MIN_RTD_LEVEL);
