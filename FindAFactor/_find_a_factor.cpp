@@ -1064,7 +1064,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t gearFactorizationLevel, size_t wheelFactorizationLevel,
-                          double sievingBoundMultiplier, double smoothnessBoundMultiplier, double gaussianEliminationRowMultiplier, bool skipTrialDivision) {
+                          double sievingBoundMultiplier, double smoothnessBoundMultiplier, double gaussianEliminationRowMultiplier, bool checkSmallFactors) {
   // Validation section
   if (method > 1U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
@@ -1093,9 +1093,10 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     return boost::lexical_cast<std::string>(fullMaxBase);
   }
 
-  // We only need to try trial division about as high as we would sieve for primes necessary
-  // to factor about 4096 bits of semiprime, possibly, via Quadratic Sieve (which is not high).
-  const BigInteger trialDivisionLevel = (BigInteger)(smoothnessBoundMultiplier * fullMaxBase.convert_to<double>() + 0.5);
+  // This level default (scaling) was suggested by Elara (OpenAI GPT).
+  const double N = fullMaxBase.convert_to<double>();
+  const double logN = log(N);
+  const BigInteger trialDivisionLevel = (BigInteger)(smoothnessBoundMultiplier * exp(0.5 * std::sqrt(logN * log(logN))) + 0.5);
   const size_t primeCeiling = (trialDivisionLevel < fullMaxBase) ? (size_t)trialDivisionLevel : (size_t)fullMaxBase;
   BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
@@ -1105,7 +1106,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const auto itg = std::upper_bound(primes.begin(), primes.end(), gearFactorizationLevel);
   const size_t wgDiff = std::distance(itw, itg);
 
-  if (!skipTrialDivision) {
+  if (checkSmallFactors && !nodeId) {
     // This is simply trial division up to the ceiling.
     std::mutex trialDivisionMutex;
     for (size_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
