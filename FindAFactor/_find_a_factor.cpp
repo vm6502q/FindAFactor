@@ -855,26 +855,24 @@ struct Factorizer {
   BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
   {
     // Compute x and y
-    BigInteger x = 1;
+    BigInteger y = 1U;
     for (size_t idx : solutionVec) {
-      x *= smoothNumberKeys[idx];
+      y *= smoothNumberKeys[idx];
     }
     // If we square the result, it shouldn't ruin the fact
     // that the residue is a perfect square.
-    const BigInteger y = sqrt((x * x) % this->toFactor);
+    const BigInteger x = sqrt((y * y) % this->toFactor);
 
     // Check congruence of squares
     BigInteger factor = gcd(this->toFactor, x + y);
-    if ((factor != 1U) && (factor != this->toFactor)) {
+    if ((factor > 1U) && (factor < this->toFactor)) {
       return factor;
     }
 
-    if (x != y) {
-      // Try x - y as well
-      factor = gcd(this->toFactor, x - y);
-      if ((factor != 1U) && (factor != this->toFactor)) {
-        return factor;
-      }
+    // Try x - y as well
+    factor = gcd(this->toFactor, x - y);
+    if ((factor > 1U) && (factor < this->toFactor)) {
+      return factor;
     }
 
     // Failed to find a factor
@@ -987,7 +985,7 @@ struct Factorizer {
     GaussianEliminationResult result = gaussianElimination();
     for (size_t i = 0U; i < result.solutionColumns.size(); ++i) {
       const BigInteger factor = solveCongruence(findDependentRows(result, i));
-      if ((factor != 1U) && (factor != toFactor)) {
+      if ((factor > 1U) && (factor < toFactor)) {
         return factor;
       }
     }
