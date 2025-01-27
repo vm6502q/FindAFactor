@@ -983,12 +983,6 @@ struct Factorizer {
           // Next inner-loop row (synchronously).
           ++jkit;
           ++jvit;
-
-          // If this actually contends, we'll exit now.
-          std::lock_guard<std::mutex> lock(batchMutex);
-          if (isIncomplete) {
-            break;
-          }
         }
 
         return false;
@@ -997,6 +991,12 @@ struct Factorizer {
       // Next outer-loop row (all dispatched at once).
       ++ikit;
       ++ivit;
+
+      // If this actually contends, we'll exit now.
+      std::lock_guard<std::mutex> lock(batchMutex);
+      if (isIncomplete) {
+        break;
+      }
     }
 
     // All work has been dispatched, but now we must complete it.
