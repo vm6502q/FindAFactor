@@ -720,28 +720,6 @@ size_t GetGearIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
   return wheelIncrement;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                            WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                    //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Utility to perform modular exponentiation
-inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod) {
-  BigInteger result = 1U;
-  while (exp) {
-    if (exp & 1U) {
-      result = (result * base) % mod;
-    }
-    base = (base * base) % mod;
-    exp >>= 1U;
-  }
-
-  return result;
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                            WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                    //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 struct Factorizer {
   std::mutex batchMutex;
   BigInteger toFactorSqr;
@@ -822,7 +800,7 @@ struct Factorizer {
       // Make the candidate NOT a multiple on the wheels.
       BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
-      // the number into a "close-by" smooth perfect square.
+      // the number into a "close-by" smooth number.
       candidate = makeSmooth(candidate);
       // We want two numbers multiplied together to be larger than toFactor.
       if (candidate < toFactorSqrt) {
@@ -830,7 +808,7 @@ struct Factorizer {
       }
       // The residue (mod N) also needs to be smooth (but not a perfect square).
       const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(candidate % toFactor);
-      if (!(rfv.size())) {
+      if (rfv.empty()) {
         // The number is useless to us.
         continue;
       }
@@ -857,18 +835,91 @@ struct Factorizer {
     }
   }
 
+  struct GaussianEliminationResult {
+    std::vector<bool> marks;
+    std::vector<std::pair<boost::dynamic_bitset<size_t>, size_t>> solutionColumns;
+
+    GaussianEliminationResult(const size_t& sz)
+      : marks(sz, false)
+    {
+      // Intentionally left blank
+    }
+  };
+
+  // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
+  std::vector<size_t> findDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
+  {
+      std::vector<size_t> solutionVec;
+      std::vector<size_t> indices;
+
+      // Get the first free row from Gaussian elimination results
+      const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
+
+      // Find the indices where free_row has true values.
+      for (size_t i = 0; i < freeRow.size(); i++) {
+          if (freeRow[i]) {
+              indices.push_back(i);
+          }
+      }
+
+      // Find dependent rows from the original matrix
+      for (size_t r = 0; r < primes.size(); r++) {
+          for (size_t i : indices) {
+              if (smoothNumberValues[i][r] && ger.marks[r]) {
+                  solutionVec.push_back(r);
+                  break;
+              }
+          }
+      }
+
+      // Add the chosen row from Gaussian elimination solution
+      solutionVec.push_back(ger.solutionColumns[solutionColumnId].second);
+
+      return solutionVec;
+  }
+
+  BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
+  {
+    // Compute x and y
+    BigInteger x = 1;
+    for (size_t idx : solutionVec) {
+      x *= smoothNumberKeys[idx];
+    }
+    // If we square the result, it shouldn't ruin the fact
+    // that the residue is a perfect square.
+    const BigInteger y = sqrt((x * x) % this->toFactor);
+
+    // Check congruence of squares
+    BigInteger factor = gcd(this->toFactor, x + y);
+    if ((factor != 1U) && (factor != this->toFactor)) {
+      return factor;
+    }
+
+    if (x != y) {
+      // Try x - y as well
+      factor = gcd(this->toFactor, x - y);
+      if ((factor != 1U) && (factor != this->toFactor)) {
+        return factor;
+      }
+    }
+
+    // Failed to find a factor
+    return 1U;
+  }
+
   // Perform Gaussian elimination on a binary matrix
-  void gaussianElimination() {
+  GaussianEliminationResult gaussianElimination() {
     const unsigned cpuCount = CpuCount;
     auto mColIt = smoothNumberValues.begin();
     auto nColIt = smoothNumberKeys.begin();
     const size_t rows = smoothNumberValues.size();
+    GaussianEliminationResult result(primes.size());
+
     for (size_t col = 0U; col < primes.size(); ++col) {
       auto mRowIt = mColIt;
       auto nRowIt = nColIt;
 
-      // Check all rows below the outer loop row.
-      int64_t pivot = -1;
+      // Look for a pivot row in this column
       for (size_t row = col; row < rows; ++row) {
         if ((*mRowIt)[col]) {
           // Swapping matrix rows corresponds
@@ -877,19 +928,21 @@ struct Factorizer {
             std::swap(*mColIt, *mRowIt);
             std::swap(*nColIt, *nRowIt);
           }
-          pivot = row;
+          // Mark this column as having a pivot.
+          result.marks[col] = true;
           break;
         }
         ++nRowIt;
         ++mRowIt;
       }
 
-      if (pivot != -1) {
-        // We pivot.
+      if (result.marks[col]) {
+        // Pivot found, now eliminate entries in this column
         const boost::dynamic_bitset<size_t> &cm = *mColIt;
         const BigInteger &cn = *nColIt;
         mRowIt = smoothNumberValues.begin();
         nRowIt = smoothNumberKeys.begin();
+
         for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
           dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
             auto mrIt = mRowIt;
@@ -913,7 +966,6 @@ struct Factorizer {
               std::advance(nrIt, cpuCount);
               std::advance(mrIt, cpuCount);
             }
-
             return false;
           });
           // Next inner-loop row (all at once by dispatch).
@@ -923,11 +975,30 @@ struct Factorizer {
         // All dispatched work must complete.
         dispatch.finish();
       }
-
-      // Next outer-loop row.
+      // Next outer-loop row
       ++mColIt;
       ++nColIt;
     }
+
+    // Step 2: Identify free rows
+    auto it = smoothNumberValues.begin();
+    for (size_t i = 0U; i < primes.size(); i++) {
+        if (!result.marks[i]) {
+            boost::dynamic_bitset<size_t> r(rows);
+            for (size_t j = 0U; j < rows; ++j) {
+              r[j] = smoothNumberValues[j][i];
+            }
+            // We find a free column, so the corresponding row
+            // in the reduced matrix is a solution row.
+            result.solutionColumns.emplace_back(r, i);
+        }
+    }
+
+    if (result.solutionColumns.empty()) {
+        throw std::runtime_error("No solution found. Need more smooth numbers.");
+    }
+
+    return result;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -935,81 +1006,21 @@ struct Factorizer {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   BigInteger solveForFactor() {
-    // Every single row is actually already a smooth perfect square by construction.
     // Gaussian elimination is used to create a perfect square of the residues.
-    gaussianElimination();
-
-    // Find a congruence of squares:
-    auto ikit = smoothNumberKeys.begin();
-    auto ivit = smoothNumberValues.begin();
-    BigInteger result = 1U;
-    for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
-      // For lock_guard scope
-      if (true) {
-        std::lock_guard<std::mutex> lock(batchMutex);
-        if (!isIncomplete) {
-          break;
-        }
-        dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
-          auto jkit = ikit;
-          auto jvit = ivit;
-
-          for (size_t j = i; isIncomplete && (j < this->smoothNumberKeys.size()); ++j) {
-            if ((*ivit) == (*jvit)) {
-              // The rows have the same value. Hence, multiplied together,
-              // they form a perfect square residue we can check for congruence.
-
-              // Compute x and y
-              const BigInteger x = ((*ikit) * (*jkit)) % this->toFactor;
-              const BigInteger y = modExp(x, this->toFactor >> 1U, this->toFactor);
-
-              // Check congruence of squares
-              BigInteger factor = gcd(this->toFactor, x + y);
-              if ((factor != 1U) && (factor != this->toFactor)) {
-                std::lock_guard<std::mutex> lock(this->batchMutex);
-                isIncomplete = false;
-                result = factor;
-
-                return true;
-              }
-
-              if (x != y) {
-                // Try x - y as well
-                factor = gcd(this->toFactor, x - y);
-                if ((factor != 1U) && (factor != this->toFactor)) {
-                  std::lock_guard<std::mutex> lock(this->batchMutex);
-                  isIncomplete = false;
-                  result = factor;
-
-                  return true;
-                }
-              }
-            }
-
-            // Next inner-loop row (synchronously).
-            ++jkit;
-            ++jvit;
-          }
-
-          return false;
-        });
+    if (smoothNumberKeys.empty()) {
+        throw std::runtime_error("No smooth numbers found. Sieve more.");
+    }
+    GaussianEliminationResult result = gaussianElimination();
+    for (size_t i = 0U; i < result.solutionColumns.size(); ++i) {
+      const BigInteger factor = solveCongruence(findDependentRows(result, i));
+      if ((factor != 1U) && (factor != toFactor)) {
+        return factor;
       }
-      // If we are still dispatching items in the queue,
-      // they probably won't have completed, but let
-      // them take a turn with the mutex.
-
-      // Next outer-loop row (all dispatched at once).
-      ++ikit;
-      ++ivit;
     }
 
-    // The result has not yet been found.
-    // A succesful item will dump the queue.
-    // If it's already dumped, this does nothing.
-    dispatch.finish();
-
-    // Depending on row count, a successful result should be nearly guaranteed.
-    return result;
+    // Depending on row count, a successful result should be nearly guaranteed,
+    // but we default to no solution.
+    return 1U;
   }
 
   // Produce a smooth number with its factorization vector.
@@ -1200,6 +1211,9 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     if ((sr * sr) == residue) {
       smoothPrimes.push_back(p);
     }
+  }
+  if (smoothPrimes.empty()) {
+    throw std::runtime_error("No smooth primes found under bound. (Increase the smoothness bound multiplier.)");
   }
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
