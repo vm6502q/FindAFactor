@@ -944,7 +944,7 @@ struct Factorizer {
     auto ivit = smoothNumberValues.begin();
     BigInteger result = 1U;
     batchMutex.lock();
-    for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
+    for (size_t i = 0U; isIncomplete && (i < smoothNumberKeys.size()); ++i) {
       dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
         auto jkit = ikit;
         auto jvit = ivit;
@@ -989,7 +989,7 @@ struct Factorizer {
         return false;
       });
 
-      // If we all still dispatching items in the queue,
+      // If we are still dispatching items in the queue,
       // they probably won't have completed, but let
       // them take a turn with the mutex.
       batchMutex.unlock();
@@ -1000,9 +1000,6 @@ struct Factorizer {
 
       // If this actually contends, we'll exit now.
       batchMutex.lock();
-      if (!isIncomplete) {
-        break;
-      }
     }
 
     if (result == 1U) {
