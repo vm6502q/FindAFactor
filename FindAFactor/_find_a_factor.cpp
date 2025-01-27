@@ -808,7 +808,7 @@ struct Factorizer {
       }
       // The residue (mod N) also needs to be smooth (but not a perfect square).
       const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(candidate % toFactor);
-      if (!(rfv.size())) {
+      if (rfv.empty()) {
         // The number is useless to us.
         continue;
       }
@@ -1213,6 +1213,9 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     if ((sr * sr) == residue) {
       smoothPrimes.push_back(p);
     }
+  }
+  if (smoothPrimes.empty()) {
+    throw std::runtime_error("No smooth primes found under bound. (Increase the smoothness bound multiplier.)");
   }
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
