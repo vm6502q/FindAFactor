@@ -881,15 +881,13 @@ struct Factorizer {
 
   BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
   {
-    BigInteger aSqr = 1;
+    // Compute x and y
+    BigInteger x = 1;
     // Compute A^2 as the product of smooth numbers
     for (size_t idx : solutionVec) {
-        aSqr *= smoothNumberKeys[idx];
+        x *= smoothNumberKeys[idx];
     }
-
-    // Compute x and y
-    const BigInteger x = sqrt(aSqr);
-    const BigInteger y = sqrt(aSqr % this->toFactor);
+    const BigInteger y = sqrt((x * x) % this->toFactor);
 
     // Check congruence of squares
     BigInteger factor = gcd(this->toFactor, x + y);
