@@ -887,7 +887,7 @@ struct Factorizer {
     auto mColIt = smoothNumberValues.begin();
     auto nColIt = smoothNumberKeys.begin();
     const size_t rows = smoothNumberValues.size();
-    GaussianEliminationResult result(primes.size());
+    GaussianEliminationResult result(rows);
 
     for (size_t col = 0U; col < primes.size(); ++col) {
       auto mRowIt = mColIt;
@@ -896,6 +896,8 @@ struct Factorizer {
 
       // Look for a pivot row in this column
       for (size_t row = colPlus1; row < rows; ++row) {
+        ++mRowIt;
+        ++nRowIt;
         if ((*mRowIt)[col]) {
           // Swapping matrix rows corresponds
           // with swapping factorized numbers.
@@ -905,8 +907,6 @@ struct Factorizer {
           result.marks[col] = true;
           break;
         }
-        ++mRowIt;
-        ++nRowIt;
       }
 
       if (result.marks[col]) {
@@ -954,7 +954,7 @@ struct Factorizer {
     }
 
     // Step 2: Identify free rows
-    for (size_t i = 0U; i < primes.size(); i++) {
+    for (size_t i = 0U; i < rows; i++) {
       if (result.marks[i]) {
         continue;
       }
