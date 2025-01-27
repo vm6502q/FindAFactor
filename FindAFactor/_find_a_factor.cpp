@@ -859,7 +859,7 @@ struct Factorizer {
 
   struct GaussianEliminationResult {
     std::vector<bool> marks;
-    std::vector<std::pair<boost::dynamic_bitset<size_t>, size_t>> solutionRows;
+    std::vector<std::pair<boost::dynamic_bitset<size_t>, size_t>> solutionColumns;
 
     GaussianEliminationResult(const size_t& sz)
       : marks(sz, false)
@@ -868,19 +868,18 @@ struct Factorizer {
     }
   };
 
-
   // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
-  std::vector<size_t> findDependentRows(GaussianEliminationResult ger, size_t solutionRowId = 0U)
+  std::vector<size_t> findDependentRows(GaussianEliminationResult ger, size_t solutionColumnId = 0U)
   {
       std::vector<size_t> solutionVec;
       std::vector<size_t> indices;
 
       // Get the first free row from Gaussian elimination results
-      const size_t& freeRow = ger.solutionRows[solutionRowId].second;
+      const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
 
-      // Find the indices where free_row has 1s
-      for (size_t i = 0; i < smoothNumberValues.size(); i++) {
-          if (smoothNumberValues[i][freeRow]) {
+      // Find the indices where free_row has true values.
+      for (size_t i = 0; i < freeRow.size(); i++) {
+          if (freeRow[i]) {
               indices.push_back(i);
           }
       }
@@ -897,7 +896,7 @@ struct Factorizer {
       }
 
       // Add the chosen row from Gaussian elimination solution
-      solutionVec.push_back(ger.solutionRows[solutionRowId].second);
+      solutionVec.push_back(ger.solutionColumns[solutionColumnId].second);
 
       return solutionVec;
   }
@@ -1011,15 +1010,15 @@ struct Factorizer {
         if (!result.marks[i]) {
             boost::dynamic_bitset<size_t> r(rows);
             for (size_t j = 0U; j < rows; ++j) {
-              r[j] = smoothNumberValues[i][j];
+              r[j] = smoothNumberValues[j][i];
             }
             // We find a free column, so the corresponding row
             // in the reduced matrix is a solution row.
-            result.solutionRows.emplace_back(r, i);
+            result.solutionColumns.emplace_back(r, i);
         }
     }
 
-    if (result.solutionRows.empty()) {
+    if (result.solutionColumns.empty()) {
         throw std::runtime_error("No solution found. Need more smooth numbers.");
     }
 
@@ -1033,7 +1032,7 @@ struct Factorizer {
   BigInteger solveForFactor() {
     // Gaussian elimination is used to create a perfect square of the residues.
     GaussianEliminationResult result = gaussianElimination();
-    for (size_t i = 0U; i < result.solutionRows.size(); ++i) {
+    for (size_t i = 0U; i < result.solutionColumns.size(); ++i) {
       const BigInteger factor = solveCongruence(findDependentRows(result));
       if ((factor != 1U) && (factor != toFactor)) {
         return factor;
