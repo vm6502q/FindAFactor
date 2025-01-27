@@ -796,15 +796,15 @@ struct Factorizer {
           smoothNumberSet.insert(candidate);
           smoothNumberKeys.push_back(candidate);
           smoothNumberValues.push_back(rfv);
-        }
-      }
-      // If we have enough rows for Gaussian elimination already,
-      // there's no reason to sieve any further.
-      if (smoothNumberKeys.size() > rowLimit) {
-        isIncomplete = false;
-        smoothNumberSet.clear();
+          // If we have enough rows for Gaussian elimination already,
+          // so there's no reason to sieve any further.
+          if (smoothNumberKeys.size() > rowLimit) {
+            isIncomplete = false;
+            smoothNumberSet.clear();
 
-        return;
+            return;
+          }
+        }
       }
     }
   }
@@ -1003,7 +1003,7 @@ struct Factorizer {
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
-      BigInteger factor = gcd(num, diffWheelRadius);
+      BigInteger factor = gcd(n, diffWheelRadius);
       if (factor == 1U) {
         break;
       }
