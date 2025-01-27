@@ -720,28 +720,6 @@ size_t GetGearIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
   return wheelIncrement;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                            WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                    //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Utility to perform modular exponentiation
-inline BigInteger modExp(BigInteger base, BigInteger exp, const BigInteger &mod) {
-  BigInteger result = 1U;
-  while (exp) {
-    if (exp & 1U) {
-      result = (result * base) % mod;
-    }
-    base = (base * base) % mod;
-    exp >>= 1U;
-  }
-
-  return result;
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                            WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                    //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 struct Factorizer {
   std::mutex batchMutex;
   BigInteger toFactorSqr;
@@ -1031,6 +1009,9 @@ struct Factorizer {
 
   BigInteger solveForFactor() {
     // Gaussian elimination is used to create a perfect square of the residues.
+    if (smoothNumberKeys.empty()) {
+        throw std::runtime_error("No smooth numbers found. Sieve more.");
+    }
     GaussianEliminationResult result = gaussianElimination();
     for (size_t i = 0U; i < result.solutionColumns.size(); ++i) {
       const BigInteger factor = solveCongruence(findDependentRows(result));
