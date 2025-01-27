@@ -943,6 +943,7 @@ struct Factorizer {
     auto ikit = smoothNumberKeys.begin();
     auto ivit = smoothNumberValues.begin();
     BigInteger result = 1U;
+    batchMutex.lock();
     for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
       dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
         auto jkit = ikit;
@@ -988,12 +989,17 @@ struct Factorizer {
         return false;
       });
 
+      // If we all still dispatching items in the queue,
+      // they probably won't have completed, but let
+      // them take a turn with the mutex.
+      batchMutex.unlock();
+
       // Next outer-loop row (all dispatched at once).
       ++ikit;
       ++ivit;
 
       // If this actually contends, we'll exit now.
-      std::lock_guard<std::mutex> lock(batchMutex);
+      batchMutex.lock();
       if (isIncomplete) {
         break;
       }
@@ -1002,10 +1008,12 @@ struct Factorizer {
     if (result == 1U) {
       // The result has not yet been found.
       // A succesful item will dump the queue.
+      batchMutex.unlock();
       dispatch.finish();
     } else {
       // The result has been found.
       // If any work remains, dump it.
+      batchMutex.unlock();
       dispatch.dump();
     }
 
