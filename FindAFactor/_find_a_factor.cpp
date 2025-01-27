@@ -1073,7 +1073,7 @@ struct Factorizer {
     // Otherwise, we're just reusing sieving failures that would
     // occur anyway to do checks nearly at random, but near 0 cost.
 
-    // This number is necessarily a smooth perfect square.
+    // This number is necessarily smooth.
     return num;
   }
 
