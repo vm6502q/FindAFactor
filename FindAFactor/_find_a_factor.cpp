@@ -847,7 +847,7 @@ struct Factorizer {
   };
 
   // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
-  std::vector<size_t> findDependentRows(GaussianEliminationResult ger, size_t solutionColumnId = 0U)
+  std::vector<size_t> findDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
   {
       std::vector<size_t> solutionVec;
       std::vector<size_t> indices;
@@ -863,8 +863,7 @@ struct Factorizer {
       }
 
       // Find dependent rows from the original matrix
-      const size_t maxLcv = smoothNumberValues[0].size();
-      for (size_t r = 0; r < maxLcv; r++) {
+      for (size_t r = 0; r < primes.size(); r++) {
           for (size_t i : indices) {
               if (smoothNumberValues[i][r] && ger.marks[r]) {
                   solutionVec.push_back(r);
@@ -1013,7 +1012,7 @@ struct Factorizer {
     }
     GaussianEliminationResult result = gaussianElimination();
     for (size_t i = 0U; i < result.solutionColumns.size(); ++i) {
-      const BigInteger factor = solveCongruence(findDependentRows(result));
+      const BigInteger factor = solveCongruence(findDependentRows(result, i));
       if ((factor != 1U) && (factor != toFactor)) {
         return factor;
       }
