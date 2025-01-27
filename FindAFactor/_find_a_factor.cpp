@@ -910,8 +910,8 @@ struct Factorizer {
     }
 
     // Compute x and y
-    const BigInteger x = sqrt(aSqr) % this->toFactor;
-    const BigInteger y = modExp(x, this->toFactor >> 1U, this->toFactor);
+    const BigInteger x = sqrt(aSqr);
+    const BigInteger y = sqrt(aSqr % this->toFactor);
 
     // Check congruence of squares
     BigInteger factor = gcd(this->toFactor, x + y);
