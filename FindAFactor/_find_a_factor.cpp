@@ -1000,7 +1000,7 @@ struct Factorizer {
 
       // If this actually contends, we'll exit now.
       batchMutex.lock();
-      if (isIncomplete) {
+      if (!isIncomplete) {
         break;
       }
     }
