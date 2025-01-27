@@ -885,7 +885,7 @@ struct Factorizer {
     auto mColIt = smoothNumberValues.begin();
     auto nColIt = smoothNumberKeys.begin();
     const size_t rows = smoothNumberValues.size();
-    GaussianEliminationResult result(rows);
+    GaussianEliminationResult result(primes.size());
 
     for (size_t col = 0U; col < primes.size(); ++col) {
       auto mRowIt = mColIt;
@@ -896,63 +896,63 @@ struct Factorizer {
       for (size_t row = colPlus1; row < rows; ++row) {
         ++mRowIt;
         ++nRowIt;
-        if ((*mRowIt)[col]) {
+        const boost::dynamic_bitset<size_t> rowCopy = *mRowIt;
+        if (rowCopy[col]) {
           // Swapping matrix rows corresponds
           // with swapping factorized numbers.
           std::swap(*mColIt, *mRowIt);
           std::swap(*nColIt, *nRowIt);
+
           // Mark this column as having a pivot.
           result.marks[col] = true;
-          break;
+
+          // Pivot found, now eliminate entries in this column
+          const boost::dynamic_bitset<size_t> &cm = *mColIt;
+          const BigInteger &cn = *nColIt;
+          auto emRowIt = smoothNumberValues.begin();
+          auto enRowIt = smoothNumberKeys.begin();
+          const size_t maxLcv = std::min((size_t)CpuCount, rows);
+          for (size_t cpu = 0U; cpu < maxLcv; ++cpu) {
+            dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, emRowIt, enRowIt]() -> bool {
+              // Notice that each thread updates rows with space increments of cpuCount,
+              // based on the same unchanged outer-loop row, and this covers the inner-loop set.
+              auto mrIt = emRowIt;
+              auto nrIt = enRowIt;
+              for (size_t row = cpu; ; row += cpuCount) {
+                boost::dynamic_bitset<size_t> &rm = *mrIt;
+                BigInteger &rn = *nrIt;
+                if ((row != col) && rm[col]) {
+                  // XOR-ing factorization rows
+                  // is like multiplying the numbers.
+                  rm ^= cm;
+                  rn *= cn;
+                }
+                if ((row + cpuCount) >= rows) {
+                  // This is the completion condition.
+                  return false;
+                }
+                // Every row advance is staggered according to cpuCount.
+                std::advance(mrIt, cpuCount);
+                std::advance(nrIt, cpuCount);
+              }
+              return false;
+            });
+            // Next inner-loop row (all at once by dispatch).
+            ++emRowIt;
+            ++enRowIt;
+          }
+          // All dispatched work must complete.
+          dispatch.finish();
         }
       }
 
-      if (result.marks[col]) {
-        // Pivot found, now eliminate entries in this column
-        const boost::dynamic_bitset<size_t> &cm = *mColIt;
-        const BigInteger &cn = *nColIt;
-        auto emRowIt = mColIt;
-        auto enRowIt = nColIt;
-        const size_t maxLcv = std::min(colPlus1 + CpuCount, rows);
-        for (unsigned cpu = colPlus1; cpu < maxLcv; ++cpu) {
-          ++emRowIt;
-          ++enRowIt;
-          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, emRowIt, enRowIt]() -> bool {
-            // Notice that each thread updates rows with space increments of cpuCount,
-            // based on the same unchanged outer-loop row, and this covers the inner-loop set.
-            auto mrIt = emRowIt;
-            auto nrIt = enRowIt;
-            for (size_t row = cpu; ; row += cpuCount) {
-              boost::dynamic_bitset<size_t> &rm = *mrIt;
-              BigInteger &rn = *nrIt;
-              if (rm[col]) {
-                // XOR-ing factorization rows
-                // is like multiplying the numbers.
-                rm ^= cm;
-                rn *= cn;
-              }
-              if ((row + cpuCount) >= rows) {
-                // This is the completion condition.
-                return false;
-              }
-              // Every row advance is staggered according to cpuCount.
-              std::advance(mrIt, cpuCount);
-              std::advance(nrIt, cpuCount);
-            }
-            return false;
-          });
-          // Next inner-loop row (all at once by dispatch).
-        }
-        // All dispatched work must complete.
-        dispatch.finish();
-      }
       // Next outer-loop row
       ++mColIt;
       ++nColIt;
     }
 
     // Step 2: Identify free rows
-    for (size_t i = 0U; i < rows; i++) {
+    for (size_t i = 0U; i < primes.size(); i++) {
       if (result.marks[i]) {
         continue;
       }
