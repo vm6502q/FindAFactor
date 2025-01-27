@@ -947,6 +947,9 @@ struct Factorizer {
       // For lock_guard scope
       if (true) {
         std::lock_guard<std::mutex> lock(batchMutex);
+        if (!isIncomplete) {
+          break;
+        }
         dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
           auto jkit = ikit;
           auto jvit = ivit;
@@ -990,10 +993,6 @@ struct Factorizer {
 
           return false;
         });
-        // Still in lock_guard scope:
-        if (!isIncomplete) {
-          break;
-        }
       }
       // If we are still dispatching items in the queue,
       // they probably won't have completed, but let
