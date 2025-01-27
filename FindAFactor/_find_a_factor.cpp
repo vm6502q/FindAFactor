@@ -892,41 +892,38 @@ struct Factorizer {
     for (size_t col = 0U; col < primes.size(); ++col) {
       auto mRowIt = mColIt;
       auto nRowIt = nColIt;
+      const size_t colPlus1 = col + 1U;
 
       // Look for a pivot row in this column
-      for (size_t row = col; row < rows; ++row) {
+      for (size_t row = colPlus1; row < rows; ++row) {
         if ((*mRowIt)[col]) {
           // Swapping matrix rows corresponds
           // with swapping factorized numbers.
-          if (row != col) {
-            std::swap(*mColIt, *mRowIt);
-            std::swap(*nColIt, *nRowIt);
-          }
+          std::swap(*mColIt, *mRowIt);
+          std::swap(*nColIt, *nRowIt);
           // Mark this column as having a pivot.
           result.marks[col] = true;
           break;
         }
-        ++nRowIt;
         ++mRowIt;
+        ++nRowIt;
       }
 
       if (result.marks[col]) {
         // Pivot found, now eliminate entries in this column
         const boost::dynamic_bitset<size_t> &cm = *mColIt;
         const BigInteger &cn = *nColIt;
-        mRowIt = smoothNumberValues.begin();
-        nRowIt = smoothNumberKeys.begin();
-
-        for (unsigned cpu = 0U; (cpu < CpuCount) && (cpu < rows); ++cpu) {
-          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, nRowIt, mRowIt]() -> bool {
-            auto mrIt = mRowIt;
-            auto nrIt = nRowIt;
+        const size_t maxLcv = std::min(colPlus1 + CpuCount, rows);
+        for (unsigned cpu = colPlus1; cpu < maxLcv; ++cpu) {
+          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, mRowIt, nRowIt]() -> bool {
             // Notice that each thread updates rows with space increments of cpuCount,
             // based on the same unchanged outer-loop row, and this covers the inner-loop set.
+            auto mrIt = mRowIt;
+            auto nrIt = nRowIt;
             for (size_t row = cpu; ; row += cpuCount) {
               boost::dynamic_bitset<size_t> &rm = *mrIt;
               BigInteger &rn = *nrIt;
-              if ((row != col) && rm[col]) {
+              if (rm[col]) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
@@ -937,8 +934,8 @@ struct Factorizer {
                 return false;
               }
               // Every row advance is staggered according to cpuCount.
-              std::advance(nrIt, cpuCount);
               std::advance(mrIt, cpuCount);
+              std::advance(nrIt, cpuCount);
             }
             return false;
           });
@@ -969,7 +966,7 @@ struct Factorizer {
     }
 
     if (result.solutionColumns.empty()) {
-        throw std::runtime_error("No solution found. Need more smooth numbers.");
+        throw std::runtime_error("Gaussian elimination found no solution. Produce and retain more smooth numbers.");
     }
 
     return result;
@@ -984,6 +981,7 @@ struct Factorizer {
     if (smoothNumberKeys.empty()) {
         throw std::runtime_error("No smooth numbers found. Sieve more.");
     }
+
     GaussianEliminationResult result = gaussianElimination();
     for (size_t i = 0U; i < result.solutionColumns.size(); ++i) {
       const BigInteger factor = solveCongruence(findDependentRows(result, i));
@@ -994,7 +992,7 @@ struct Factorizer {
 
     // Depending on row count, a successful result should be nearly guaranteed,
     // but we default to no solution.
-    return 1U;
+    throw std::runtime_error("No solution produced a congruence of squares.");
   }
 
   // Produce a smooth number with its factorization vector.
