@@ -1052,7 +1052,7 @@ struct Factorizer {
 
     // We skip the section below, only because it's the only deviation
     // from the usual smooth number distirbution on the sieving interval.
-    // The "coercion" into a smooth number above happens only is the
+    // The "coercion" into a smooth number above happens only if the
     // number is not smooth in the first place, yet we might as well
     // test the residue for smoothness.
 
