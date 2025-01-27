@@ -943,34 +943,25 @@ struct Factorizer {
     auto ikit = smoothNumberKeys.begin();
     auto ivit = smoothNumberValues.begin();
     BigInteger result = 1U;
-    batchMutex.lock();
-    for (size_t i = 0U; isIncomplete && (i < smoothNumberKeys.size()); ++i) {
-      dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
-        auto jkit = ikit;
-        auto jvit = ivit;
+    for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
+      // For lock_guard scope
+      if (true) {
+        std::lock_guard<std::mutex> lock(batchMutex);
+        dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
+          auto jkit = ikit;
+          auto jvit = ivit;
 
-        for (size_t j = i; isIncomplete && (j < this->smoothNumberKeys.size()); ++j) {
-          if ((*ivit) == (*jvit)) {
-            // The rows have the same value. Hence, multiplied together,
-            // they form a perfect square residue we can check for congruence.
+          for (size_t j = i; isIncomplete && (j < this->smoothNumberKeys.size()); ++j) {
+            if ((*ivit) == (*jvit)) {
+              // The rows have the same value. Hence, multiplied together,
+              // they form a perfect square residue we can check for congruence.
 
-            // Compute x and y
-            const BigInteger x = ((*ikit) * (*jkit)) % this->toFactor;
-            const BigInteger y = modExp(x, this->toFactor >> 1U, this->toFactor);
+              // Compute x and y
+              const BigInteger x = ((*ikit) * (*jkit)) % this->toFactor;
+              const BigInteger y = modExp(x, this->toFactor >> 1U, this->toFactor);
 
-            // Check congruence of squares
-            BigInteger factor = gcd(this->toFactor, x + y);
-            if ((factor != 1U) && (factor != this->toFactor)) {
-              std::lock_guard<std::mutex> lock(this->batchMutex);
-              isIncomplete = false;
-              result = factor;
-
-              return true;
-            }
-
-            if (x != y) {
-              // Try x - y as well
-              factor = gcd(this->toFactor, x - y);
+              // Check congruence of squares
+              BigInteger factor = gcd(this->toFactor, x + y);
               if ((factor != 1U) && (factor != this->toFactor)) {
                 std::lock_guard<std::mutex> lock(this->batchMutex);
                 isIncomplete = false;
@@ -978,41 +969,45 @@ struct Factorizer {
 
                 return true;
               }
+
+              if (x != y) {
+                // Try x - y as well
+                factor = gcd(this->toFactor, x - y);
+                if ((factor != 1U) && (factor != this->toFactor)) {
+                  std::lock_guard<std::mutex> lock(this->batchMutex);
+                  isIncomplete = false;
+                  result = factor;
+
+                  return true;
+                }
+              }
             }
+
+            // Next inner-loop row (synchronously).
+            ++jkit;
+            ++jvit;
           }
 
-          // Next inner-loop row (synchronously).
-          ++jkit;
-          ++jvit;
+          return false;
+        });
+        // Still in lock_guard scope:
+        if (!isIncomplete) {
+          break;
         }
-
-        return false;
-      });
-
+      }
       // If we are still dispatching items in the queue,
       // they probably won't have completed, but let
       // them take a turn with the mutex.
-      batchMutex.unlock();
 
       // Next outer-loop row (all dispatched at once).
       ++ikit;
       ++ivit;
-
-      // If this actually contends, we'll exit now.
-      batchMutex.lock();
     }
 
-    if (result == 1U) {
-      // The result has not yet been found.
-      // A succesful item will dump the queue.
-      batchMutex.unlock();
-      dispatch.finish();
-    } else {
-      // The result has been found.
-      // If any work remains, dump it.
-      batchMutex.unlock();
-      dispatch.dump();
-    }
+    // The result has not yet been found.
+    // A succesful item will dump the queue.
+    // If it's already dumped, this does nothing.
+    dispatch.finish();
 
     // Depending on row count, a successful result should be nearly guaranteed.
     return result;
