@@ -883,10 +883,11 @@ struct Factorizer {
   {
     // Compute x and y
     BigInteger x = 1;
-    // Compute A^2 as the product of smooth numbers
     for (size_t idx : solutionVec) {
-        x *= smoothNumberKeys[idx];
+      x *= smoothNumberKeys[idx];
     }
+    // If we square the result, it shouldn't ruin the fact
+    // that the residue is a perfect square.
     const BigInteger y = sqrt((x * x) % this->toFactor);
 
     // Check congruence of squares
