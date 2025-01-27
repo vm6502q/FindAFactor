@@ -1198,7 +1198,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const size_t batchStart = ((size_t)backwardFn(primeCeiling)) / wheelEntryCount;
   // This manages the work of all threads.
   Factorizer worker(toFactor, fullMaxBase, nodeRange, nodeCount, nodeId, firstGaussianElimPrimeId,
-                    wheelEntryCount, (size_t)(gaussianEliminationRowMultiplier * smoothPrimes.size() + 0.5),
+                    wheelEntryCount, (size_t)(gaussianEliminationRowMultiplier * (smoothPrimes.size() + 1U) + 0.5),
                     batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
