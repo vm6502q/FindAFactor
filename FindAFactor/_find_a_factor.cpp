@@ -1041,6 +1041,12 @@ struct Factorizer {
       }
       // The parity is necessarily even in this factor, by now.
     }
+    // Note that forcing a perfect square is the only part of our
+    // modified Quadratic Sieve that changes the distribution of
+    // distinct smooth numbers on the sieving range, in theory,
+    // (if wheel factorization is not applied to sieving).
+    // Otherwise, we're just reusing sieving failures that would
+    // occur anyway to do checks nearly at random, but near 0 cost.
 
     // This number is necessarily a smooth perfect square.
     return num;
