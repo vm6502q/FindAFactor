@@ -6,7 +6,7 @@
 //
 // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm, for providing an example implementation of Quadratic sieve.
 //
-//**Special thanks to OpenAI GPT "Elara," for indicated region of contributed code!**
+//**Special thanks to OpenAI GPT "Elara," for help with indicated region of contributed code!**
 //
 // Licensed under the MIT License.
 // See LICENSE.md in the project root or

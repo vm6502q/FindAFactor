@@ -66,4 +66,4 @@ All variables defaults can also be controlled by environment variables:
 ## About 
 This library was originally called ["Qimcifa"](https://github.com/vm6502q/qimcifa) and demonstrated a (Shor's-like) "quantum-inspired" algorithm for integer factoring. It has since been developed into a general factoring algorithm and tool.
 
-**Special thanks to OpenAI GPT "Elara," for indicated region of contributed code!**
+**Special thanks to OpenAI GPT "Elara," for help with indicated region of contributed code!**
