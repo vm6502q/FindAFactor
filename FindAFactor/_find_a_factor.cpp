@@ -823,7 +823,7 @@ struct Factorizer {
       BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
       // the number into a "close-by" smooth perfect square.
-      candidate = makeSmoothPerfectSquare(candidate);
+      candidate = makeSmooth(candidate);
       // We want two numbers multiplied together to be larger than toFactor.
       if (candidate < toFactorSqrt) {
         continue;
@@ -1013,7 +1013,7 @@ struct Factorizer {
   }
 
   // Produce a smooth number with its factorization vector.
-  BigInteger makeSmoothPerfectSquare(BigInteger num) {
+  BigInteger makeSmooth(BigInteger num) {
     BigInteger n = num;
     boost::dynamic_bitset<size_t> vec(primes.size(), 0);
     while (true) {
@@ -1046,17 +1046,26 @@ struct Factorizer {
       // The number was not fully factored, because it is not smooth.
       // Make it smooth, by dividing out the remaining non-smooth factors!
       num /= n;
+      // This probably won't work, for the sieve, but notice that it is
+      // basically no more expensive, at this point, to try this.
     }
+
+    // We skip the section below, only because it's the only deviation
+    // from the usual smooth number distirbution on the sieving interval.
+    // The "coercion" into a smooth number above happens only is the
+    // number is not smooth in the first place, yet we might as well
+    // test the residue for smoothness.
+
     // We actually want not just a smooth number,
     // but a smooth perfect square.
-    for (size_t pi = 0U; pi < primes.size(); ++pi) {
-      if (vec.test(pi)) {
-        // If the prime factor component parity is odd,
-        // multiply by the prime once to make it even.
-        num *= primes[pi];
-      }
-      // The parity is necessarily even in this factor, by now.
-    }
+    // for (size_t pi = 0U; pi < primes.size(); ++pi) {
+    //   if (vec.test(pi)) {
+    //     // If the prime factor component parity is odd,
+    //     // multiply by the prime once to make it even.
+    //     num *= primes[pi];
+    //   }
+    //   // The parity is necessarily even in this factor, by now.
+    // }
     // Note that forcing a perfect square is the only part of our
     // modified Quadratic Sieve that changes the distribution of
     // distinct smooth numbers on the sieving range, in theory,
