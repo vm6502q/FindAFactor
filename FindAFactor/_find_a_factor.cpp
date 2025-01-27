@@ -949,7 +949,7 @@ struct Factorizer {
         auto jkit = ikit;
         auto jvit = ivit;
 
-        for (size_t j = i; j < this->smoothNumberKeys.size(); ++j) {
+        for (size_t j = i; isIncomplete && (j < this->smoothNumberKeys.size()); ++j) {
           if ((*ivit) == (*jvit)) {
             // The rows have the same value. Hence, multiplied together,
             // they form a perfect square residue we can check for congruence.
