@@ -800,7 +800,7 @@ struct Factorizer {
       // Make the candidate NOT a multiple on the wheels.
       BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
-      // the number into a "close-by" smooth perfect square.
+      // the number into a "close-by" smooth number.
       candidate = makeSmooth(candidate);
       // We want two numbers multiplied together to be larger than toFactor.
       if (candidate < toFactorSqrt) {
