@@ -5,8 +5,7 @@ from enum import IntEnum
 
 class FactoringMethod(IntEnum):
     PRIME_SOLVER = 0
-    MIXED = 1
-    FACTOR_FINDER = 2
+    FACTOR_FINDER = 1
 
 
 def find_a_factor(n,
