@@ -943,7 +943,7 @@ struct Factorizer {
     auto ikit = smoothNumberKeys.begin();
     auto ivit = smoothNumberValues.begin();
     BigInteger result = 1U;
-    for (size_t i = 0U; isIncomplete && (i < smoothNumberKeys.size()); ++i) {
+    for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
       dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
         auto jkit = ikit;
         auto jvit = ivit;
@@ -960,8 +960,8 @@ struct Factorizer {
             // Check congruence of squares
             BigInteger factor = gcd(this->toFactor, x + y);
             if ((factor != 1U) && (factor != this->toFactor)) {
-              isIncomplete = false;
               std::lock_guard<std::mutex> lock(this->batchMutex);
+              isIncomplete = false;
               result = factor;
 
               return true;
@@ -971,8 +971,8 @@ struct Factorizer {
               // Try x - y as well
               factor = gcd(this->toFactor, x - y);
               if ((factor != 1U) && (factor != this->toFactor)) {
-                isIncomplete = false;
                 std::lock_guard<std::mutex> lock(this->batchMutex);
+                isIncomplete = false;
                 result = factor;
 
                 return true;
@@ -983,6 +983,12 @@ struct Factorizer {
           // Next inner-loop row (synchronously).
           ++jkit;
           ++jvit;
+
+          // If this actually contends, we'll exit now.
+          std::lock_guard<std::mutex> lock(batchMutex);
+          if (isIncomplete) {
+            break;
+          }
         }
 
         return false;
