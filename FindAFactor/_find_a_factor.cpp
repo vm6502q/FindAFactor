@@ -955,17 +955,17 @@ struct Factorizer {
     }
 
     // Step 2: Identify free rows
-    auto it = smoothNumberValues.begin();
     for (size_t i = 0U; i < primes.size(); i++) {
-        if (!result.marks[i]) {
-            boost::dynamic_bitset<size_t> r(rows);
-            for (size_t j = 0U; j < rows; ++j) {
-              r[j] = smoothNumberValues[j][i];
-            }
-            // We find a free column, so the corresponding row
-            // in the reduced matrix is a solution row.
-            result.solutionColumns.emplace_back(r, i);
-        }
+      if (result.marks[i]) {
+        continue;
+      }
+      boost::dynamic_bitset<size_t> r(rows);
+      for (size_t j = 0U; j < rows; ++j) {
+        r[j] = smoothNumberValues[j][i];
+      }
+      // We find a free column, so the corresponding row
+      // in the reduced matrix is a solution row.
+      result.solutionColumns.emplace_back(r, i);
     }
 
     if (result.solutionColumns.empty()) {
