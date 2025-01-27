@@ -913,13 +913,17 @@ struct Factorizer {
         // Pivot found, now eliminate entries in this column
         const boost::dynamic_bitset<size_t> &cm = *mColIt;
         const BigInteger &cn = *nColIt;
+        auto emRowIt = mColIt;
+        auto enRowIt = nColIt;
         const size_t maxLcv = std::min(colPlus1 + CpuCount, rows);
         for (unsigned cpu = colPlus1; cpu < maxLcv; ++cpu) {
-          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, mRowIt, nRowIt]() -> bool {
+          ++emRowIt;
+          ++enRowIt;
+          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, &cn, emRowIt, enRowIt]() -> bool {
             // Notice that each thread updates rows with space increments of cpuCount,
             // based on the same unchanged outer-loop row, and this covers the inner-loop set.
-            auto mrIt = mRowIt;
-            auto nrIt = nRowIt;
+            auto mrIt = emRowIt;
+            auto nrIt = enRowIt;
             for (size_t row = cpu; ; row += cpuCount) {
               boost::dynamic_bitset<size_t> &rm = *mrIt;
               BigInteger &rn = *nrIt;
@@ -940,8 +944,6 @@ struct Factorizer {
             return false;
           });
           // Next inner-loop row (all at once by dispatch).
-          ++mRowIt;
-          ++nRowIt;
         }
         // All dispatched work must complete.
         dispatch.finish();
