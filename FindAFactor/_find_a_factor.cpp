@@ -999,8 +999,15 @@ struct Factorizer {
       }
     }
 
-    // All work has been dispatched, but now we must complete it.
-    dispatch.finish();
+    if (result == 1U) {
+      // The result has not yet been found.
+      // A succesful item will dump the queue.
+      dispatch.finish();
+    } else {
+      // The result has been found.
+      // If any work remains, dump it.
+      dispatch.dump();
+    }
 
     // Depending on row count, a successful result should be nearly guaranteed.
     return result;
