@@ -779,6 +779,8 @@ struct Factorizer {
     }
   }
 
+  void resetIsIncomplete() { isIncomplete = true; }
+
   BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
 
@@ -941,7 +943,7 @@ struct Factorizer {
     auto ikit = smoothNumberKeys.begin();
     auto ivit = smoothNumberValues.begin();
     BigInteger result = 1U;
-    for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
+    for (size_t i = 0U; isIncomplete && (i < smoothNumberKeys.size()); ++i) {
       dispatch.dispatch([this, i, ikit, ivit, &result]() -> bool {
         auto jkit = ikit;
         auto jvit = ivit;
@@ -958,6 +960,7 @@ struct Factorizer {
             // Check congruence of squares
             BigInteger factor = gcd(this->toFactor, x + y);
             if ((factor != 1U) && (factor != this->toFactor)) {
+              isIncomplete = false;
               std::lock_guard<std::mutex> lock(this->batchMutex);
               result = factor;
 
@@ -968,6 +971,7 @@ struct Factorizer {
               // Try x - y as well
               factor = gcd(this->toFactor, x - y);
               if ((factor != 1U) && (factor != this->toFactor)) {
+                isIncomplete = false;
                 std::lock_guard<std::mutex> lock(this->batchMutex);
                 result = factor;
 
@@ -1224,6 +1228,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
       futures[cpu].get();
     }
+    worker.resetIsIncomplete();
 
     return boost::lexical_cast<std::string>(worker.solveForFactor());
   }
