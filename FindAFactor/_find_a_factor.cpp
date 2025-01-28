@@ -864,7 +864,7 @@ struct Factorizer {
       }
 
       // Add the chosen row from Gaussian elimination solution
-      solutionVec.push_back(ger.solutionColumns[solutionColumnId].second);
+      solutionVec.push_back(smoothNumberKeys[ger.solutionColumns[solutionColumnId].second]);
 
       return solutionVec;
   }
