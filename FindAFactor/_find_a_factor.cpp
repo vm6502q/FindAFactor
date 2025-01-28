@@ -768,7 +768,7 @@ struct Factorizer {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Sieving function
-  void sievePolynomials(const BigInteger& low, const BigInteger& high) {
+  BigInteger sievePolynomials(const BigInteger& low, const BigInteger& high) {
     const BigInteger maxLcv = toFactorSqrt + high;
     for (BigInteger y = toFactorSqrt + 1U + low; isIncomplete && (y < maxLcv); ++y) {
       // Make the candidate NOT a multiple on the wheels.
@@ -788,6 +788,16 @@ struct Factorizer {
       }
       // We have a successful candidate.
 
+      // If the candidate is already a perfect square,
+      // we got lucky, and we might be done already.
+      if (rfv.none()) {
+        const BigInteger factor = solveCongruence(candidate);
+        if ((factor > 1U) && (factor < toFactor)) {
+          // Success
+          return candidate;
+        }
+      }
+
       // For lock_guard scope
       if (true) {
         std::lock_guard<std::mutex> lock(batchMutex);
@@ -802,11 +812,13 @@ struct Factorizer {
             isIncomplete = false;
             smoothNumberSet.clear();
 
-            return;
+            return 1U;
           }
         }
       }
     }
+
+    return 1U;
   }
 
   struct GaussianEliminationResult {
@@ -859,6 +871,28 @@ struct Factorizer {
     for (size_t idx : solutionVec) {
       y *= smoothNumberKeys[idx];
     }
+    // If we square the result, it shouldn't ruin the fact
+    // that the residue is a perfect square.
+    const BigInteger x = sqrt((y * y) % this->toFactor);
+
+    // Check congruence of squares
+    BigInteger factor = gcd(this->toFactor, x + y);
+    if ((factor > 1U) && (factor < this->toFactor)) {
+      return factor;
+    }
+
+    // Try x - y as well
+    factor = gcd(this->toFactor, x - y);
+    if ((factor > 1U) && (factor < this->toFactor)) {
+      return factor;
+    }
+
+    // Failed to find a factor
+    return 1U;
+  }
+
+  BigInteger solveCongruence(const BigInteger& y)
+  {
     // If we square the result, it shouldn't ruin the fact
     // that the residue is a perfect square.
     const BigInteger x = sqrt((y * y) % this->toFactor);
@@ -1203,9 +1237,10 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   Factorizer worker(toFactor, sqrtN, nodeRange, nodeCount, nodeId, afterGearPrimeId, wheelEntryCount, rowLimit, batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
+  std::vector<std::future<BigInteger>> futures;
+  futures.reserve(CpuCount);
+
   if (isFactorFinder) {
-    std::vector<std::future<void>> futures;
-    futures.reserve(CpuCount);
     const BigInteger sievingNodeRange = (BigInteger)(sqrtN.convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5);
     const BigInteger sievingThreadRange = sievingNodeRange / CpuCount;
     const BigInteger nodeOffset = nodeId * sievingNodeRange;
@@ -1213,19 +1248,20 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       futures.push_back(std::async(std::launch::async, [&worker, cpu, &nodeOffset, &sievingThreadRange] {
         const BigInteger low = nodeOffset + cpu * sievingThreadRange;
         const BigInteger high = low + sievingThreadRange;
-        worker.sievePolynomials(low, high);
+        return worker.sievePolynomials(low, high);
       }));
     }
     for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
-      futures[cpu].get();
+      const BigInteger r = futures[cpu].get();
+      if ((r > result) && (r < toFactor)) {
+        result = r;
+      }
     }
     worker.resetIsIncomplete();
 
     return boost::lexical_cast<std::string>(worker.solveForFactor());
   }
 
-  std::vector<std::future<BigInteger>> futures;
-  futures.reserve(CpuCount);
   const auto workerFn = [&inc_seqs, &worker] {
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
@@ -1242,7 +1278,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   }
   for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
     const BigInteger r = futures[cpu].get();
-    if ((r > result) && (r != toFactor)) {
+    if ((r > result) && (r < toFactor)) {
       result = r;
     }
   }
