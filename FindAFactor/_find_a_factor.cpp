@@ -835,9 +835,9 @@ struct Factorizer {
   };
 
   // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
-  std::vector<size_t> findDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
+  std::vector<BigInteger> findDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
   {
-      std::vector<size_t> solutionVec;
+      std::vector<BigInteger> solutionVec;
       std::vector<size_t> indices;
 
       // Get the first free row from Gaussian elimination results
@@ -852,9 +852,12 @@ struct Factorizer {
 
       // Find dependent rows from the original matrix
       for (size_t r = 0U; r < smoothPrimes.size(); ++r) {
-          for (size_t i : indices) {
-              if (smoothNumberValues[i][r] && ger.marks[r]) {
-                  solutionVec.push_back(r);
+          if (!ger.marks[r]) {
+            continue;
+          }
+          for (const size_t& i : indices) {
+              if (smoothNumberValues[i][r]) {
+                  solutionVec.push_back(smoothNumberKeys[i]);
                   break;
               }
           }
@@ -866,12 +869,12 @@ struct Factorizer {
       return solutionVec;
   }
 
-  BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
+  BigInteger solveCongruence(const std::vector<BigInteger>& solutionVec)
   {
     // Compute x and y
     BigInteger y = 1U;
-    for (size_t idx : solutionVec) {
-      y *= smoothNumberKeys[idx];
+    for (const BigInteger& part : solutionVec) {
+      y *= part;
     }
     // If we square the result, it shouldn't ruin the fact
     // that the residue is a perfect square.
