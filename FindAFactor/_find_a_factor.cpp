@@ -794,6 +794,8 @@ struct Factorizer {
         const BigInteger factor = solveCongruence(candidate);
         if ((factor > 1U) && (factor < toFactor)) {
           // Success
+          isIncomplete = false;
+
           return candidate;
         }
       }
