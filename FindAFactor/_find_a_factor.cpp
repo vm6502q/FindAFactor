@@ -835,9 +835,9 @@ struct Factorizer {
   };
 
   // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
-  std::vector<BigInteger> findDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
+  BigInteger solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
   {
-      std::vector<BigInteger> solutionVec;
+      BigInteger solution = 1U;
       std::vector<size_t> indices;
 
       // Get the first free row from Gaussian elimination results
@@ -857,47 +857,21 @@ struct Factorizer {
           }
           for (const size_t& i : indices) {
               if (smoothNumberValues[i][r]) {
-                  solutionVec.push_back(smoothNumberKeys[i]);
+                  solution *= smoothNumberKeys[i];
                   break;
               }
           }
       }
 
       // Add the chosen row from Gaussian elimination solution
-      solutionVec.push_back(smoothNumberKeys[ger.solutionColumns[solutionColumnId].second]);
+      solution *= smoothNumberKeys[ger.solutionColumns[solutionColumnId].second];
 
-      return solutionVec;
-  }
-
-  BigInteger solveCongruence(const std::vector<BigInteger>& solutionVec)
-  {
-    // Compute x and y
-    BigInteger y = 1U;
-    for (const BigInteger& part : solutionVec) {
-      y *= part;
-    }
-    // If we square the result, it shouldn't ruin the fact
-    // that the residue is a perfect square.
-    const BigInteger x = sqrt((y * y) % this->toFactor);
-
-    // Check congruence of squares
-    BigInteger factor = gcd(this->toFactor, x + y);
-    if ((factor > 1U) && (factor < this->toFactor)) {
-      return factor;
-    }
-
-    // Try x - y as well
-    factor = gcd(this->toFactor, x - y);
-    if ((factor > 1U) && (factor < this->toFactor)) {
-      return factor;
-    }
-
-    // Failed to find a factor
-    return 1U;
+      return solution;
   }
 
   BigInteger solveCongruence(const BigInteger& y)
   {
+    // x^2 = y^2 % toFactor
     // If we square the result, it shouldn't ruin the fact
     // that the residue is a perfect square.
     const BigInteger x = sqrt((y * y) % this->toFactor);
@@ -1031,7 +1005,7 @@ struct Factorizer {
 
     GaussianEliminationResult result = gaussianElimination();
     for (size_t i = 0U; i < result.solutionColumns.size(); ++i) {
-      const BigInteger factor = solveCongruence(findDependentRows(result, i));
+      const BigInteger factor = solveCongruence(solveDependentRows(result, i));
       if ((factor > 1U) && (factor < toFactor)) {
         return factor;
       }
