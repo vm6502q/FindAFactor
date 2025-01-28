@@ -933,7 +933,7 @@ struct Factorizer {
         }
       }
 
-      if ((col <= smoothPrimes.size()) && result.marks[col]) {
+      if ((col < smoothPrimes.size()) && result.marks[col]) {
         // Pivot found, now eliminate entries in this column
         const boost::dynamic_bitset<size_t> &cm = *rowIt;
         auto iRowIt = smoothNumberValues.begin();
