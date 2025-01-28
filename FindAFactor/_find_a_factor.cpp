@@ -996,8 +996,10 @@ struct Factorizer {
     }
 
     // Step 2: Identify free rows
+    size_t rank = 0U;
     for (size_t i = 0U; i < smoothPrimes.size(); ++i) {
       if (result.marks[i]) {
+        ++rank;
         continue;
       }
       boost::dynamic_bitset<size_t> r(rows);
@@ -1010,7 +1012,7 @@ struct Factorizer {
     }
 
     if (result.solutionColumns.empty()) {
-        throw std::runtime_error("Gaussian elimination found no solution. Produce and retain more smooth numbers.");
+        throw std::runtime_error("Gaussian elimination found no solution (with rank " + std::to_string(rank) + "). If your rank is very low, consider increasing the smoothness bound. Otherwise, produce and retain more smooth numbers.");
     }
 
     return result;
