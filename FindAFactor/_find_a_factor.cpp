@@ -829,7 +829,7 @@ struct Factorizer {
       // Get the first free row from Gaussian elimination results
       const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
 
-      // Find the indices where free_row has true values.
+      // Find the indices where the free row has true values.
       for (size_t i = 0; i < freeRow.size(); i++) {
           if (freeRow[i]) {
               indices.push_back(i);
@@ -1188,7 +1188,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     }
   }
   if (smoothPrimes.empty()) {
-    throw std::runtime_error("No smooth primes found under bound. (Increase the smoothness bound multiplier.)");
+    throw std::runtime_error("No smooth primes found under bound. (Increase the smoothness bound multiplier, unless this is not in range of check_small_factors=True.)");
   }
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
