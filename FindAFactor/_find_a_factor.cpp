@@ -942,10 +942,35 @@ struct Factorizer {
           dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, iRowIt]() -> bool {
             // Notice that each thread updates rows with space increments of cpuCount,
             // based on the same unchanged outer-loop row, and this covers the inner-loop set.
+            // We're covering every row except for the one corresponding to "col."
+            // We break this into two loops to avoid an inner conditional to check whether row == col.
             auto mrIt = iRowIt;
-            for (size_t row = cpu; ; row += cpuCount) {
+            size_t row = cpu;
+            for (; row < col; row += cpuCount) {
               boost::dynamic_bitset<size_t> &rm = *mrIt;
-              if ((row != col) && rm[col]) {
+              if (rm[col]) {
+                // XOR-ing factorization rows
+                // is like multiplying the numbers.
+                rm ^= cm;
+              }
+              if ((row + cpuCount) >= rows) {
+                // This is the completion condition.
+                return false;
+              }
+              // Every row advance is staggered according to cpuCount.
+              std::advance(mrIt, cpuCount);
+            }
+            if (row == col) {
+              if ((row + cpuCount) >= rows) {
+                // This is the completion condition.
+                return false;
+              }
+              row += CpuCount;
+              std::advance(mrIt, cpuCount);
+            }
+            for (; ; row += cpuCount) {
+              boost::dynamic_bitset<size_t> &rm = *mrIt;
+              if (rm[col]) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
