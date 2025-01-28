@@ -1023,7 +1023,7 @@ struct Factorizer {
   BigInteger solveForFactor() {
     // Gaussian elimination is used to create a perfect square of the residues.
     if (smoothNumberKeys.empty()) {
-        throw std::runtime_error("No smooth numbers found. Sieve more.");
+        throw std::runtime_error("No smooth numbers found. Sieve more. (The sieving bound multiplier is equivalent to that many times the square root of the number to factor, for calculated numerical range above an offset of the square root of the number to factor.)");
     }
 
     GaussianEliminationResult result = gaussianElimination();
@@ -1036,7 +1036,7 @@ struct Factorizer {
 
     // Depending on row count, a successful result should be nearly guaranteed,
     // but we default to no solution.
-    throw std::runtime_error("No solution produced a congruence of squares.");
+    throw std::runtime_error("No solution produced a congruence of squares. (We found and tried " + std::to_string(result.solutionColumns.size()) + ", but even 1 should probably be enough.)");
   }
 
   // Produce a smooth number with its factorization vector.
@@ -1180,7 +1180,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const BigInteger primeCeilingBigInt = (BigInteger)(smoothnessBoundMultiplier * exp(0.5 * std::sqrt(logN * log(logN))) + 0.5);
   const size_t primeCeiling = (size_t)primeCeilingBigInt;
   if (((BigInteger)primeCeiling) != primeCeilingBigInt) {
-    throw std::runtime_error("Your primes are out of size_t range! You can modify the SieveOfEratosthenes() code slightly to allow for this.");
+    throw std::runtime_error("Your primes are out of size_t range! (Your formula smoothness bound calculates to be " + boost::lexical_cast<std::string>(primeCeilingBigInt) + ".) Consider lowering your smoothness bound, since it's unlikely you want to sieve for primes above 2 to the 64th power, but, if so, you can modify the SieveOfEratosthenes() code slightly to allow for this,.");
   }
   BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
@@ -1230,7 +1230,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       }
     }
     if (smoothPrimes.empty()) {
-      throw std::runtime_error("No smooth primes found under bound. (Increase the smoothness bound multiplier, unless this is not in range of check_small_factors=True.)");
+      throw std::runtime_error("No smooth primes found under bound. (The formula smoothness bound calculates to " + std::to_string(primeCeiling) + ".) Increase the smoothness bound multiplier, unless this is in range of check_small_factors=True.");
     }
   }
   // From 1, this is a period for wheel factorization
