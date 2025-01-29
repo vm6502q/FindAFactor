@@ -772,10 +772,10 @@ struct Factorizer {
     const BigInteger maxLcv = toFactorSqrt + high;
     for (BigInteger y = toFactorSqrt + 1U + low; isIncomplete && (y < maxLcv); ++y) {
       // Make the candidate NOT a multiple on the wheels.
-      BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
-      // This actually just goes ahead and FORCES
+      // Overall, this actually just goes ahead and FORCES
       // the number into a "close-by" smooth number.
-      candidate = makeSmoothPerfectSquare(candidate);
+      const BigInteger z = forwardFn(backwardFn(y));
+      const BigInteger candidate = makeSmooth(z * z);
       // We want two numbers multiplied together to be larger than toFactor.
       if (candidate < toFactorSqrt) {
         continue;
@@ -872,6 +872,10 @@ struct Factorizer {
     // x^2 = y^2 % toFactor
     const BigInteger x = sqrt(ySqr % this->toFactor);
     const BigInteger y = sqrt(ySqr);
+    // Uncomment this to check our math:
+    // if ((x * x) != (ySqr % this->toFactor)) {
+    //   throw "Mistake!";
+    // }
 
     // Check congruence of squares
     BigInteger factor = gcd(this->toFactor, x + y);
@@ -1013,7 +1017,7 @@ struct Factorizer {
   }
 
   // Produce a smooth number with its factorization vector.
-  BigInteger makeSmoothPerfectSquare(BigInteger num) {
+  BigInteger makeSmooth(BigInteger num) {
     boost::dynamic_bitset<size_t> vec(smoothPrimes.size(), 0U);
     BigInteger n = num;
     while (true) {
@@ -1049,23 +1053,6 @@ struct Factorizer {
       // This probably won't work, for the sieve, but notice that it is
       // basically no more expensive, at this point, to try this.
     }
-
-    // We actually want not just a smooth number,
-    // but a smooth perfect square.
-    for (size_t pi = 0U; pi < smoothPrimes.size(); ++pi) {
-      if (vec.test(pi)) {
-        // If the prime factor component parity is odd,
-        // multiply by the prime once to make it even.
-        num *= smoothPrimes[pi];
-      }
-      // The parity is necessarily even in this factor, by now.
-    }
-    // Note that forcing a perfect square is the only part of our
-    // modified Quadratic Sieve that changes the distribution of
-    // distinct smooth numbers on the sieving range, in theory,
-    // (if wheel factorization is not applied to sieving).
-    // Otherwise, we're just reusing sieving failures that would
-    // occur anyway to do checks nearly at random, but near 0 cost.
 
     // This number is necessarily smooth.
     return num;
