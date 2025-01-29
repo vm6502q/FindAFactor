@@ -1002,7 +1002,7 @@ struct Factorizer {
   BigInteger solveForFactor() {
     // Gaussian elimination is used to create a perfect square of the residues.
     if (smoothNumberKeys.empty()) {
-        throw std::runtime_error("No smooth numbers found. Sieve more. (The sieving bound multiplier is equivalent to that many times the square root of the number to factor, for calculated numerical range above an offset of the square root of the number to factor.)");
+        throw std::runtime_error("No smooth numbers found. Sieve more or increase smoothness bound to reduce selectiveness. (The sieving bound multiplier is equivalent to that many times the square root of the number to factor, for calculated numerical range above an offset of the square root of the number to factor.)");
     }
 
     GaussianEliminationResult result = gaussianElimination();
