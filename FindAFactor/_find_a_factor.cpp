@@ -870,8 +870,6 @@ struct Factorizer {
   BigInteger solveCongruence(const BigInteger& ySqr)
   {
     // x^2 = y^2 % toFactor
-    // If we square the result, it shouldn't ruin the fact
-    // that the residue is a perfect square.
     const BigInteger x = sqrt(ySqr % this->toFactor);
     const BigInteger y = sqrt(ySqr);
 
