@@ -894,7 +894,6 @@ struct Factorizer {
 
   // Perform Gaussian elimination on a binary matrix
   GaussianEliminationResult gaussianElimination() {
-    const unsigned cpuCount = CpuCount;
     auto rowIt = smoothNumberValues.begin();
     const size_t rows = smoothNumberValues.size();
     GaussianEliminationResult result(smoothPrimes.size());
@@ -916,48 +915,48 @@ struct Factorizer {
         auto iRowIt = smoothNumberValues.begin();
         const size_t maxLcv = std::min((size_t)CpuCount, rows);
         for (size_t cpu = 0U; cpu < maxLcv; ++cpu) {
-          dispatch.dispatch([cpu, &cpuCount, &col, &rows, &cm, iRowIt]() -> bool {
+          dispatch.dispatch([cpu, &col, &rows, &cm, iRowIt]() -> bool {
             // Notice that each thread updates rows with space increments of cpuCount,
             // based on the same unchanged outer-loop row, and this covers the inner-loop set.
             // We're covering every row except for the one corresponding to "col."
             // We break this into two loops to avoid an inner conditional to check whether row == col.
             auto mrIt = iRowIt;
             size_t row = cpu;
-            for (; row < col; row += cpuCount) {
+            for (; row < col; row += CpuCount) {
               boost::dynamic_bitset<size_t> &rm = *mrIt;
               if (rm[col]) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
               }
-              if ((row + cpuCount) >= rows) {
+              if ((row + CpuCount) >= rows) {
                 // This is the completion condition.
                 return false;
               }
               // Every row advance is staggered according to cpuCount.
-              std::advance(mrIt, cpuCount);
+              std::advance(mrIt, CpuCount);
             }
             if (row == col) {
-              if ((row + cpuCount) >= rows) {
+              if ((row + CpuCount) >= rows) {
                 // This is the completion condition.
                 return false;
               }
               row += CpuCount;
-              std::advance(mrIt, cpuCount);
+              std::advance(mrIt, CpuCount);
             }
-            for (; ; row += cpuCount) {
+            for (; ; row += CpuCount) {
               boost::dynamic_bitset<size_t> &rm = *mrIt;
               if (rm[col]) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
               }
-              if ((row + cpuCount) >= rows) {
+              if ((row + CpuCount) >= rows) {
                 // This is the completion condition.
                 return false;
               }
               // Every row advance is staggered according to cpuCount.
-              std::advance(mrIt, cpuCount);
+              std::advance(mrIt, CpuCount);
             }
             return false;
           });
