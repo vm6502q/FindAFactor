@@ -769,10 +769,10 @@ struct Factorizer {
 
   // Sieving function
   BigInteger sievePolynomials(const BigInteger& low, const BigInteger& high) {
-    const BigInteger maxLcv = toFactorSqrt + high;
-    for (BigInteger y = toFactorSqrt + 1U + low; isIncomplete && (y < maxLcv); ++y) {
+    const BigInteger maxLcv = backwardFn(toFactorSqrt + high);
+    for (BigInteger y = backwardFn(toFactorSqrt + 1U + low); isIncomplete && (y < maxLcv); ++y) {
       // Make the candidate NOT a multiple on the wheels.
-      const BigInteger z = forwardFn(backwardFn(y));
+      const BigInteger z = forwardFn(y);
       // This actually just goes ahead and FORCES
       // the number into a "close-by" smooth perfect square.
       const BigInteger candidate = makeSmooth(z * z);
