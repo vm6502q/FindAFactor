@@ -1018,7 +1018,6 @@ struct Factorizer {
   // Produce a smooth number with its factorization vector.
   BigInteger makeSmooth(BigInteger num) {
     BigInteger n = num;
-    boost::dynamic_bitset<size_t> vec(smoothPrimes.size(), 0U);
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
       BigInteger factor = gcd(n, diffWheelRadius);
@@ -1034,7 +1033,6 @@ struct Factorizer {
           continue;
         }
         factor /= p;
-        vec.flip(pi);
         if (factor == 1U) {
           // The step is fully factored.
           break;
@@ -1052,29 +1050,6 @@ struct Factorizer {
       // This probably won't work, for the sieve, but notice that it is
       // basically no more expensive, at this point, to try this.
     }
-
-    // We skip the section below, only because it's the only deviation
-    // from the usual smooth number distirbution on the sieving interval.
-    // The "coercion" into a smooth number above happens only if the
-    // number is not smooth in the first place, yet we might as well
-    // test the residue for smoothness.
-
-    // We actually want not just a smooth number,
-    // but a smooth perfect square.
-    // for (size_t pi = 0U; pi < smoothPrimes.size(); ++pi) {
-    //   if (vec.test(pi)) {
-    //     // If the prime factor component parity is odd,
-    //     // multiply by the prime once to make it even.
-    //     num *= smoothPrimes[pi];
-    //   }
-    //   // The parity is necessarily even in this factor, by now.
-    // }
-    // Note that forcing a perfect square is the only part of our
-    // modified Quadratic Sieve that changes the distribution of
-    // distinct smooth numbers on the sieving range, in theory,
-    // (if wheel factorization is not applied to sieving).
-    // Otherwise, we're just reusing sieving failures that would
-    // occur anyway to do checks nearly at random, but near 0 cost.
 
     // This number is necessarily smooth.
     return num;
