@@ -1020,7 +1020,6 @@ struct Factorizer {
 
   // Produce a smooth number with its factorization vector.
   BigInteger makeSmooth(BigInteger num) {
-    boost::dynamic_bitset<size_t> vec(smoothPrimes.size(), 0U);
     BigInteger n = num;
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
@@ -1037,7 +1036,6 @@ struct Factorizer {
           continue;
         }
         factor /= p;
-        vec.flip(pi);
         if (factor == 1U) {
           // The step is fully factored.
           break;
