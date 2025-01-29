@@ -775,7 +775,7 @@ struct Factorizer {
       BigInteger candidate = forwardFn(backwardFn(y * y - toFactor));
       // This actually just goes ahead and FORCES
       // the number into a "close-by" smooth number.
-      candidate = makeSmooth(candidate);
+      candidate = makeSmoothPerfectSquare(candidate);
       // We want two numbers multiplied together to be larger than toFactor.
       if (candidate < toFactorSqrt) {
         continue;
@@ -837,44 +837,43 @@ struct Factorizer {
   // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
   BigInteger solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
   {
-      BigInteger solution = 1U;
-      std::vector<size_t> indices;
+    // Add the chosen row from Gaussian elimination solution
+    BigInteger solution = smoothNumberKeys[ger.solutionColumns[solutionColumnId].second];
+    std::vector<size_t> indices;
 
-      // Get the first free row from Gaussian elimination results
-      const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
+    // Get the first free row from Gaussian elimination results
+    const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
 
-      // Find the indices where the free row has true values.
-      for (size_t i = 0U; i < freeRow.size(); ++i) {
-          if (freeRow[i]) {
-              indices.push_back(i);
-          }
+    // Find the indices where the free row has true values.
+    for (size_t i = 0U; i < freeRow.size(); ++i) {
+      if (freeRow[i]) {
+          indices.push_back(i);
       }
+    }
 
-      // Find dependent rows from the original matrix
-      for (size_t r = 0U; r < smoothPrimes.size(); ++r) {
-          if (!ger.marks[r]) {
-            continue;
-          }
-          for (const size_t& i : indices) {
-              if (smoothNumberValues[i][r]) {
-                  solution *= smoothNumberKeys[i];
-                  break;
-              }
-          }
+    // Find dependent rows from the original matrix
+    for (size_t r = 0U; r < smoothPrimes.size(); ++r) {
+      if (!ger.marks[r]) {
+        continue;
       }
+      for (const size_t& i : indices) {
+        if (smoothNumberValues[i][r]) {
+          solution *= smoothNumberKeys[i];
+          break;
+        }
+      }
+    }
 
-      // Add the chosen row from Gaussian elimination solution
-      solution *= smoothNumberKeys[ger.solutionColumns[solutionColumnId].second];
-
-      return solution;
+    return solution;
   }
 
-  BigInteger solveCongruence(const BigInteger& y)
+  BigInteger solveCongruence(const BigInteger& ySqr)
   {
     // x^2 = y^2 % toFactor
     // If we square the result, it shouldn't ruin the fact
     // that the residue is a perfect square.
-    const BigInteger x = sqrt((y * y) % this->toFactor);
+    const BigInteger x = sqrt(ySqr % this->toFactor);
+    const BigInteger y = sqrt(ySqr);
 
     // Check congruence of squares
     BigInteger factor = gcd(this->toFactor, x + y);
@@ -1016,7 +1015,8 @@ struct Factorizer {
   }
 
   // Produce a smooth number with its factorization vector.
-  BigInteger makeSmooth(BigInteger num) {
+  BigInteger makeSmoothPerfectSquare(BigInteger num) {
+    boost::dynamic_bitset<size_t> vec(smoothPrimes.size(), 0U);
     BigInteger n = num;
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
@@ -1033,6 +1033,7 @@ struct Factorizer {
           continue;
         }
         factor /= p;
+        vec.flip(pi);
         if (factor == 1U) {
           // The step is fully factored.
           break;
@@ -1050,6 +1051,23 @@ struct Factorizer {
       // This probably won't work, for the sieve, but notice that it is
       // basically no more expensive, at this point, to try this.
     }
+
+    // We actually want not just a smooth number,
+    // but a smooth perfect square.
+    for (size_t pi = 0U; pi < smoothPrimes.size(); ++pi) {
+      if (vec.test(pi)) {
+        // If the prime factor component parity is odd,
+        // multiply by the prime once to make it even.
+        num *= smoothPrimes[pi];
+      }
+      // The parity is necessarily even in this factor, by now.
+    }
+    // Note that forcing a perfect square is the only part of our
+    // modified Quadratic Sieve that changes the distribution of
+    // distinct smooth numbers on the sieving range, in theory,
+    // (if wheel factorization is not applied to sieving).
+    // Otherwise, we're just reusing sieving failures that would
+    // occur anyway to do checks nearly at random, but near 0 cost.
 
     // This number is necessarily smooth.
     return num;
