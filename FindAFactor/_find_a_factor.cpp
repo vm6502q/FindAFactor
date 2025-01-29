@@ -772,9 +772,9 @@ struct Factorizer {
     const BigInteger maxLcv = toFactorSqrt + high;
     for (BigInteger y = toFactorSqrt + 1U + low; isIncomplete && (y < maxLcv); ++y) {
       // Make the candidate NOT a multiple on the wheels.
-      // Overall, this actually just goes ahead and FORCES
-      // the number into a "close-by" smooth number.
       const BigInteger z = forwardFn(backwardFn(y));
+      // This actually just goes ahead and FORCES
+      // the number into a "close-by" smooth perfect square.
       const BigInteger candidate = makeSmooth(z * z);
       // We want two numbers multiplied together to be larger than toFactor.
       if (candidate < toFactorSqrt) {
