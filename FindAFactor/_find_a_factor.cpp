@@ -777,11 +777,13 @@ struct Factorizer {
       // the number into a "close-by" smooth perfect square.
       const BigInteger candidate = makeSmooth(z * z);
       // We want two numbers multiplied together to be larger than toFactor.
-      if (candidate < toFactorSqrt) {
+      if (candidate < toFactor) {
         continue;
       }
       // The residue (mod N) also needs to be smooth (but not a perfect square).
-      const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(candidate % toFactor);
+      // The candidate is guaranteed to be between toFactor and its square,
+      // so subtracting toFactor is equivalent to % toFactor.
+      const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(candidate - toFactor);
       if (rfv.empty()) {
         // The number is useless to us.
         continue;
