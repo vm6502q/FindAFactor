@@ -770,7 +770,7 @@ struct Factorizer {
   // Sieving function
   BigInteger sievePolynomials(const BigInteger& low, const BigInteger& high) {
     const BigInteger maxLcv = backwardFn(toFactorSqrt + high);
-    for (BigInteger y = backwardFn(toFactorSqrt + 1U + low); isIncomplete && (y < maxLcv); ++y) {
+    for (BigInteger y = backwardFn(toFactorSqrt + 1U + low); isIncomplete && (y < maxLcv);) {
       // Make the candidate NOT a multiple on the wheels.
       const BigInteger z = forwardFn(y);
       // This actually just goes ahead and FORCES
@@ -1172,7 +1172,6 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   std::vector<size_t> gearFactorizationPrimes(primes.begin(), itg);
   std::vector<size_t> wheelFactorizationPrimes(primes.begin(), itw);
   // Primes are only present in range above wheel factorization level
-  const size_t afterGearPrimeId = isFactorFinder ? std::distance(primes.begin(), itg) : 0U;
   std::vector<size_t> smoothPrimes;
   if (isFactorFinder) {
     for (size_t primeId = 0U; primeId < primes.size(); ++primeId) {
@@ -1187,6 +1186,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       throw std::runtime_error("No smooth primes found under bound. (The formula smoothness bound calculates to " + std::to_string(primeCeiling) + ".) Increase the smoothness bound multiplier, unless this is in range of check_small_factors=True.");
     }
   }
+  const size_t afterGearPrimeId = isFactorFinder ? std::distance(smoothPrimes.begin(), std::upper_bound(smoothPrimes.begin(), smoothPrimes.end(), gearFactorizationLevel)) : 0U;
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
   for (const size_t &wp : gearFactorizationPrimes) {
