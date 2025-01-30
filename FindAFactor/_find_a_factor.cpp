@@ -776,7 +776,7 @@ struct Factorizer {
       // This actually just goes ahead and FORCES
       // the number into a "close-by" smooth perfect square.
       const BigInteger candidate = makeSmooth(z * z);
-      // We want two numbers multiplied together to be larger than toFactor.
+      // We want each number to be larger than toFactor.
       if (candidate < toFactor) {
         continue;
       }
@@ -813,8 +813,6 @@ struct Factorizer {
         if (smoothNumberKeys.size() > rowLimit) {
           isIncomplete = false;
           smoothNumberSet.clear();
-
-          return 1U;
         }
       }
     }
