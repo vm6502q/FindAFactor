@@ -728,7 +728,6 @@ struct Factorizer {
   BigInteger batchOffset;
   BigInteger batchTotal;
   BigInteger smoothWheelRadius;
-  BigInteger diffWheelRadius;
   size_t afterGearPrimeId;
   size_t wheelEntryCount;
   size_t rowLimit;
@@ -740,18 +739,13 @@ struct Factorizer {
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
-  Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t agpi, size_t w, size_t rl, size_t bn,
+  Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, size_t bn,
              const std::vector<size_t> &sp, ForwardFn ffn, ForwardFn bfn)
     : toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
-    afterGearPrimeId(agpi), smoothWheelRadius(1U), diffWheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), smoothPrimes(sp), forwardFn(ffn), backwardFn(bfn)
+    smoothWheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), smoothPrimes(sp), forwardFn(ffn), backwardFn(bfn)
   {
-    for (size_t i = 0U; i < afterGearPrimeId; ++i) {
-      smoothWheelRadius *= smoothPrimes[i];
-    }
-    for (size_t i = afterGearPrimeId; i < smoothPrimes.size(); ++i) {
-      const size_t& p = smoothPrimes[i];
+    for (const size_t p : smoothPrimes) {
       smoothWheelRadius *= p;
-      diffWheelRadius *= p;
     }
   }
 
@@ -1006,6 +1000,9 @@ struct Factorizer {
     }
 
     GaussianEliminationResult result = gaussianElimination();
+    if (result.solutionColumns.empty()) {
+      throw std::runtime_error("Gaussian elimination found no solutions. Retain more rows.");
+    }
     for (size_t i = 0U; i < result.solutionColumns.size(); ++i) {
       const BigInteger factor = solveCongruence(solveDependentRows(result, i));
       if ((factor > 1U) && (factor < toFactor)) {
@@ -1139,7 +1136,6 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       throw std::runtime_error("No smooth primes found under bound. (The formula smoothness bound calculates to " + std::to_string(primeCeiling) + ".) Increase the smoothness bound multiplier, unless this is in range of check_small_factors=True.");
     }
   }
-  const size_t afterGearPrimeId = isFactorFinder ? std::distance(smoothPrimes.begin(), std::upper_bound(smoothPrimes.begin(), smoothPrimes.end(), gearFactorizationLevel)) : 0U;
   // From 1, this is a period for wheel factorization
   size_t biggestWheel = 1ULL;
   for (const size_t &wp : gearFactorizationPrimes) {
@@ -1168,7 +1164,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const size_t batchStart = ((size_t)backwardFn(primeCeiling)) / wheelEntryCount;
   const size_t rowLimit = smoothPrimes.size() + gaussianEliminationRowOffset;
   // This manages the work of all threads.
-  Factorizer worker(toFactor, sqrtN, nodeRange, nodeCount, nodeId, afterGearPrimeId, wheelEntryCount, rowLimit, batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
+  Factorizer worker(toFactor, sqrtN, nodeRange, nodeCount, nodeId, wheelEntryCount, rowLimit, batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
   std::vector<std::future<BigInteger>> futures;
