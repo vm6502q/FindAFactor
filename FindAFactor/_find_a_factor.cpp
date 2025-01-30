@@ -1126,7 +1126,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // This level default (scaling) was suggested by Elara (OpenAI GPT).
   const double N = sqrtN.convert_to<double>();
   const double logN = log(N);
-  const BigInteger primeCeilingBigInt = (BigInteger)(smoothnessBoundMultiplier * pow(exp(0.5 * std::sqrt(logN * log(logN))) + 0.5, sqrt(2) / 4));
+  const BigInteger primeCeilingBigInt = (BigInteger)(smoothnessBoundMultiplier * pow(exp(0.5 * std::sqrt(logN * log(logN))) + 0.5, std::sqrt(2.0) / 4));
   const size_t primeCeiling = (size_t)primeCeilingBigInt;
   if (((BigInteger)primeCeiling) != primeCeilingBigInt) {
     throw std::runtime_error("Your primes are out of size_t range! (Your formula smoothness bound calculates to be " + boost::lexical_cast<std::string>(primeCeilingBigInt) + ".) Consider lowering your smoothness bound, since it's unlikely you want to sieve for primes above 2 to the 64th power, but, if so, you can modify the SieveOfEratosthenes() code slightly to allow for this.");
