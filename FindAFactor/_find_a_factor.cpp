@@ -804,7 +804,7 @@ struct Factorizer {
       // If the candidate is already a perfect square,
       // we got lucky, and we might be done already.
       if (rfv.none()) {
-        // x^2 = y^2 % toFactor
+        // x^2 % toFactor = y^2
         const BigInteger y = sqrt(ySqr);
         const BigInteger factor = gcd(toFactor, x - y);
         if ((factor > 1U) && (factor < toFactor)) {
