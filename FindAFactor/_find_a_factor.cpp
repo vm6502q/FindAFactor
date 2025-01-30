@@ -862,8 +862,9 @@ struct Factorizer {
             // based on the same unchanged outer-loop row, and this covers the inner-loop set.
             // We're covering every row except for the one corresponding to "col."
             // We break this into two loops to avoid an inner conditional to check whether row == col.
+            const size_t midRow = std::min(row, rows);
             size_t irow = cpu;
-            for (; (irow < row) && (irow < rows); irow += CpuCount) {
+            for (; irow < midRow; irow += CpuCount) {
               boost::dynamic_bitset<size_t> &rm = this->smoothNumberValues[irow];
               if (rm[col]) {
                 // XOR-ing factorization rows
