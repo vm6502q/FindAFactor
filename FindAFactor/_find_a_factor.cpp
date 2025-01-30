@@ -89,7 +89,6 @@ inline BigInteger gcd(const BigInteger& n1, const BigInteger& n2) {
 }
 
 BigInteger sqrt(const BigInteger &toTest) {
-  // Otherwise, find b = sqrt(b^2).
   BigInteger start = 1U, end = toTest >> 1U, ans = 0U;
   do {
     const BigInteger mid = (start + end) >> 1U;
@@ -114,7 +113,6 @@ BigInteger sqrt(const BigInteger &toTest) {
 }
 
 size_t _sqrt(const size_t &toTest) {
-  // Otherwise, find b = sqrt(b^2).
   size_t start = 1U, end = toTest >> 1U, ans = 0U;
   do {
     const size_t mid = (start + end) >> 1U;
@@ -714,6 +712,75 @@ std::vector<size_t> selectFactorBase(const BigInteger N, const std::vector<size_
   return factorBase;
 }
 
+// This was taken basically whole-cloth from Elara, with thanks.
+// (Specifically modular exponentiation, rather than pow() or ipow())
+BigInteger mod_exp(BigInteger base, BigInteger exp, BigInteger mod) {
+  BigInteger result = 1U;
+  base = base % mod;
+  while (exp > 0U) {
+    // If exp is odd, multiply base with result
+    if (exp % 2U == 1U) {
+      result = (result * base) % mod;
+    }
+    exp = exp >> 1U;  // Right shift (divide by 2)
+    base = (base * base) % mod;
+  }
+  return result;
+}
+
+// This was taken basically whole-cloth from Elara, with thanks.
+// (Specifically modular square root, rather than sqrt() or isqrt())
+BigInteger mod_sqrt(BigInteger a, BigInteger p) {
+    if (p == 2U) {
+      return a;  // Special case for mod 2
+    }
+
+    // Check if a is a quadratic residue modulo p using the Legendre symbol
+    if (mod_exp(a, (p - 1U) >> 1U, p) != 1U) {
+      throw std::runtime_error("No modular square root exists!");
+    }
+
+    BigInteger q = p - 1U;
+    BigInteger s = 0U;
+
+    while (!(q & 1U)) {
+      q >>= 1U;
+      ++s;
+    }
+
+    if (s == 1U) {
+      return mod_exp(a, (p + 1U) >> 2U, p);
+    }
+
+    // Find a non-residue
+    BigInteger z = 2U;
+    while (mod_exp(z, (p - 1U) >> 1U, p) != (p - 1U)) {
+      ++z;
+    }
+
+    BigInteger m = s;
+    BigInteger c = mod_exp(z, q, p);
+    BigInteger t = mod_exp(a, q, p);
+    BigInteger r = mod_exp(a, (q + 1U) >> 1U, p);
+
+    while (t != 1U) {
+      BigInteger i = 0U;
+      BigInteger temp = t;
+      while (temp != 1U) {
+        temp = (temp * temp) % p;
+        ++i;
+      }
+
+      BigInteger b = mod_exp(c, mod_exp(2U, m - i - 1U, p), p);
+      m = i;
+      c = (b * b) % p;
+      t = (t * c) % p;
+      r = (r * b) % p;
+    }
+
+    return r;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -946,19 +1013,19 @@ struct Factorizer {
     return solutionVec;
   }
 
-  BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
-  {
-    // x^2 % toFactor = y^2
-    BigInteger x = 1U;
-    BigInteger y = 1U;
-    for (const size_t& idx : solutionVec) {
-      x *= smoothNumberKeys[idx];
-      y *= smoothNumberResidues[idx];
-    }
-    y = sqrt(y);
-
-    return gcd(toFactor, x - y);
+BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
+{
+  // x^2 % toFactor = y^2
+  BigInteger x = 1U;
+  BigInteger y = 1U;
+  for (const size_t& idx : solutionVec) {
+    x *= smoothNumberKeys[idx];
+    y *= smoothNumberResidues[idx];
   }
+  y = mod_sqrt(y, toFactor);
+
+  return gcd(toFactor, x - y);
+}
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
