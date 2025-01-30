@@ -35,7 +35,7 @@ factor = find_a_factor(
     wheel_factorization_level=11,
     sieving_bound_multiplier=1.0,
     smoothness_bound_multiplier=1.0,
-    gaussian_elimination_row_multiplier=1.2,
+    gaussian_elimination_row_offset=3,
     check_small_factors=False
 )
 ```
@@ -49,7 +49,7 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `wheel_factorization_level` (default value: `1`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. Optimized implementation for wheels is only available up to `13`. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization. Wheel factorization is also applied to map the sieving intervale of `FACTOR_FINDER` mode onto non-multiples on the wheel, if the level is set above `1` (which might not actually pay dividends in practical complexity, but we leave it for your experimentation). In `FACTOR_FINDER` mode, wheel factorization multiples are systematically avoided by construction, while gear factorization multiples are just rejected after-the-fact, without special construction to avoid them. (It is possible in theory to implement handling for gear factorization by construction, though, and that might be added in a future release.)
 - `sieving_bound_multiplier` (default value: `1.0`): This controls the sieving bound and is calibrated such that it linearly multiplies the square root of the number to factor (for each `1.0` increment). While this might be a huge bound, remember that sieving termination is primarily controlled by when `gaussian_elimination_row_multiplier` is exactly satisfied.
 - `smoothness_bound_multiplier` (default value: `1.0`): This controls smoothness bound and is calibrated such that it linearliy multiplies `exp(0.5 * std::sqrt(log(N) * log(log(N))))` for `N` being the number to factor (for each `1.0` increment). This was a heuristic suggested by Elara (an OpenAI custom GPT).
-- `gaussian_elimination_row_multiplier` (default value: `1.0`): This controls the number of rows sieved for Gaussian elimination before terminating the sieve and is calibrated such that it linearly multiplies one plus the number of smooth prime columns in the Gaussian elimination matrix (for each `1.0` increment). So long as this setting is appropriately low enough, `sieving_bound_multiplier` can be set basically arbitrarily high.
+- `gaussian_elimination_row_offset` (default value: `1`): This controls the number of rows greater than the count of smooth primes that are sieved before Gaussian elimination. Basically, for each increment starting with `1`, the chance of finding at least one solution in Gaussian elimination goes like `(1 - 2^(-m))` for a setting value of `m`: `1` value is a 50% chance of success, and the chance of success doubles for each unit of `1` added. So long as this setting is appropriately low enough, `sieving_bound_multiplier` can be set basically arbitrarily high.
 - `check_small_factors` (default value: `False`): `True` performs initial-phase trial division up to the smoothness bound, and `False` skips it.
 
 All variables defaults can also be controlled by environment variables:
@@ -60,7 +60,7 @@ All variables defaults can also be controlled by environment variables:
 - `FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL`
 - `FINDAFACTOR_SIEVING_BOUND_MULTIPLIER`
 - `FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER`
-- `FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_MULTIPLIER`
+- `FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_OFFSET`
 - `FINDAFACTOR_CHECK_SMALL_FACTORS` (`True` if set at all, otherwise `False`)
 
 ## About 

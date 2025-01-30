@@ -1099,7 +1099,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t gearFactorizationLevel, size_t wheelFactorizationLevel,
-                          double sievingBoundMultiplier, double smoothnessBoundMultiplier, double gaussianEliminationRowMultiplier, bool checkSmallFactors) {
+                          double sievingBoundMultiplier, double smoothnessBoundMultiplier, size_t gaussianEliminationRowOffset, bool checkSmallFactors) {
   // Validation section
   if (method > 1U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
@@ -1213,7 +1213,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const auto backwardFn = backward(SMALLEST_WHEEL);
   const BigInteger nodeRange = (((backwardFn(sqrtN) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
   const size_t batchStart = ((size_t)backwardFn(primeCeiling)) / wheelEntryCount;
-  const size_t rowLimit = (size_t)(gaussianEliminationRowMultiplier * (smoothPrimes.size() + 1U) + 0.5);
+  const size_t rowLimit = smoothPrimes.size() + gaussianEliminationRowOffset;
   // This manages the work of all threads.
   Factorizer worker(toFactor, sqrtN, nodeRange, nodeCount, nodeId, afterGearPrimeId, wheelEntryCount, rowLimit, batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
