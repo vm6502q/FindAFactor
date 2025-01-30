@@ -890,16 +890,10 @@ struct Factorizer {
     }
     const BigInteger y = sqrt(ySqr);
     // Uncomment this to check our math:
-    // if ((x * x) != ((y * y) % this->toFactor)) {
+    // if (((x * x) % this->toFactor) != (y * y)) {
     //   throw "Mistake!";
     // }
-    const BigInteger factor = gcd(this->toFactor, x - y);
-    if ((factor > 1U) && (factor < this->toFactor)) {
-      return factor;
-    }
-
-    // Failed to find a factor
-    return 1U;
+    return gcd(this->toFactor, x - y);
   }
 
   // Perform Gaussian elimination on a binary matrix
