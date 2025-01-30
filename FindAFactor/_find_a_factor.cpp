@@ -733,7 +733,6 @@ struct Factorizer {
   size_t rowLimit;
   bool isIncomplete;
   std::vector<size_t> smoothPrimes;
-  std::vector<BigInteger> residueKeys;
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
   ForwardFn forwardFn;
@@ -817,7 +816,6 @@ struct Factorizer {
 
       std::lock_guard<std::mutex> lock(batchMutex);
       smoothNumberKeys.push_back(z);
-      residueKeys.push_back(residue);
       smoothNumberValues.push_back(rfv);
       // If we have enough rows for Gaussian elimination already,
       // there's no reason to sieve any further.
@@ -877,12 +875,10 @@ struct Factorizer {
   {
     // x^2 = y^2 % toFactor
     BigInteger x = 1U;
-    BigInteger ySqr = 1U;
     for (const size_t& id : solutionRowIds) {
       x *= smoothNumberKeys[id];
-      ySqr *= residueKeys[id];
     }
-    const BigInteger y = sqrt(ySqr);
+    const BigInteger y = sqrt((x * x) % toFactor);
     // Uncomment this to check our math:
     // if (((x * x) % this->toFactor) != (y * y)) {
     //   throw "Mistake!";
