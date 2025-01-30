@@ -748,8 +748,6 @@ struct Factorizer {
     }
   }
 
-  void resetIsIncomplete() { isIncomplete = true; }
-
   BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
 
@@ -1161,7 +1159,6 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
         result = r;
       }
     }
-    worker.resetIsIncomplete();
 
     return boost::lexical_cast<std::string>(worker.solveForFactor());
   }
