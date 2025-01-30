@@ -902,10 +902,11 @@ struct Factorizer {
     GaussianEliminationResult result(smoothPrimes.size());
     auto rowIt = smoothNumberValues.begin();
     for (size_t row = 0U; row < rows; ++row) {
+      const boost::dynamic_bitset<size_t> &cm = *rowIt;
       // Look for a pivot row in this column
       size_t col = 0U;
       for (; col < smoothPrimes.size(); ++col) {
-        if ((*rowIt)[col]) {
+        if (cm[col]) {
           // Mark this column as having a pivot.
           result.marks[col] = true;
           break;
@@ -914,7 +915,6 @@ struct Factorizer {
 
       if ((col < smoothPrimes.size()) && result.marks[col]) {
         // Pivot found, now eliminate entries in this column
-        const boost::dynamic_bitset<size_t> &cm = *rowIt;
         auto iRowIt = smoothNumberValues.begin();
         const size_t maxLcv = std::min((size_t)CpuCount, rows);
         for (size_t cpu = 0U; cpu < maxLcv; ++cpu) {
