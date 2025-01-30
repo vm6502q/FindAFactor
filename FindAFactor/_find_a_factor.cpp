@@ -880,10 +880,10 @@ struct Factorizer {
     }
     const BigInteger y = sqrt((x * x) % toFactor);
     // Uncomment this to check our math:
-    // if (((x * x) % this->toFactor) != (y * y)) {
+    // if (((x * x) % toFactor) != (y * y)) {
     //   throw "Mistake!";
     // }
-    return gcd(this->toFactor, x - y);
+    return gcd(toFactor, x - y);
   }
 
   // Perform Gaussian elimination on a binary matrix
