@@ -803,7 +803,7 @@ struct Factorizer {
   bool isIncomplete;
   std::vector<size_t> smoothPrimes;
   std::vector<BigInteger> smoothNumberKeys;
-  std::vector<BigInteger> smoothNumberResidues;
+  std::vector<BigInteger> smoothNumberSqrResidues;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
   ForwardFn forwardFn;
   ForwardFn backwardFn;
@@ -885,7 +885,7 @@ struct Factorizer {
 
       std::lock_guard<std::mutex> lock(batchMutex);
       smoothNumberKeys.push_back(x);
-      smoothNumberResidues.push_back(ySqr);
+      smoothNumberSqrResidues.push_back(ySqr);
       smoothNumberValues.push_back(rfv);
       // If we have enough rows for Gaussian elimination already,
       // there's no reason to sieve any further.
@@ -1015,19 +1015,19 @@ struct Factorizer {
     return solutionVec;
   }
 
-BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
-{
-  // x^2 % toFactor = y^2
-  BigInteger x = 1U;
-  BigInteger y = 1U;
-  for (const size_t& idx : solutionVec) {
-    x *= smoothNumberKeys[idx];
-    y *= smoothNumberResidues[idx];
-  }
-  y = mod_sqrt(y, toFactor);
+  BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
+  {
+    // x^2 % toFactor = y^2
+    BigInteger x = 1U;
+    BigInteger y = 1U;
+    for (const size_t& idx : solutionVec) {
+      x *= smoothNumberKeys[idx];
+      y *= smoothNumberSqrResidues[idx];
+    }
+    y = mod_sqrt(y, toFactor);
 
-  return gcd(toFactor, x - y);
-}
+    return gcd(toFactor, x - y);
+  }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
