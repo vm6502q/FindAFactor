@@ -914,16 +914,15 @@ struct Factorizer {
   // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
   std::vector<size_t> solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
   {
-    // Add the chosen row from Gaussian elimination solution
-    std::vector<size_t> solutionRowIds{ ger.solutionColumns[solutionColumnId].second };
-    std::vector<size_t> indices;
-
     // Get the first free row from Gaussian elimination results
     const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
+    // Add the chosen row from Gaussian elimination solution
+    std::vector<size_t> solutionRowIds = { ger.solutionColumns[solutionColumnId].second };
 
     // Find the indices where the free row has true values.
+    std::vector<size_t> indices;
     for (size_t i = 0U; i < freeRow.size(); ++i) {
-      if (freeRow[i]) {
+      if (freeRow.test(i)) {
           indices.push_back(i);
       }
     }
@@ -947,13 +946,13 @@ struct Factorizer {
   BigInteger solveCongruence(const std::vector<size_t>& solutionRowIds)
   {
     // x^2 = y^2 % toFactor
-    BigInteger x = 1U;
+    BigInteger y = 1U;
     for (const size_t& id : solutionRowIds) {
-      x *= smoothNumberKeys[id];
+      y *= smoothNumberKeys[id];
     }
-    const BigInteger y = sqrt((x * x) % toFactor);
+    const BigInteger x = sqrt((y * y) % toFactor);
     // Uncomment this to check our math:
-    // if (((x * x) % toFactor) != (y * y)) {
+    // if ((x * x) != ((y * y) % toFactor)) {
     //   throw std::runtime_error("Gaussian elimination solution reconstruction failed to produce perfect squares!");
     // }
     return gcd(toFactor, x - y);
