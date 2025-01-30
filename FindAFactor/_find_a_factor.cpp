@@ -773,14 +773,9 @@ struct Factorizer {
     for (BigInteger y = backwardFn(toFactorSqrt + 1U + low); isIncomplete && (y < maxLcv); ++y) {
       // Make the candidate NOT a multiple on the wheels.
       const BigInteger z = forwardFn(y);
-      // This actually just goes ahead and FORCES
-      // the number into a "close-by" smooth perfect square.
-      const BigInteger candidate = makeSmooth(z * z);
-      // We want each number to be larger than toFactor.
-      if (candidate < toFactor) {
-        continue;
-      }
-      // The residue (mod N) also needs to be smooth (but not a perfect square).
+      // Make the candidate a perfect square.
+      const BigInteger candidate = (z * z);
+      // The residue (mod N) needs to be smooth (but not a perfect square).
       // The candidate is guaranteed to be between toFactor and its square,
       // so subtracting toFactor is equivalent to % toFactor.
       const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(candidate - toFactor);
@@ -1011,46 +1006,6 @@ struct Factorizer {
     // Depending on row count, a successful result should be nearly guaranteed,
     // but we default to no solution.
     throw std::runtime_error("No solution produced a congruence of squares. (We found and tried " + std::to_string(result.solutionColumns.size()) + ", but even 1 should maybe be enough.)");
-  }
-
-  // Produce a smooth number with its factorization vector.
-  BigInteger makeSmooth(BigInteger num) {
-    BigInteger n = num;
-    while (true) {
-      // Proceed in steps of the GCD with the smooth prime wheel radius.
-      BigInteger factor = gcd(n, diffWheelRadius);
-      if (factor == 1U) {
-        break;
-      }
-      n /= factor;
-      // Remove smooth primes from factor.
-      // (The GCD is necessarily smooth.)
-      for (size_t pi = afterGearPrimeId; pi < smoothPrimes.size(); ++pi) {
-        const size_t& p = smoothPrimes[pi];
-        if (factor % p) {
-          continue;
-        }
-        factor /= p;
-        if (factor == 1U) {
-          // The step is fully factored.
-          break;
-        }
-      }
-      if (n == 1U) {
-        // The number is fully factored and smooth.
-        break;
-      }
-    }
-    if (n != 1U) {
-      // The number was not fully factored, because it is not smooth.
-      // Make it smooth, by dividing out the remaining non-smooth factors!
-      num /= n;
-      // This probably won't work, for the sieve, but notice that it is
-      // basically no more expensive, at this point, to try this.
-    }
-
-    // This number is necessarily smooth.
-    return num;
   }
 
   // Compute the prime factorization modulo 2
