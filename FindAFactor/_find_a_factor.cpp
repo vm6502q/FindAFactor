@@ -809,6 +809,8 @@ struct Factorizer {
         const BigInteger x = sqrt(xSqr);
         const BigInteger factor = gcd(toFactor, y - x);
         if ((factor > 1U) && (factor < toFactor)) {
+          isIncomplete = false;
+
           return factor;
         }
       }
