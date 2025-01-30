@@ -880,7 +880,7 @@ struct Factorizer {
     const BigInteger y = sqrt((x * x) % toFactor);
     // Uncomment this to check our math:
     // if (((x * x) % toFactor) != (y * y)) {
-    //   throw "Mistake!";
+    //   throw std::runtime_error("Gaussian elimination solution reconstruction failed to produce perfect squares!");
     // }
     return gcd(toFactor, x - y);
   }
@@ -889,9 +889,8 @@ struct Factorizer {
   GaussianEliminationResult gaussianElimination() {
     const size_t rows = smoothNumberValues.size();
     GaussianEliminationResult result(smoothPrimes.size());
-    auto rowIt = smoothNumberValues.begin();
     for (size_t row = 0U; row < rows; ++row) {
-      const boost::dynamic_bitset<size_t> &cm = *rowIt;
+      const boost::dynamic_bitset<size_t> &cm = smoothNumberValues[row];
       // Look for a pivot row in this column
       size_t col = 0U;
       for (; col < smoothPrimes.size(); ++col) {
@@ -904,63 +903,39 @@ struct Factorizer {
 
       if ((col < smoothPrimes.size()) && result.marks[col]) {
         // Pivot found, now eliminate entries in this column
-        auto iRowIt = smoothNumberValues.begin();
         const size_t maxLcv = std::min((size_t)CpuCount, rows);
         for (size_t cpu = 0U; cpu < maxLcv; ++cpu) {
-          dispatch.dispatch([cpu, &col, &row, &rows, &cm, iRowIt]() -> bool {
+          dispatch.dispatch([this, cpu, &col, &row, &rows, &cm]() -> bool {
             // Notice that each thread updates rows with space increments of cpuCount,
             // based on the same unchanged outer-loop row, and this covers the inner-loop set.
             // We're covering every row except for the one corresponding to "col."
             // We break this into two loops to avoid an inner conditional to check whether row == col.
-            auto mrIt = iRowIt;
             size_t irow = cpu;
-            for (; irow < row; irow += CpuCount) {
-              boost::dynamic_bitset<size_t> &rm = *mrIt;
+            for (; (irow < row) && (irow < rows); irow += CpuCount) {
+              boost::dynamic_bitset<size_t> &rm = this->smoothNumberValues[irow];
               if (rm[col]) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
               }
-              if ((irow + CpuCount) >= rows) {
-                // This is the completion condition.
-                return false;
-              }
-              // Every row advance is staggered according to cpuCount.
-              std::advance(mrIt, CpuCount);
             }
             if (irow == row) {
-              if ((irow + CpuCount) >= rows) {
-                // This is the completion condition.
-                return false;
-              }
               irow += CpuCount;
-              std::advance(mrIt, CpuCount);
             }
-            for (; ; irow += CpuCount) {
-              boost::dynamic_bitset<size_t> &rm = *mrIt;
+            for (; irow < rows; irow += CpuCount) {
+              boost::dynamic_bitset<size_t> &rm = this->smoothNumberValues[irow];
               if (rm[col]) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
               }
-              if ((irow + CpuCount) >= rows) {
-                // This is the completion condition.
-                return false;
-              }
-              // Every row advance is staggered according to cpuCount.
-              std::advance(mrIt, CpuCount);
             }
             return false;
           });
-          // Next inner-loop row (all at once by dispatch).
-          ++iRowIt;
         }
         // All dispatched work must complete.
         dispatch.finish();
       }
-
-      // Next outer-loop row
-      ++rowIt;
     }
 
     // Step 2: Identify free rows
