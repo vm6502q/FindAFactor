@@ -57,7 +57,7 @@ Wheel wheelByPrimeCardinal(int i) {
 }
 
 // See https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
-BigInteger ipow(BigInteger base, unsigned exp) {
+BigInteger ipow(BigInteger base, size_t exp) {
   BigInteger result = 1U;
   for (;;) {
     if (exp & 1U) {
@@ -694,6 +694,30 @@ size_t GetGearIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
   return wheelIncrement;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                              WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Function to compute the Legendre symbol (N / p)
+size_t legendreSymbol(BigInteger N, size_t p) {
+  return (size_t)(ipow(N, (p - 1U) >> 1U) % p); // Euler's Criterion: N^((p-1)/2) mod p
+}
+
+// Function to generate factor base
+std::vector<size_t> selectFactorBase(const BigInteger N, const std::vector<size_t>& primes) {
+  std::vector<size_t> factorBase;
+  for (size_t p : primes) {
+    if (legendreSymbol(N, p) == 1U) {  // Select only primes where (N/p) = 1
+      factorBase.push_back(p);
+    }
+  }
+  return factorBase;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                              WRITTEN WITH HELP FROM ELARA (GPT) ABOVE                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct Factorizer {
   std::mutex batchMutex;
   BigInteger toFactorSqr;
@@ -1124,14 +1148,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // Primes are only present in range above wheel factorization level
   std::vector<size_t> smoothPrimes;
   if (isFactorFinder) {
-    for (size_t primeId = 0U; primeId < primes.size(); ++primeId) {
-      const size_t p = primes[primeId];
-      const size_t residue = (size_t)(toFactor % p);
-      const size_t sr = _sqrt(residue);
-      if ((sr * sr) == residue) {
-        smoothPrimes.push_back(p);
-      }
-    }
+    smoothPrimes = selectFactorBase(toFactor, primes);
     if (smoothPrimes.empty()) {
       throw std::runtime_error("No smooth primes found under bound. (The formula smoothness bound calculates to " + std::to_string(primeCeiling) + ".) Increase the smoothness bound multiplier, unless this is in range of check_small_factors=True.");
     }
