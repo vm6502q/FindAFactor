@@ -948,7 +948,7 @@ struct Factorizer {
 
   BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
   {
-    // x^2 = y^2 % toFactor
+    // x^2 % toFactor = y^2
     BigInteger x = 1U;
     BigInteger y = 1U;
     for (const size_t& idx : solutionVec) {
