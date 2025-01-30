@@ -864,13 +864,13 @@ struct Factorizer {
     }
 
     // Find dependent rows from the original matrix
-    for (size_t r = 0U; r < smoothPrimes.size(); ++r) {
-      if (!ger.marks[r]) {
+    for (size_t c = 0U; c < smoothPrimes.size(); ++c) {
+      if (!ger.marks[c]) {
         continue;
       }
       for (const size_t& i : indices) {
-        if (smoothNumberValues[i][r]) {
-          solutionIds.push_back(i);
+        if (smoothNumberValues[i][c]) {
+          solutionIds.push_back(c);
           break;
         }
       }
