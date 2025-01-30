@@ -837,54 +837,6 @@ struct Factorizer {
     }
   };
 
-  // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
-  std::vector<size_t> solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
-  {
-    // Add the chosen row from Gaussian elimination solution
-    std::vector<size_t> solutionRowIds{ ger.solutionColumns[solutionColumnId].second };
-    std::vector<size_t> indices;
-
-    // Get the first free row from Gaussian elimination results
-    const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
-
-    // Find the indices where the free row has true values.
-    for (size_t i = 0U; i < freeRow.size(); ++i) {
-      if (freeRow[i]) {
-          indices.push_back(i);
-      }
-    }
-
-    // Find dependent rows from the original matrix
-    for (size_t c = 0U; c < smoothPrimes.size(); ++c) {
-      if (!ger.marks[c]) {
-        continue;
-      }
-      for (const size_t& i : indices) {
-        if (smoothNumberValues[i][c]) {
-          solutionRowIds.push_back(c);
-          break;
-        }
-      }
-    }
-
-    return solutionRowIds;
-  }
-
-  BigInteger solveCongruence(const std::vector<size_t>& solutionRowIds)
-  {
-    // x^2 = y^2 % toFactor
-    BigInteger x = 1U;
-    for (const size_t& id : solutionRowIds) {
-      x *= smoothNumberKeys[id];
-    }
-    const BigInteger y = sqrt((x * x) % toFactor);
-    // Uncomment this to check our math:
-    // if (((x * x) % toFactor) != (y * y)) {
-    //   throw std::runtime_error("Gaussian elimination solution reconstruction failed to produce perfect squares!");
-    // }
-    return gcd(toFactor, x - y);
-  }
-
   // Perform Gaussian elimination on a binary matrix
   GaussianEliminationResult gaussianElimination() {
     const size_t rows = smoothNumberValues.size();
@@ -957,6 +909,54 @@ struct Factorizer {
     }
 
     return result;
+  }
+
+  // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
+  std::vector<size_t> solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
+  {
+    // Add the chosen row from Gaussian elimination solution
+    std::vector<size_t> solutionRowIds{ ger.solutionColumns[solutionColumnId].second };
+    std::vector<size_t> indices;
+
+    // Get the first free row from Gaussian elimination results
+    const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
+
+    // Find the indices where the free row has true values.
+    for (size_t i = 0U; i < freeRow.size(); ++i) {
+      if (freeRow[i]) {
+          indices.push_back(i);
+      }
+    }
+
+    // Find dependent rows from the original matrix
+    for (size_t c = 0U; c < smoothPrimes.size(); ++c) {
+      if (!ger.marks[c]) {
+        continue;
+      }
+      for (const size_t& i : indices) {
+        if (smoothNumberValues[i][c]) {
+          solutionRowIds.push_back(c);
+          break;
+        }
+      }
+    }
+
+    return solutionRowIds;
+  }
+
+  BigInteger solveCongruence(const std::vector<size_t>& solutionRowIds)
+  {
+    // x^2 = y^2 % toFactor
+    BigInteger x = 1U;
+    for (const size_t& id : solutionRowIds) {
+      x *= smoothNumberKeys[id];
+    }
+    const BigInteger y = sqrt((x * x) % toFactor);
+    // Uncomment this to check our math:
+    // if (((x * x) % toFactor) != (y * y)) {
+    //   throw std::runtime_error("Gaussian elimination solution reconstruction failed to produce perfect squares!");
+    // }
+    return gcd(toFactor, x - y);
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
