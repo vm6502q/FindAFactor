@@ -789,13 +789,13 @@ struct Factorizer {
     const BigInteger maxLcv = backwardFn(toFactorSqrt + high);
     for (BigInteger lcv = backwardFn(toFactorSqrt + 1U + low); isIncomplete && (lcv < maxLcv); ++lcv) {
       // Make the candidate NOT a multiple on the wheels.
-      const BigInteger x = forwardFn(lcv);
+      const BigInteger y = forwardFn(lcv);
       // Make the candidate a perfect square.
       // The residue (mod N) needs to be smooth (but not a perfect square).
       // The candidate is guaranteed to be between toFactor and its square,
       // so subtracting toFactor is equivalent to % toFactor.
-      const BigInteger residue = (x * x) - toFactor;
-      const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(residue);
+      const BigInteger xSqr = (y * y) - toFactor;
+      const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(xSqr);
       if (rfv.empty()) {
         // The number is useless to us.
         continue;
@@ -806,15 +806,15 @@ struct Factorizer {
       // we got lucky, and we might be done already.
       if (rfv.none()) {
         // x^2 = y^2 % toFactor
-        const BigInteger y = sqrt(residue);
-        const BigInteger factor = gcd(toFactor, x - y);
+        const BigInteger x = sqrt(xSqr);
+        const BigInteger factor = gcd(toFactor, y - x);
         if ((factor > 1U) && (factor < toFactor)) {
           return factor;
         }
       }
 
       std::lock_guard<std::mutex> lock(batchMutex);
-      smoothNumberKeys.push_back(x);
+      smoothNumberKeys.push_back(y);
       smoothNumberValues.push_back(rfv);
       // If we have enough rows for Gaussian elimination already,
       // there's no reason to sieve any further.
@@ -913,12 +913,12 @@ struct Factorizer {
   }
 
   // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
-  std::vector<size_t> solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
+  BigInteger solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
   {
     // Get the first free row from Gaussian elimination results
     const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
     // Add the chosen row from Gaussian elimination solution
-    std::vector<size_t> solutionRowIds = { ger.solutionColumns[solutionColumnId].second };
+    BigInteger solution = smoothNumberKeys[ger.solutionColumns[solutionColumnId].second];
 
     // Find the indices where the free row has true values.
     std::vector<size_t> indices;
@@ -935,28 +935,26 @@ struct Factorizer {
       }
       for (const size_t& i : indices) {
         if (smoothNumberValues[i][c]) {
-          solutionRowIds.push_back(c);
+          solution *= smoothNumberKeys[c];
           break;
         }
       }
     }
 
-    return solutionRowIds;
+    return solution;
   }
 
-  BigInteger solveCongruence(const std::vector<size_t>& solutionRowIds)
+  BigInteger solveCongruence(const BigInteger& y)
   {
     // x^2 = y^2 % toFactor
-    BigInteger y = 1U;
-    for (const size_t& id : solutionRowIds) {
-      y *= smoothNumberKeys[id];
-    }
     const BigInteger x = sqrt((y * y) % toFactor);
+    // std::cout << "x = " << x << std::endl;
+    // std::cout << "y = " << y << std::endl;
     // Uncomment this to check our math:
     // if ((x * x) != ((y * y) % toFactor)) {
     //   throw std::runtime_error("Gaussian elimination solution reconstruction failed to produce perfect squares!");
     // }
-    return gcd(toFactor, x - y);
+    return gcd(toFactor, y - x);
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
