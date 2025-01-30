@@ -1124,7 +1124,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   }
 
   // This level default (scaling) was suggested by Elara (OpenAI GPT).
-  const double N = sqrtN.convert_to<double>();
+  const double N = toFactor.convert_to<double>();
   const double logN = log(N);
   const BigInteger primeCeilingBigInt = (BigInteger)(smoothnessBoundMultiplier * pow(exp(0.5 * std::sqrt(logN * log(logN))), std::sqrt(2.0) / 4) + 0.5);
   const size_t primeCeiling = (size_t)primeCeilingBigInt;
@@ -1217,7 +1217,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   futures.reserve(CpuCount);
 
   if (isFactorFinder) {
-    const BigInteger sievingNodeRange = (BigInteger)(sqrtN.convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5);
+    const BigInteger sievingNodeRange = (BigInteger)(std::sqrt(toFactor.convert_to<double>()) * sievingBoundMultiplier / nodeCount + 0.5);
     const BigInteger sievingThreadRange = sievingNodeRange / CpuCount;
     const BigInteger nodeOffset = nodeId * sievingNodeRange;
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
