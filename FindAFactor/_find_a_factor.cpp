@@ -982,7 +982,7 @@ struct Factorizer {
 
     // Depending on row count, a successful result should be nearly guaranteed,
     // but we default to no solution.
-    throw std::runtime_error("No solution produced a congruence of squares. (We found and tried " + std::to_string(result.solutionColumns.size()) + ", but even 1 should maybe be enough.)");
+    throw std::runtime_error("No solution produced a congruence of squares. (We found and tried " + std::to_string(result.solutionColumns.size()) + ", but even 1 should be enough.)");
   }
 
   // Compute the prime factorization modulo 2
