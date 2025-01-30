@@ -734,7 +734,7 @@ struct Factorizer {
   size_t rowLimit;
   bool isIncomplete;
   std::vector<size_t> smoothPrimes;
-  std::set<BigInteger> smoothNumberSet;
+  std::vector<BigInteger> residueKeys;
   std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
   ForwardFn forwardFn;
@@ -798,11 +798,11 @@ struct Factorizer {
       // Make the candidate NOT a multiple on the wheels.
       const BigInteger z = forwardFn(y);
       // Make the candidate a perfect square.
-      const BigInteger candidate = (z * z);
       // The residue (mod N) needs to be smooth (but not a perfect square).
       // The candidate is guaranteed to be between toFactor and its square,
       // so subtracting toFactor is equivalent to % toFactor.
-      const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(candidate - toFactor);
+      const BigInteger residue = (z * z) - toFactor;
+      const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(residue);
       if (rfv.empty()) {
         // The number is useless to us.
         continue;
@@ -812,27 +812,23 @@ struct Factorizer {
       // If the candidate is already a perfect square,
       // we got lucky, and we might be done already.
       if (rfv.none()) {
-        const BigInteger factor = solveCongruence(candidate);
-        if ((factor > 1U) && (factor < toFactor)) {
-          // Success
-          isIncomplete = false;
-
-          return candidate;
+        // x^2 = y^2 % toFactor
+        const BigInteger x = z;
+        const BigInteger y = sqrt(residue);
+        const BigInteger factor = gcd(this->toFactor, x - y);
+        if ((factor > 1U) && (factor < this->toFactor)) {
+          return factor;
         }
       }
 
       std::lock_guard<std::mutex> lock(batchMutex);
-      // Insert the number if it isn't found (in a binary search) of the accepted set.
-      if (smoothNumberSet.find(candidate) == smoothNumberSet.end()) {
-        smoothNumberSet.insert(candidate);
-        smoothNumberKeys.push_back(candidate);
-        smoothNumberValues.push_back(rfv);
-        // If we have enough rows for Gaussian elimination already,
-        // so there's no reason to sieve any further.
-        if (smoothNumberKeys.size() > rowLimit) {
-          isIncomplete = false;
-          smoothNumberSet.clear();
-        }
+      smoothNumberKeys.push_back(z);
+      residueKeys.push_back(residue);
+      smoothNumberValues.push_back(rfv);
+      // If we have enough rows for Gaussian elimination already,
+      // there's no reason to sieve any further.
+      if (smoothNumberKeys.size() > rowLimit) {
+        isIncomplete = false;
       }
     }
 
@@ -851,10 +847,10 @@ struct Factorizer {
   };
 
   // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
-  BigInteger solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
+  std::vector<size_t> solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
   {
     // Add the chosen row from Gaussian elimination solution
-    BigInteger solution = smoothNumberKeys[ger.solutionColumns[solutionColumnId].second];
+    std::vector<size_t> solutionIds{ ger.solutionColumns[solutionColumnId].second };
     std::vector<size_t> indices;
 
     // Get the first free row from Gaussian elimination results
@@ -874,33 +870,30 @@ struct Factorizer {
       }
       for (const size_t& i : indices) {
         if (smoothNumberValues[i][r]) {
-          solution *= smoothNumberKeys[i];
+          solutionIds.push_back(i);
           break;
         }
       }
     }
 
-    return solution;
+    return solutionIds;
   }
 
-  BigInteger solveCongruence(const BigInteger& ySqr)
+  BigInteger solveCongruence(const std::vector<size_t>& solutionIds)
   {
     // x^2 = y^2 % toFactor
-    const BigInteger x = sqrt(ySqr % this->toFactor);
+    BigInteger x = 1U;
+    BigInteger ySqr = 1U;
+    for (const size_t& id : solutionIds) {
+      x *= smoothNumberKeys[id];
+      ySqr *= residueKeys[id];
+    }
     const BigInteger y = sqrt(ySqr);
     // Uncomment this to check our math:
-    // if ((x * x) != (ySqr % this->toFactor)) {
+    // if ((x * x) != ((y * y) % this->toFactor)) {
     //   throw "Mistake!";
     // }
-
-    // Check congruence of squares
-    BigInteger factor = gcd(this->toFactor, x + y);
-    if ((factor > 1U) && (factor < this->toFactor)) {
-      return factor;
-    }
-
-    // Try x - y as well
-    factor = gcd(this->toFactor, x - y);
+    const BigInteger factor = gcd(this->toFactor, x - y);
     if ((factor > 1U) && (factor < this->toFactor)) {
       return factor;
     }
