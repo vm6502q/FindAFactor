@@ -937,7 +937,7 @@ struct Factorizer {
       }
       for (const size_t& i : indices) {
         if (smoothNumberValues[i][c]) {
-          solutionVec.push_back(smoothPrimes[c]);
+          solutionVec.push_back(c);
           break;
         }
       }
