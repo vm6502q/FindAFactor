@@ -696,22 +696,6 @@ size_t GetGearIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
 //                              WRITTEN WITH HELP FROM ELARA (GPT) BELOW                                  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Function to compute the Legendre symbol (N / p)
-size_t legendreSymbol(BigInteger N, size_t p) {
-  return (size_t)(ipow(N, (p - 1U) >> 1U) % p); // Euler's Criterion: N^((p-1)/2) mod p
-}
-
-// Function to generate factor base
-std::vector<size_t> selectFactorBase(const BigInteger N, const std::vector<size_t>& primes) {
-  std::vector<size_t> factorBase;
-  for (size_t p : primes) {
-    if (legendreSymbol(N, p) == 1U) {  // Select only primes where (N/p) = 1
-      factorBase.push_back(p);
-    }
-  }
-  return factorBase;
-}
-
 // This was taken basically whole-cloth from Elara, with thanks.
 // (Specifically modular exponentiation, rather than pow() or ipow())
 BigInteger mod_exp(BigInteger base, BigInteger exp, BigInteger mod) {
@@ -779,6 +763,24 @@ BigInteger mod_sqrt(BigInteger a, BigInteger p) {
     }
 
     return r;
+}
+
+// Function to compute the Legendre symbol (N / p)
+size_t legendreSymbol(BigInteger N, size_t p) {
+  // Euler's Criterion: N^((p-1)/2) mod p
+  return (size_t)(mod_exp(N, (p - 1U) >> 1U, p));
+}
+
+// Function to generate factor base
+std::vector<size_t> selectFactorBase(const BigInteger N, const std::vector<size_t>& primes) {
+  std::vector<size_t> factorBase;
+  for (size_t p : primes) {
+    // Select only primes where (N/p) = 1
+    if (legendreSymbol(N, p) == 1U) {
+      factorBase.push_back(p);
+    }
+  }
+  return factorBase;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
