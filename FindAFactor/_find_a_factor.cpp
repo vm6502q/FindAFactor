@@ -787,14 +787,14 @@ struct Factorizer {
   // Sieving function
   BigInteger sievePolynomials(const BigInteger& low, const BigInteger& high) {
     const BigInteger maxLcv = backwardFn(toFactorSqrt + high);
-    for (BigInteger y = backwardFn(toFactorSqrt + 1U + low); isIncomplete && (y < maxLcv); ++y) {
+    for (BigInteger lcv = backwardFn(toFactorSqrt + 1U + low); isIncomplete && (lcv < maxLcv); ++lcv) {
       // Make the candidate NOT a multiple on the wheels.
-      const BigInteger z = forwardFn(y);
+      const BigInteger x = forwardFn(lcv);
       // Make the candidate a perfect square.
       // The residue (mod N) needs to be smooth (but not a perfect square).
       // The candidate is guaranteed to be between toFactor and its square,
       // so subtracting toFactor is equivalent to % toFactor.
-      const BigInteger residue = (z * z) - toFactor;
+      const BigInteger residue = (x * x) - toFactor;
       const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(residue);
       if (rfv.empty()) {
         // The number is useless to us.
@@ -806,16 +806,15 @@ struct Factorizer {
       // we got lucky, and we might be done already.
       if (rfv.none()) {
         // x^2 = y^2 % toFactor
-        const BigInteger x = z;
         const BigInteger y = sqrt(residue);
-        const BigInteger factor = gcd(this->toFactor, x - y);
-        if ((factor > 1U) && (factor < this->toFactor)) {
+        const BigInteger factor = gcd(toFactor, x - y);
+        if ((factor > 1U) && (factor < toFactor)) {
           return factor;
         }
       }
 
       std::lock_guard<std::mutex> lock(batchMutex);
-      smoothNumberKeys.push_back(z);
+      smoothNumberKeys.push_back(x);
       smoothNumberValues.push_back(rfv);
       // If we have enough rows for Gaussian elimination already,
       // there's no reason to sieve any further.
@@ -1071,6 +1070,10 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     gearFactorizationLevel = wheelFactorizationLevel;
     std::cout << "Warning: Gear factorization level must be at least as high as wheel level. (Parameter will be ignored and default to wheel level.)" << std::endl;
   }
+  if (sievingBoundMultiplier > 1.0) {
+    sievingBoundMultiplier = 1.0;
+    std::cout << "Warning: Sieving bound multiplier was set higher than 1.0. A setting of 1.0 indicates to use the full sieving range. (Parameter will be ignored and default to 1.0.)";
+  }
 
   // Convert number to factor from string.
   const BigInteger toFactor(toFactorStr);
@@ -1167,7 +1170,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   futures.reserve(CpuCount);
 
   if (isFactorFinder) {
-    const BigInteger sievingNodeRange = (BigInteger)(std::sqrt(toFactor.convert_to<double>()) * sievingBoundMultiplier / nodeCount + 0.5);
+    const BigInteger sievingNodeRange = (BigInteger)((sqrt(toFactor) + 1U).convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5);
     const BigInteger sievingThreadRange = sievingNodeRange / CpuCount;
     const BigInteger nodeOffset = nodeId * sievingNodeRange;
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
