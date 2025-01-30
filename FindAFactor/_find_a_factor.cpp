@@ -802,22 +802,19 @@ struct Factorizer {
         }
       }
 
-      // For lock_guard scope
-      if (true) {
-        std::lock_guard<std::mutex> lock(batchMutex);
-        // Insert the number if it isn't found (in a binary search) of the accepted set.
-        if (smoothNumberSet.find(candidate) == smoothNumberSet.end()) {
-          smoothNumberSet.insert(candidate);
-          smoothNumberKeys.push_back(candidate);
-          smoothNumberValues.push_back(rfv);
-          // If we have enough rows for Gaussian elimination already,
-          // so there's no reason to sieve any further.
-          if (smoothNumberKeys.size() > rowLimit) {
-            isIncomplete = false;
-            smoothNumberSet.clear();
+      std::lock_guard<std::mutex> lock(batchMutex);
+      // Insert the number if it isn't found (in a binary search) of the accepted set.
+      if (smoothNumberSet.find(candidate) == smoothNumberSet.end()) {
+        smoothNumberSet.insert(candidate);
+        smoothNumberKeys.push_back(candidate);
+        smoothNumberValues.push_back(rfv);
+        // If we have enough rows for Gaussian elimination already,
+        // so there's no reason to sieve any further.
+        if (smoothNumberKeys.size() > rowLimit) {
+          isIncomplete = false;
+          smoothNumberSet.clear();
 
-            return 1U;
-          }
+          return 1U;
         }
       }
     }
