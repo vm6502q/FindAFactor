@@ -984,7 +984,8 @@ struct Factorizer {
       x *= kk.first;
       y *= kk.second;
     }
-    y = sqrt(y);
+    // The y terms multiplied should form a perfect square, % toFactor.
+    y = sqrt(y % toFactor);
 
     return gcd(toFactor, x - y);
   }
