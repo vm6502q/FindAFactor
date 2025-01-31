@@ -755,6 +755,8 @@ struct Factorizer {
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
+  const size_t sieveBatchSize = 256U;
+
   Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, const BigInteger& bn,
              const std::vector<size_t> &sp, ForwardFn ffn, ForwardFn bfn)
     : toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
@@ -780,14 +782,16 @@ struct Factorizer {
     return ((batchNumber & 1U) ? batchTotal - halfIndex : halfIndex);
   }
 
-  BigInteger getNextSieveItem() {
+  BigInteger getNextSieveBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
 
     if (batchNumber >= batchRange) {
       isIncomplete = false;
     }
 
-    return batchOffset + (++batchNumber) + backwardToFactorSqrt;
+    batchNumber += sieveBatchSize;
+
+    return batchOffset + batchNumber + backwardToFactorSqrt;
   }
 
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
@@ -814,41 +818,43 @@ struct Factorizer {
 
   // Sieving function
   BigInteger sievePolynomials() {
-    for (BigInteger lcv = getNextSieveItem(); isIncomplete; lcv = getNextSieveItem()) {
-      // Make the candidate NOT a multiple on the wheels.
-      const BigInteger x = forwardFn(lcv);
-      // Make the candidate a perfect square.
-      // The residue (mod N) needs to be smooth (but not a perfect square).
-      // The candidate is guaranteed to be between toFactor and its square,
-      // so subtracting toFactor is equivalent to % toFactor.
-      const BigInteger ySqr = (x * x) - toFactor;
-      const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(ySqr);
-      if (rfv.empty()) {
-        // The number is useless to us.
-        continue;
-      }
-      // We have a successful candidate.
-
-      // If the candidate is already a perfect square,
-      // we got lucky, and we might be done already.
-      if (rfv.none()) {
-        // x^2 % toFactor = y^2
-        const BigInteger y = sqrt(ySqr);
-        const BigInteger factor = gcd(toFactor, x - y);
-        if ((factor > 1U) && (factor < toFactor)) {
-          isIncomplete = false;
-
-          return factor;
+    for (BigInteger batchStart = getNextSieveBatch(); isIncomplete; batchStart = getNextSieveBatch()) {
+      for (size_t batchItem = 0U; batchItem < sieveBatchSize; ++batchItem) {
+        // Make the candidate NOT a multiple on the wheels.
+        const BigInteger x = forwardFn(batchStart + batchItem + 1U);
+        // Make the candidate a perfect square.
+        // The residue (mod N) needs to be smooth (but not a perfect square).
+        // The candidate is guaranteed to be between toFactor and its square,
+        // so subtracting toFactor is equivalent to % toFactor.
+        const BigInteger ySqr = (x * x) - toFactor;
+        const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(ySqr);
+        if (rfv.empty()) {
+          // The number is useless to us.
+          continue;
         }
-      }
+        // We have a successful candidate.
 
-      std::lock_guard<std::mutex> lock(batchMutex);
-      smoothNumberKeys.push_back(x);
-      smoothNumberValues.push_back(rfv);
-      // If we have enough rows for Gaussian elimination already,
-      // there's no reason to sieve any further.
-      if (smoothNumberKeys.size() > rowLimit) {
-        isIncomplete = false;
+        // If the candidate is already a perfect square,
+        // we got lucky, and we might be done already.
+        if (rfv.none()) {
+          // x^2 % toFactor = y^2
+          const BigInteger y = sqrt(ySqr);
+          const BigInteger factor = gcd(toFactor, x - y);
+          if ((factor > 1U) && (factor < toFactor)) {
+            isIncomplete = false;
+
+            return factor;
+          }
+        }
+
+        std::lock_guard<std::mutex> lock(batchMutex);
+        smoothNumberKeys.push_back(x);
+        smoothNumberValues.push_back(rfv);
+        // If we have enough rows for Gaussian elimination already,
+        // there's no reason to sieve any further.
+        if (smoothNumberKeys.size() > rowLimit) {
+          isIncomplete = false;
+        }
       }
     }
 
