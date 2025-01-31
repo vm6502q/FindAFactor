@@ -955,6 +955,7 @@ struct Factorizer {
         if (smoothNumberValues[i][c]) {
           // Grab the first row index and break.
           // TODO: (So this needs to be sorted in a specific row order, doesn't it?)
+          // (For tomorrow: just sort smooth number "keys" and rearrange parity "values" correspondingly.)
           solutionVec.push_back(c);
           break;
         }
@@ -987,6 +988,11 @@ struct Factorizer {
     // Gaussian elimination is used to create a perfect square of the residues.
     if (smoothNumberKeys.empty()) {
         throw std::runtime_error("No smooth numbers found. Sieve more, or increase smoothness bound to reduce selectiveness. (The sieving bound multiplier is equivalent to that many times the square root of the number to factor, for calculated numerical range above an offset of the square root of the number to factor.)");
+    }
+
+    // This came in any order from the parallel sieve, from different regions.
+    for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
+
     }
 
     GaussianEliminationResult result = gaussianElimination();
