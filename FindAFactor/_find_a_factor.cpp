@@ -739,6 +739,7 @@ struct Factorizer {
   BigInteger toFactorSqr;
   BigInteger toFactor;
   BigInteger toFactorSqrt;
+  BigInteger backwardToFactorSqrt;
   BigInteger batchRange;
   BigInteger batchNumber;
   BigInteger batchOffset;
@@ -749,16 +750,17 @@ struct Factorizer {
   size_t rowLimit;
   bool isIncomplete;
   std::vector<size_t> smoothPrimes;
-  std::vector<std::pair<BigInteger, BigInteger>> smoothNumberKeys;
+  std::vector<BigInteger> smoothNumberKeys;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
-  Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, size_t bn,
+  Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, const BigInteger& bn,
              const std::vector<size_t> &sp, ForwardFn ffn, ForwardFn bfn)
     : toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     smoothWheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), smoothPrimes(sp), forwardFn(ffn), backwardFn(bfn)
   {
+    backwardToFactorSqrt = backwardFn(toFactorSqrt);
     smoothNumberKeys.reserve(rowLimit);
     smoothNumberValues.reserve(rowLimit);
     for (const size_t p : smoothPrimes) {
@@ -776,6 +778,16 @@ struct Factorizer {
     const BigInteger halfIndex = batchOffset + (batchNumber++ >> 1U) + 1U;
 
     return ((batchNumber & 1U) ? batchTotal - halfIndex : halfIndex);
+  }
+
+  BigInteger getNextSieveItem() {
+    std::lock_guard<std::mutex> lock(batchMutex);
+
+    if (batchNumber >= batchRange) {
+      isIncomplete = false;
+    }
+
+    return batchOffset + (++batchNumber) + backwardToFactorSqrt;
   }
 
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
@@ -801,9 +813,8 @@ struct Factorizer {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Sieving function
-  BigInteger sievePolynomials(const BigInteger& low, const BigInteger& high) {
-    const BigInteger maxLcv = backwardFn(toFactorSqrt + high);
-    for (BigInteger lcv = backwardFn(toFactorSqrt + 1U + low); isIncomplete && (lcv < maxLcv); ++lcv) {
+  BigInteger sievePolynomials() {
+    for (BigInteger lcv = getNextSieveItem(); isIncomplete; lcv = getNextSieveItem()) {
       // Make the candidate NOT a multiple on the wheels.
       const BigInteger x = forwardFn(lcv);
       // Make the candidate a perfect square.
@@ -832,7 +843,7 @@ struct Factorizer {
       }
 
       std::lock_guard<std::mutex> lock(batchMutex);
-      smoothNumberKeys.emplace_back(x, ySqr);
+      smoothNumberKeys.push_back(x);
       smoothNumberValues.push_back(rfv);
       // If we have enough rows for Gaussian elimination already,
       // there's no reason to sieve any further.
@@ -844,21 +855,40 @@ struct Factorizer {
     return 1U;
   }
 
-  struct GaussianEliminationResult {
-    std::vector<bool> marks;
-    std::vector<std::pair<boost::dynamic_bitset<size_t>, size_t>> solutionColumns;
+  std::vector<std::vector<size_t>> extractSolutionRows(const boost::dynamic_bitset<size_t>& marks) {
+    std::vector<std::vector<size_t>> solutions;
 
-    GaussianEliminationResult(const size_t& sz)
-      : marks(sz, false)
-    {
-      // Intentionally left blank
+    for (size_t col = 0U; col < marks.size(); ++col) {
+      if (marks[col]) {
+        // Skip pivot columns
+        continue;
+      }
+
+      std::vector<size_t> selectedRows;
+      boost::dynamic_bitset<size_t> solutionRow(marks.size(), 0U);
+
+      // Collect rows that have a 1 in this free column
+      for (size_t row = 0U; row < smoothNumberValues.size(); ++row) {
+        if (smoothNumberValues[row][col]) {
+          selectedRows.push_back(row);
+          solutionRow ^= smoothNumberValues[row]; // XOR to construct dependency
+        }
+      }
+
+      // Ensure the dependency is valid (all exponents must sum to even parity)
+      if (solutionRow.none()) {
+          solutions.push_back(selectedRows);
+      }
     }
-  };
+
+    return solutions;
+  }
+
 
   // Perform Gaussian elimination on a binary matrix
-  GaussianEliminationResult gaussianElimination() {
+  std::vector<std::vector<size_t>> gaussianElimination() {
     const size_t rows = smoothNumberValues.size();
-    GaussianEliminationResult result(smoothPrimes.size());
+    boost::dynamic_bitset<size_t> marks(smoothPrimes.size(), 0U);
     for (size_t col = 0U; col < smoothPrimes.size(); ++col) {
       // Look for a pivot row in this column
       size_t row = col;
@@ -871,13 +901,13 @@ struct Factorizer {
           }
 
           // Mark this column as having a pivot.
-          result.marks[col] = true;
+          marks[col] = true;
           break;
         }
       }
 
-      if ((col < smoothPrimes.size()) && result.marks[col]) {
-        // Row was swapped into column position.
+      if ((col < smoothPrimes.size()) && marks[col]) {
+        // Row might have been swapped.
         const boost::dynamic_bitset<size_t> &cm = smoothNumberValues[col];
         // Pivot found, now eliminate entries in this column
         const size_t maxLcv = std::min((size_t)CpuCount, rows);
@@ -916,73 +946,31 @@ struct Factorizer {
       }
     }
 
-    // Step 2: Identify free rows
-    for (size_t i = 0U; i < smoothPrimes.size(); ++i) {
-      if (result.marks[i]) {
-        continue;
-      }
-      boost::dynamic_bitset<size_t> r(rows);
-      for (size_t j = 0U; j < rows; ++j) {
-        r[j] = smoothNumberValues[j][i];
-      }
-      // We find a free column, so the corresponding row
-      // in the reduced matrix is a solution row.
-      result.solutionColumns.emplace_back(r, i);
+    const std::vector<std::vector<size_t>> solutions = extractSolutionRows(marks);
+
+    if (solutions.empty()) {
+      throw std::runtime_error("Gaussian elimination found no solution (with rank " + std::to_string(smoothPrimes.size()) + "). If your rank is very low, consider increasing the smoothness bound. Otherwise, produce and retain more smooth numbers.");
     }
 
-    if (result.solutionColumns.empty()) {
-        throw std::runtime_error("Gaussian elimination found no solution (with rank " + std::to_string(smoothPrimes.size()) + "). If your rank is very low, consider increasing the smoothness bound. Otherwise, produce and retain more smooth numbers.");
-    }
-
-    return result;
-  }
-
-  // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
-  // and to Elara (OpenAI GPT)
-  std::vector<size_t> findDependentRows(const GaussianEliminationResult& ger) {
-    std::vector<size_t> solutionVec;
-
-    // Iterate over the free rows identified in Gaussian elimination
-    for (const auto& freeRow : ger.solutionColumns) {
-      const boost::dynamic_bitset<size_t>& rowVector = freeRow.first;  // The free row
-      size_t rowIndex = freeRow.second;  // Original row index
-
-      solutionVec.push_back(rowIndex);  // Add the free row itself
-
-      // Trace back through pivot columns to find dependencies
-      for (size_t col = 0; col < smoothNumberValues[0].size(); ++col) {
-        // If this column has a 1 in the free row
-        if (!ger.marks[col] || !rowVector[col]) {
-          continue;
-        }
-        for (size_t i = 0; i < smoothNumberValues.size(); ++i) {
-          if (smoothNumberValues[i][col]) {
-              solutionVec.push_back(i);  // Add pivot row contributing to this dependency
-          }
-        }
-      }
-    }
-
-    // Ensure uniqueness (remove duplicate indices)
-    std::sort(solutionVec.begin(), solutionVec.end());
-    solutionVec.erase(std::unique(solutionVec.begin(), solutionVec.end()), solutionVec.end());
-
-    return solutionVec;
+    return solutions;
   }
 
   BigInteger solveCongruence(const std::vector<size_t>& solutionVec)
   {
     // x^2 % toFactor = y^2
     BigInteger x = 1U;
-    BigInteger y = 1U;
     for (const size_t& idx : solutionVec) {
-      const std::pair<BigInteger, BigInteger>& kk = smoothNumberKeys[idx];
-      x *= kk.first;
-      y *= kk.second;
+      x *= smoothNumberKeys[idx];
     }
-    // The y terms multiplied should form a perfect square, % toFactor.
-    y = sqrt(y % toFactor);
-
+    const BigInteger y = sqrt((x * x) % toFactor);
+    BigInteger factor = gcd(toFactor, x + y);
+    if ((factor > 1U) && (factor < toFactor)) {
+      return factor;
+    }
+    if (x == y) {
+      // Avoid division by 0
+      return 1U;
+    }
     return gcd(toFactor, x - y);
   }
 
@@ -996,18 +984,17 @@ struct Factorizer {
         throw std::runtime_error("No smooth numbers found. Sieve more, or increase smoothness bound to reduce selectiveness. (The sieving bound multiplier is equivalent to that many times the square root of the number to factor, for calculated numerical range above an offset of the square root of the number to factor.)");
     }
 
-    GaussianEliminationResult result = gaussianElimination();
-    if (result.solutionColumns.empty()) {
-      throw std::runtime_error("Gaussian elimination found no solutions. Retain more rows.");
-    }
-    const BigInteger factor = solveCongruence(findDependentRows(result));
-    if ((factor > 1U) && (factor < toFactor)) {
-      return factor;
+    const std::vector<std::vector<size_t>> solutions = gaussianElimination();
+    for (const std::vector<size_t>& solution : solutions) {
+      const BigInteger factor = solveCongruence(solution);
+      if ((factor > 1U) && (factor < toFactor)) {
+        return factor;
+      }
     }
 
     // Depending on row count, a successful result should be nearly guaranteed,
     // but we default to no solution.
-    throw std::runtime_error("No solution produced a congruence of squares. (We found and tried " + std::to_string(result.solutionColumns.size()) + ", but even 1 should be enough.)");
+    throw std::runtime_error("No solution produced a congruence of squares. (We found " + std::to_string(solutions.size()) + " solutions, and even 1 should often be enough.)");
   }
 
   // Compute the prime factorization modulo 2
@@ -1162,22 +1149,29 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const BigInteger nodeRange = (((backwardFn(sqrtN) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
   const size_t batchStart = ((size_t)backwardFn(primeCeiling)) / wheelEntryCount;
   const size_t rowLimit = smoothPrimes.size() + gaussianEliminationRowOffset;
+
+  // For FACTOR_FINDER method
+  const BigInteger sievingNodeRange = backwardFn(sqrtN + (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5)) - backwardFn(sqrtN);
+  const BigInteger nodeOffset = nodeId * sievingNodeRange;
+
   // This manages the work of all threads.
-  Factorizer worker(toFactor, sqrtN, nodeRange, nodeCount, nodeId, wheelEntryCount, rowLimit, batchStart, smoothPrimes, forward(SMALLEST_WHEEL), backwardFn);
+  Factorizer worker(toFactor, sqrtN,
+                    isFactorFinder ? sievingNodeRange : nodeRange,
+                    nodeCount, nodeId,
+                    wheelEntryCount,
+                    rowLimit,
+                    isFactorFinder ? 0U : batchStart,
+                    smoothPrimes,
+                    forward(SMALLEST_WHEEL), backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
   std::vector<std::future<BigInteger>> futures;
   futures.reserve(CpuCount);
 
   if (isFactorFinder) {
-    const BigInteger sievingNodeRange = (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5);
-    const BigInteger sievingThreadRange = sievingNodeRange / CpuCount;
-    const BigInteger nodeOffset = nodeId * sievingNodeRange;
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      futures.push_back(std::async(std::launch::async, [&worker, cpu, &nodeOffset, &sievingThreadRange] {
-        const BigInteger low = nodeOffset + cpu * sievingThreadRange;
-        const BigInteger high = low + sievingThreadRange;
-        return worker.sievePolynomials(low, high);
+      futures.push_back(std::async(std::launch::async, [&worker] {
+        return worker.sievePolynomials();
       }));
     }
     for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
