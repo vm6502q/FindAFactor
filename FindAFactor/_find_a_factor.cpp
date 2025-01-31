@@ -703,7 +703,7 @@ BigInteger mod_exp(BigInteger base, BigInteger exp, BigInteger mod) {
   base = base % mod;
   while (exp > 0U) {
     // If exp is odd, multiply base with result
-    if (exp % 2U == 1U) {
+    if (exp & 1U) {
       result = (result * base) % mod;
     }
     exp = exp >> 1U;  // Right shift (divide by 2)
