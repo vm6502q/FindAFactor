@@ -1085,7 +1085,6 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   if (((BigInteger)primeCeiling) != primeCeilingBigInt) {
     throw std::runtime_error("Your primes are out of size_t range! (Your formula smoothness bound calculates to be " + boost::lexical_cast<std::string>(primeCeilingBigInt) + ".) Consider lowering your smoothness bound, since it's unlikely you want to sieve for primes above 2 to the 64th power, but, if so, you can modify the SieveOfEratosthenes() code slightly to allow for this.");
   }
-  BigInteger result = 1U;
   // This uses very little memory and time, to find primes.
   std::vector<size_t> primes = SieveOfEratosthenes(primeCeiling);
   // "it" is the end-of-list iterator for a list up-to-and-including wheelFactorizationLevel.
@@ -1096,6 +1095,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   if (checkSmallFactors && !nodeId) {
     // This is simply trial division up to the ceiling.
     std::mutex trialDivisionMutex;
+    BigInteger result = 1U;
     for (size_t primeIndex = 0U; (primeIndex < primes.size()) && (result == 1U); primeIndex += 64U) {
       dispatch.dispatch([&toFactor, &primes, &result, &trialDivisionMutex, primeIndex]() -> bool {
         const size_t maxLcv = std::min(primeIndex + 64U, primes.size());
@@ -1175,7 +1175,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     }
     for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
       const BigInteger r = futures[cpu].get();
-      if ((r > result) && (r < toFactor)) {
+      if ((r > 1U) && (r < toFactor)) {
         return boost::lexical_cast<std::string>(r);
       }
     }
@@ -1199,12 +1199,13 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   }
   for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
     const BigInteger r = futures[cpu].get();
-    if ((r > result) && (r < toFactor)) {
-      result = r;
+    if ((r > 1U) && (r < toFactor)) {
+      return boost::lexical_cast<std::string>(r);
     }
   }
 
-  return boost::lexical_cast<std::string>(result);
+  // We would have already returned if we found a factor.
+  return std::to_string(1);
 }
 } // namespace Qimcifa
 
