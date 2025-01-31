@@ -949,10 +949,14 @@ struct Factorizer {
     // Find dependent rows from the original matrix
     for (size_t c = 0U; c < smoothPrimes.size(); ++c) {
       if (!ger.marks[c]) {
+        // This is not a pivot row.
         continue;
       }
+      // This is a pivot row.
       for (const size_t& i : indices) {
         if (smoothNumberValues[i][c]) {
+          // Grab the first row index and break.
+          // TODO: (So this needs to be sorted in a specific row order, doesn't it?)
           solutionVec.push_back(c);
           break;
         }
