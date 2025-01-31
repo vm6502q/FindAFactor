@@ -859,15 +859,16 @@ struct Factorizer {
   GaussianEliminationResult gaussianElimination() {
     const size_t rows = smoothNumberValues.size();
     GaussianEliminationResult result(smoothPrimes.size());
-    for (size_t row = 0U; row < smoothPrimes.size(); ++row) {
-      const boost::dynamic_bitset<size_t> &cm = smoothNumberValues[row];
+    for (size_t col = 0U; col < smoothPrimes.size(); ++col) {
       // Look for a pivot row in this column
-      size_t col = 0U;
-      for (; col < smoothPrimes.size(); ++col) {
-        if (cm[col]) {
+      size_t row = col;
+      for (; row < rows; ++row) {
+        if (smoothNumberValues[row][col]) {
           // Make sure the rows are in reduced row echelon order.
-          std::swap(smoothNumberKeys[row], smoothNumberKeys[col]);
-          std::swap(smoothNumberValues[row], smoothNumberValues[col]);
+          if (row != col) {
+            std::swap(smoothNumberKeys[row], smoothNumberKeys[col]);
+            std::swap(smoothNumberValues[row], smoothNumberValues[col]);
+          }
 
           // Mark this column as having a pivot.
           result.marks[col] = true;
@@ -876,8 +877,8 @@ struct Factorizer {
       }
 
       if ((col < smoothPrimes.size()) && result.marks[col]) {
-        // Row might have been swapped.
-        // const boost::dynamic_bitset<size_t> &cm = smoothNumberValues[col];
+        // Row was swapped into column position.
+        const boost::dynamic_bitset<size_t> &cm = smoothNumberValues[col];
         // Pivot found, now eliminate entries in this column
         const size_t maxLcv = std::min((size_t)CpuCount, rows);
         for (size_t cpu = 0U; cpu < maxLcv; ++cpu) {
