@@ -712,59 +712,6 @@ BigInteger mod_exp(BigInteger base, BigInteger exp, BigInteger mod) {
   return result;
 }
 
-// This was taken basically whole-cloth from Elara, with thanks.
-// (Specifically modular square root, rather than sqrt() or isqrt())
-BigInteger mod_sqrt(BigInteger a, BigInteger p) {
-    if (p == 2U) {
-      return a;  // Special case for mod 2
-    }
-
-    // Check if a is a quadratic residue modulo p using the Legendre symbol
-    if (mod_exp(a, (p - 1U) >> 1U, p) != 1U) {
-      throw std::runtime_error("No modular square root exists!");
-    }
-
-    BigInteger q = p - 1U;
-    BigInteger s = 0U;
-
-    while (!(q & 1U)) {
-      q >>= 1U;
-      ++s;
-    }
-
-    if (s == 1U) {
-      return mod_exp(a, (p + 1U) >> 2U, p);
-    }
-
-    // Find a non-residue
-    BigInteger z = 2U;
-    while (mod_exp(z, (p - 1U) >> 1U, p) != (p - 1U)) {
-      ++z;
-    }
-
-    BigInteger m = s;
-    BigInteger c = mod_exp(z, q, p);
-    BigInteger t = mod_exp(a, q, p);
-    BigInteger r = mod_exp(a, (q + 1U) >> 1U, p);
-
-    while (t != 1U) {
-      BigInteger i = 0U;
-      BigInteger temp = t;
-      while (temp != 1U) {
-        temp = (temp * temp) % p;
-        ++i;
-      }
-
-      BigInteger b = mod_exp(c, mod_exp(2U, m - i - 1U, p), p);
-      m = i;
-      c = (b * b) % p;
-      t = (t * c) % p;
-      r = (r * b) % p;
-    }
-
-    return r;
-}
-
 // Function to compute the Legendre symbol (N / p)
 size_t legendreSymbol(BigInteger N, size_t p) {
   // Euler's Criterion: N^((p-1)/2) mod p
@@ -1024,7 +971,7 @@ struct Factorizer {
       x *= smoothNumberKeys[idx];
       y *= smoothNumberSqrResidues[idx];
     }
-    y = mod_sqrt(y, toFactor);
+    y = sqrt(y);
 
     return gcd(toFactor, x - y);
   }
