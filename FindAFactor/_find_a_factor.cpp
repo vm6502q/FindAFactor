@@ -938,38 +938,34 @@ struct Factorizer {
   }
 
   // Special thanks to https://github.com/NachiketUN/Quadratic-Sieve-Algorithm
-  std::vector<size_t> solveDependentRows(const GaussianEliminationResult& ger, const size_t& solutionColumnId)
-  {
-    // Get the first free row from Gaussian elimination results
-    const boost::dynamic_bitset<size_t>& freeRow = ger.solutionColumns[solutionColumnId].first;
-    // Add the chosen row from Gaussian elimination solution
-    std::vector<size_t> solutionVec = { ger.solutionColumns[solutionColumnId].second };
+  // and to Elara (OpenAI GPT)
+  std::vector<size_t> findDependentRows(const GaussianEliminationResult& ger) {
+    std::vector<size_t> solutionVec;
 
-    // Find the indices where the free row has true values.
-    std::vector<size_t> indices;
-    for (size_t i = 0U; i < freeRow.size(); ++i) {
-      if (freeRow.test(i)) {
-          indices.push_back(i);
-      }
-    }
+    // Iterate over the free rows identified in Gaussian elimination
+    for (const auto& freeRow : ger.solutionColumns) {
+      const boost::dynamic_bitset<size_t>& rowVector = freeRow.first;  // The free row
+      size_t rowIndex = freeRow.second;  // Original row index
 
-    // Find dependent rows from the original matrix
-    for (size_t c = 0U; c < smoothPrimes.size(); ++c) {
-      if (!ger.marks[c]) {
-        // This is not a pivot row.
-        continue;
-      }
-      // This is a pivot row.
-      for (const size_t& i : indices) {
-        if (smoothNumberValues[i][c]) {
-          // Grab the first row index and break.
-          // TODO: (So this needs to be sorted in a specific row order, doesn't it?)
-          // (For tomorrow: just sort smooth number "keys" and rearrange parity "values" correspondingly.)
-          solutionVec.push_back(c);
-          break;
+      solutionVec.push_back(rowIndex);  // Add the free row itself
+
+      // Trace back through pivot columns to find dependencies
+      for (size_t col = 0; col < smoothNumberValues[0].size(); ++col) {
+        // If this column has a 1 in the free row
+        if (!ger.marks[col] || !rowVector[col]) {
+          continue;
+        }
+        for (size_t i = 0; i < smoothNumberValues.size(); ++i) {
+          if (smoothNumberValues[i][col]) {
+              solutionVec.push_back(i);  // Add pivot row contributing to this dependency
+          }
         }
       }
     }
+
+    // Ensure uniqueness (remove duplicate indices)
+    std::sort(solutionVec.begin(), solutionVec.end());
+    solutionVec.erase(std::unique(solutionVec.begin(), solutionVec.end()), solutionVec.end());
 
     return solutionVec;
   }
@@ -1000,20 +996,13 @@ struct Factorizer {
         throw std::runtime_error("No smooth numbers found. Sieve more, or increase smoothness bound to reduce selectiveness. (The sieving bound multiplier is equivalent to that many times the square root of the number to factor, for calculated numerical range above an offset of the square root of the number to factor.)");
     }
 
-    // This came in any order from the parallel sieve, from different regions.
-    for (size_t i = 0U; i < smoothNumberKeys.size(); ++i) {
-
-    }
-
     GaussianEliminationResult result = gaussianElimination();
     if (result.solutionColumns.empty()) {
       throw std::runtime_error("Gaussian elimination found no solutions. Retain more rows.");
     }
-    for (size_t i = 0U; i < result.solutionColumns.size(); ++i) {
-      const BigInteger factor = solveCongruence(solveDependentRows(result, i));
-      if ((factor > 1U) && (factor < toFactor)) {
-        return factor;
-      }
+    const BigInteger factor = solveCongruence(findDependentRows(result));
+    if ((factor > 1U) && (factor < toFactor)) {
+      return factor;
     }
 
     // Depending on row count, a successful result should be nearly guaranteed,
