@@ -862,7 +862,7 @@ struct Factorizer {
     for (size_t row = 0U; row < smoothPrimes.size(); ++row) {
       const boost::dynamic_bitset<size_t> &cm = smoothNumberValues[row];
       // Look for a pivot row in this column
-      size_t col = row;
+      size_t col = 0U;
       for (; col < smoothPrimes.size(); ++col) {
         if (cm[col]) {
           // Make sure the rows are in reduced row echelon order.
