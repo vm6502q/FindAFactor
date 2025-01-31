@@ -865,6 +865,9 @@ struct Factorizer {
       size_t col = 0U;
       for (; col < smoothPrimes.size(); ++col) {
         if (cm[col]) {
+          // Make sure the rows are in reduced row echelon order.
+          std::swap(smoothNumberValues[row], smoothNumberValues[col]);
+
           // Mark this column as having a pivot.
           result.marks[col] = true;
           break;
@@ -872,6 +875,8 @@ struct Factorizer {
       }
 
       if ((col < smoothPrimes.size()) && result.marks[col]) {
+        // Row might have been swapped.
+        const boost::dynamic_bitset<size_t> &cm = smoothNumberValues[row];
         // Pivot found, now eliminate entries in this column
         const size_t maxLcv = std::min((size_t)CpuCount, rows);
         for (size_t cpu = 0U; cpu < maxLcv; ++cpu) {
