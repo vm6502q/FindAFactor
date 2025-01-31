@@ -706,7 +706,8 @@ BigInteger mod_exp(BigInteger base, BigInteger exp, BigInteger mod) {
     if (exp & 1U) {
       result = (result * base) % mod;
     }
-    exp = exp >> 1U;  // Right shift (divide by 2)
+    // Divide by 2
+    exp = exp >> 1U;
     base = (base * base) % mod;
   }
   return result;
@@ -1175,7 +1176,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
       const BigInteger r = futures[cpu].get();
       if ((r > result) && (r < toFactor)) {
-        result = r;
+        return boost::lexical_cast<std::string>(r);
       }
     }
 
