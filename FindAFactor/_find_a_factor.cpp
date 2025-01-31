@@ -859,10 +859,10 @@ struct Factorizer {
   GaussianEliminationResult gaussianElimination() {
     const size_t rows = smoothNumberValues.size();
     GaussianEliminationResult result(smoothPrimes.size());
-    for (size_t row = 0U; row < rows; ++row) {
+    for (size_t row = 0U; row < smoothPrimes.size(); ++row) {
       const boost::dynamic_bitset<size_t> &cm = smoothNumberValues[row];
       // Look for a pivot row in this column
-      size_t col = 0U;
+      size_t col = row;
       for (; col < smoothPrimes.size(); ++col) {
         if (cm[col]) {
           // Make sure the rows are in reduced row echelon order.
