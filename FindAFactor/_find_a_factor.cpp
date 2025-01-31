@@ -759,6 +759,8 @@ struct Factorizer {
     : toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     smoothWheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), smoothPrimes(sp), forwardFn(ffn), backwardFn(bfn)
   {
+    smoothNumberKeys.reserve(rowLimit);
+    smoothNumberValues.reserve(rowLimit);
     for (const size_t p : smoothPrimes) {
       smoothWheelRadius *= p;
     }
