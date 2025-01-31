@@ -815,7 +815,7 @@ struct Factorizer {
   BigInteger sievePolynomials(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
     for (BigInteger batchNum = getNextSieveBatch(); isIncomplete; batchNum = getNextSieveBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
-      const size_t maxLcv = wheelEntryCount + 1U
+      const size_t maxLcv = wheelEntryCount + 1U;
       for (size_t batchItem = 1U; batchItem < maxLcv;) {
         // Make the candidate NOT a multiple on the wheels.
         const BigInteger x = forwardFn(batchStart + batchItem);
