@@ -697,7 +697,6 @@ size_t GetGearIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // This was taken basically whole-cloth from Elara, with thanks.
-// (Specifically modular exponentiation, rather than pow() or ipow())
 BigInteger mod_exp(BigInteger base, BigInteger exp, BigInteger mod) {
   BigInteger result = 1U;
   base = base % mod;
@@ -1163,7 +1162,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   futures.reserve(CpuCount);
 
   if (isFactorFinder) {
-    const BigInteger sievingNodeRange = (BigInteger)((sqrt(toFactor) + 1U).convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5);
+    const BigInteger sievingNodeRange = (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5);
     const BigInteger sievingThreadRange = sievingNodeRange / CpuCount;
     const BigInteger nodeOffset = nodeId * sievingNodeRange;
     for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
