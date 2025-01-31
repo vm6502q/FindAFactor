@@ -881,12 +881,12 @@ struct Factorizer {
         // Pivot found, now eliminate entries in this column
         const size_t maxLcv = std::min((size_t)CpuCount, rows);
         for (size_t cpu = 0U; cpu < maxLcv; ++cpu) {
-          dispatch.dispatch([this, cpu, &col, &row, &rows, &cm]() -> bool {
+          dispatch.dispatch([this, cpu, &col, &rows, &cm]() -> bool {
             // Notice that each thread updates rows with space increments of cpuCount,
             // based on the same unchanged outer-loop row, and this covers the inner-loop set.
             // We're covering every row except for the one corresponding to "col."
             // We break this into two loops to avoid an inner conditional to check whether row == col.
-            const size_t midRow = std::min(row, rows);
+            const size_t midRow = std::min(col, rows);
             size_t irow = cpu;
             for (; irow < midRow; irow += CpuCount) {
               boost::dynamic_bitset<size_t> &rm = this->smoothNumberValues[irow];
@@ -896,7 +896,7 @@ struct Factorizer {
                 rm ^= cm;
               }
             }
-            if (irow == row) {
+            if (irow == col) {
               irow += CpuCount;
             }
             for (; irow < rows; irow += CpuCount) {
