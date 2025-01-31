@@ -701,7 +701,7 @@ size_t GetGearIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
 BigInteger mod_exp(BigInteger base, BigInteger exp, BigInteger mod) {
   BigInteger result = 1U;
   base = base % mod;
-  while (exp > 0U) {
+  while (exp) {
     // If exp is odd, multiply base with result
     if (exp & 1U) {
       result = (result * base) % mod;
