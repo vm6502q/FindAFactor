@@ -866,6 +866,7 @@ struct Factorizer {
       for (; col < smoothPrimes.size(); ++col) {
         if (cm[col]) {
           // Make sure the rows are in reduced row echelon order.
+          std::swap(smoothNumberKeys[row], smoothNumberKeys[col]);
           std::swap(smoothNumberValues[row], smoothNumberValues[col]);
 
           // Mark this column as having a pivot.
