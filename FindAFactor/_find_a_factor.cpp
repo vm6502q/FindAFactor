@@ -755,8 +755,6 @@ struct Factorizer {
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
-  const size_t sieveBatchSize = 256U;
-
   Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, const BigInteger& bn,
              const std::vector<size_t> &sp, ForwardFn ffn, ForwardFn bfn)
     : toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
@@ -789,23 +787,20 @@ struct Factorizer {
       isIncomplete = false;
     }
 
-    batchNumber += sieveBatchSize;
-
-    return batchOffset + batchNumber + backwardToFactorSqrt;
+    return batchOffset + (++batchNumber) + backwardToFactorSqrt;
   }
 
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
-      const BigInteger batchEnd = batchStart + wheelEntryCount;
-      for (BigInteger p = batchStart; p < batchEnd;) {
-        const BigInteger n = forwardFn(p);
+      for (size_t batchItem = 0U; batchItem < wheelEntryCount;) {
+        const BigInteger n = forwardFn(batchStart + batchItem);
         if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
           return n;
         }
-        p += GetGearIncrement(inc_seqs);
+        batchItem += GetGearIncrement(inc_seqs);
       }
     }
 
@@ -817,11 +812,13 @@ struct Factorizer {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Sieving function
-  BigInteger sievePolynomials() {
-    for (BigInteger batchStart = getNextSieveBatch(); isIncomplete; batchStart = getNextSieveBatch()) {
-      for (size_t batchItem = 0U; batchItem < sieveBatchSize; ++batchItem) {
+  BigInteger sievePolynomials(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
+    for (BigInteger batchNum = getNextSieveBatch(); isIncomplete; batchNum = getNextSieveBatch()) {
+      const BigInteger batchStart = batchNum * wheelEntryCount;
+      const size_t maxLcv = wheelEntryCount + 1U
+      for (size_t batchItem = 1U; batchItem < maxLcv;) {
         // Make the candidate NOT a multiple on the wheels.
-        const BigInteger x = forwardFn(batchStart + batchItem + 1U);
+        const BigInteger x = forwardFn(batchStart + batchItem);
         // Make the candidate a perfect square.
         // The residue (mod N) needs to be smooth (but not a perfect square).
         // The candidate is guaranteed to be between toFactor and its square,
@@ -830,6 +827,7 @@ struct Factorizer {
         const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(ySqr);
         if (rfv.empty()) {
           // The number is useless to us.
+          batchItem += GetGearIncrement(inc_seqs);
           continue;
         }
         // We have a successful candidate.
@@ -855,6 +853,9 @@ struct Factorizer {
         if (smoothNumberKeys.size() > rowLimit) {
           isIncomplete = false;
         }
+
+        // We must manually increment on exiting the loop body.
+        batchItem += GetGearIncrement(inc_seqs);
       }
     }
 
@@ -1157,7 +1158,8 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const size_t rowLimit = smoothPrimes.size() + gaussianEliminationRowOffset;
 
   // For FACTOR_FINDER method
-  const BigInteger sievingNodeRange = backwardFn(sqrtN + (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5)) - backwardFn(sqrtN);
+  const BigInteger sievingNodeRange = (backwardFn(sqrtN + (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5)) - backwardFn(sqrtN))
+                                      / wheelEntryCount;
   const BigInteger nodeOffset = nodeId * sievingNodeRange;
 
   // This manages the work of all threads.
@@ -1174,23 +1176,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   std::vector<std::future<BigInteger>> futures;
   futures.reserve(CpuCount);
 
-  if (isFactorFinder) {
-    for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
-      futures.push_back(std::async(std::launch::async, [&worker] {
-        return worker.sievePolynomials();
-      }));
-    }
-    for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
-      const BigInteger r = futures[cpu].get();
-      if ((r > 1U) && (r < toFactor)) {
-        return boost::lexical_cast<std::string>(r);
-      }
-    }
-
-    return boost::lexical_cast<std::string>(worker.solveForFactor());
-  }
-
-  const auto workerFn = [&inc_seqs, &worker] {
+  const auto workerFn = [&inc_seqs, &worker, &isFactorFinder] {
     // inc_seq needs to be independent per thread.
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
@@ -1199,16 +1185,24 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     }
 
     // "Brute force" includes extensive wheel multiplication and can be faster.
-    return worker.bruteForce(&inc_seqs_clone);
+    return isFactorFinder ? worker.sievePolynomials(&inc_seqs_clone) : worker.bruteForce(&inc_seqs_clone);
   };
+
   for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
     futures.push_back(std::async(std::launch::async, workerFn));
   }
+
   for (unsigned cpu = 0U; cpu < futures.size(); ++cpu) {
     const BigInteger r = futures[cpu].get();
     if ((r > 1U) && (r < toFactor)) {
       return boost::lexical_cast<std::string>(r);
     }
+  }
+
+  // It's only convenient that a large part of the `FACTOR_FINDER` work
+  // happens in a second phase, after a first phase with identical signature.
+  if (isFactorFinder) {
+    return boost::lexical_cast<std::string>(worker.solveForFactor());
   }
 
   // We would have already returned if we found a factor.
