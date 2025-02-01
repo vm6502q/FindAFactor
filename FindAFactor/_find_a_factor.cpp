@@ -56,6 +56,18 @@ Wheel wheelByPrimeCardinal(int i) {
   }
 }
 
+size_t biggestWheel = 1U;
+size_t wheelEntryCount = 1U;
+std::vector<size_t> wheel;
+
+BigInteger smoothForwardFn(const BigInteger &p) {
+  return wheel[(size_t)(p % wheelEntryCount)] + (p / wheelEntryCount) * biggestWheel;
+}
+BigInteger smoothBackwardFn(const BigInteger &p) {
+  return std::distance(wheel.begin(), std::lower_bound(wheel.begin(), wheel.begin() + wheelEntryCount, (size_t)(p % biggestWheel))) + wheelEntryCount * (p / biggestWheel) + 1U;
+}
+
+
 // See https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
 BigInteger ipow(BigInteger base, size_t exp) {
   BigInteger result = 1U;
@@ -825,7 +837,7 @@ struct Factorizer {
     for (BigInteger batchNum = getNextSieveBatch(); isIncomplete; batchNum = getNextSieveBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
       const size_t maxLcv = wheelEntryCount + 1U;
-      for (size_t batchItem = 1U; batchItem < maxLcv;) {
+      for (size_t batchItem = 1U; batchItem < maxLcv; ++batchItem) {
         // Make the candidate NOT a multiple on the wheels.
         const BigInteger x = forwardFn(batchStart + batchItem);
         // Make the candidate a perfect square.
@@ -836,7 +848,7 @@ struct Factorizer {
         const boost::dynamic_bitset<size_t> rfv = factorizationParityVector(ySqr);
         if (rfv.empty()) {
           // The number is useless to us.
-          batchItem += GetGearIncrement(inc_seqs);
+          // batchItem += GetGearIncrement(inc_seqs);
           continue;
         }
         // We have a successful candidate.
@@ -901,7 +913,7 @@ struct Factorizer {
         }
 
         // We must manually increment on exiting the loop body.
-        batchItem += GetGearIncrement(inc_seqs);
+        // batchItem += GetGearIncrement(inc_seqs);
       }
     }
 
@@ -1100,7 +1112,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const bool isFactorFinder = (method > 0U);
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
-  } else if (wheelFactorizationLevel > 13U) {
+  } else if (!method && (wheelFactorizationLevel > 13U)) {
     wheelFactorizationLevel = 13U;
     std::cout << "Warning: Wheel factorization limit is 13. (Parameter will be ignored and default to 13.)" << std::endl;
   }
@@ -1174,25 +1186,40 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     if (smoothPrimes.empty()) {
       throw std::runtime_error("No smooth primes found under bound. (The formula smoothness bound calculates to " + std::to_string(primeCeiling) + ".) Increase the smoothness bound multiplier, unless this is in range of check_small_factors=True.");
     }
+    for (const size_t& sp : smoothPrimes) {
+      const auto& gfpit = std::find(gearFactorizationPrimes.begin(), gearFactorizationPrimes.end(), sp);
+      if (gfpit != gearFactorizationPrimes.end()) {
+         gearFactorizationPrimes.erase(gfpit);
+      }
+      const auto& wfpit = std::find(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end(), sp);
+      if (wfpit != wheelFactorizationPrimes.end()) {
+        wheelFactorizationPrimes.erase(wfpit);
+      }
+    }
   }
   // From 1, this is a period for wheel factorization
-  size_t biggestWheel = 1ULL;
+  // This is defined globally:
+  // size_t biggestWheel = 1ULL;
   for (const size_t &wp : gearFactorizationPrimes) {
     biggestWheel *= (size_t)wp;
   }
   // Wheel entry count per largest "gear" scales our brute-force range.
-  size_t wheelEntryCount = 0U;
-  for (size_t i = 0U; i < biggestWheel; ++i) {
-    if (!isMultiple(i, wheelFactorizationPrimes)) {
+  // These are defined globally:
+  // size_t wheelEntryCount = 0U;
+  // std::vector<size_t> wheel;
+  for (size_t i = 1U; i < biggestWheel; ++i) {
+    if (!isMultiple(i, gearFactorizationPrimes)) {
+      wheel.push_back(i);
       ++wheelEntryCount;
     }
   }
   if (wheelEntryCount == 0U) {
     wheelEntryCount = 1U;
   }
+  size_t batchItemCount = wheelEntryCount;
   const size_t minBatch = 256U;
-  if (minBatch > wheelEntryCount) {
-    wheelEntryCount = ((minBatch + wheelEntryCount - 1U) / wheelEntryCount) * wheelEntryCount;
+  if (minBatch > batchItemCount) {
+    batchItemCount = ((minBatch + batchItemCount - 1U) / batchItemCount) * batchItemCount;
   }
   wheelFactorizationPrimes.clear();
   // These are "gears," for wheel factorization (on top of a "wheel" already in place up to the selected level).
@@ -1206,24 +1233,25 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
 
   // Range per parallel node
   const auto backwardFn = backward(SMALLEST_WHEEL);
-  const BigInteger nodeRange = (((backwardFn(sqrtN) + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
-  const size_t batchStart = ((size_t)backwardFn(primeCeiling)) / wheelEntryCount;
+  const BigInteger nodeRange = (((backwardFn(sqrtN) + nodeCount - 1U) / nodeCount) + batchItemCount - 1U) / batchItemCount;
+  const size_t batchStart = ((size_t)backwardFn(primeCeiling)) / batchItemCount;
   const size_t rowLimit = smoothPrimes.size() + gaussianEliminationRowOffset;
 
   // For FACTOR_FINDER method
-  const BigInteger sievingNodeRange =((((backwardFn(sqrtN + (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier + 0.5)) - backwardFn(sqrtN))
-                                      + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
+  const BigInteger sievingNodeRange =((((smoothBackwardFn(sqrtN + (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier + 0.5)) - smoothBackwardFn(sqrtN))
+                                      + nodeCount - 1U) / nodeCount) + batchItemCount - 1U) / batchItemCount;
   const BigInteger nodeOffset = nodeId * sievingNodeRange;
 
   // This manages the work of all threads.
   Factorizer worker(toFactor, sqrtN,
                     isFactorFinder ? sievingNodeRange : nodeRange,
                     nodeCount, nodeId,
-                    wheelEntryCount,
+                    batchItemCount,
                     rowLimit,
                     isFactorFinder ? 0U : batchStart,
                     smoothPrimes,
-                    forward(SMALLEST_WHEEL), backwardFn);
+                    isFactorFinder ? smoothForwardFn : forward(SMALLEST_WHEEL),
+                    isFactorFinder ? smoothBackwardFn : backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
   std::vector<std::future<BigInteger>> futures;
