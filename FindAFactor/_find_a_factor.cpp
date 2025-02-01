@@ -796,7 +796,7 @@ struct Factorizer {
       isIncomplete = false;
     }
 
-    return batchOffset + (++batchNumber) + backwardToFactorSqrt;
+    return batchOffset + (batchNumber++) + backwardToFactorSqrt;
   }
 
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
