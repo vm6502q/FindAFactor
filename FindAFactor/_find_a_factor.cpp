@@ -1141,6 +1141,13 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       ++wheelEntryCount;
     }
   }
+  if (wheelEntryCount == 0U) {
+    wheelEntryCount = 1U;
+  }
+  const size_t minBatch = 256U;
+  if (minBatch > wheelEntryCount) {
+    wheelEntryCount = ((minBatch + wheelEntryCount - 1U) / wheelEntryCount) * wheelEntryCount;
+  }
   wheelFactorizationPrimes.clear();
   // These are "gears," for wheel factorization (on top of a "wheel" already in place up to the selected level).
   std::vector<boost::dynamic_bitset<size_t>> inc_seqs = generateGears(gearFactorizationPrimes);
