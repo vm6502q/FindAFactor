@@ -1158,8 +1158,8 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const size_t rowLimit = smoothPrimes.size() + gaussianEliminationRowOffset;
 
   // For FACTOR_FINDER method
-  const BigInteger sievingNodeRange = (backwardFn(sqrtN + (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier / nodeCount + 0.5)) - backwardFn(sqrtN))
-                                      / wheelEntryCount;
+  const BigInteger sievingNodeRange =((((backwardFn(sqrtN + (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier + 0.5)) - backwardFn(sqrtN))
+                                      + nodeCount - 1U) / nodeCount) + wheelEntryCount - 1U) / wheelEntryCount;
   const BigInteger nodeOffset = nodeId * sievingNodeRange;
 
   // This manages the work of all threads.
