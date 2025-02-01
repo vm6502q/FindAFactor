@@ -1250,8 +1250,8 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                     rowLimit,
                     isFactorFinder ? 0U : batchStart,
                     smoothPrimes,
-                    isFactorFinder ? smoothForwardFn : forward(SMALLEST_WHEEL),
-                    isFactorFinder ? smoothBackwardFn : backwardFn);
+                    isFactorFinder ? ((wheelEntryCount > 1U) ? smoothForwardFn : forward(WHEEL1)) : forward(SMALLEST_WHEEL),
+                    isFactorFinder ? ((wheelEntryCount > 1U) ? smoothBackwardFn : backward(WHEEL1)) : backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
   std::vector<std::future<BigInteger>> futures;
