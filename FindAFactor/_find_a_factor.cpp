@@ -837,21 +837,58 @@ struct Factorizer {
         if (rfv.none()) {
           // x^2 % toFactor = y^2
           const BigInteger y = sqrt(ySqr);
-          const BigInteger factor = gcd(toFactor, x - y);
+          BigInteger factor = gcd(toFactor, x + y);
           if ((factor > 1U) && (factor < toFactor)) {
             isIncomplete = false;
 
             return factor;
           }
+          if (x != y) {
+            // Avoid division by 0
+            factor = gcd(toFactor, x - y);
+            if ((factor > 1U) && (factor < toFactor)) {
+              isIncomplete = false;
+
+              return factor;
+            }
+          }
         }
 
         std::lock_guard<std::mutex> lock(batchMutex);
-        smoothNumberKeys.push_back(x);
-        smoothNumberValues.push_back(rfv);
-        // If we have enough rows for Gaussian elimination already,
-        // there's no reason to sieve any further.
-        if (smoothNumberKeys.size() > rowLimit) {
-          isIncomplete = false;
+
+        const auto& snvIt = std::find(smoothNumberValues.begin(), smoothNumberValues.end(), rfv);
+
+        if (snvIt == smoothNumberValues.end()) {
+          // This is a unique factorization parity row.
+          smoothNumberValues.push_back(rfv);
+          smoothNumberKeys.push_back(x);
+          // If we have enough rows for Gaussian elimination already,
+          // there's no reason to sieve any further.
+          if (smoothNumberKeys.size() > rowLimit) {
+            isIncomplete = false;
+
+            return 1U;
+          }
+        } else {
+          // Don't add this duplicate row, but check the square residue.
+          // x^2 % toFactor = y^2
+          const BigInteger _x = x * smoothNumberKeys[std::distance(smoothNumberValues.begin(), snvIt)];
+          const BigInteger y = sqrt((_x * _x) % toFactor);
+          BigInteger factor = gcd(toFactor, _x + y);
+          if ((factor > 1U) && (factor < toFactor)) {
+            isIncomplete = false;
+
+            return factor;
+          }
+          if (_x != y) {
+            // Avoid division by 0
+            factor = gcd(toFactor, x - y);
+            if ((factor > 1U) && (factor < toFactor)) {
+              isIncomplete = false;
+
+              return factor;
+            }
+          }
         }
 
         // We must manually increment on exiting the loop body.
