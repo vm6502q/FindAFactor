@@ -713,9 +713,18 @@ BigInteger mod_exp(BigInteger base, BigInteger exp, BigInteger mod) {
 }
 
 // Function to compute the Legendre symbol (N / p)
-size_t legendreSymbol(BigInteger N, size_t p) {
-  // Euler's Criterion: N^((p-1)/2) mod p
-  return (size_t)(mod_exp(N, (p - 1U) >> 1U, p));
+int legendreSymbol(BigInteger N, size_t p) {
+  BigInteger result = mod_exp(N, (p - 1U) >> 1U, p);
+
+  if (result == 0U) {
+    return 0;  // N is divisible by p
+  }
+
+  if (result == 1U) {
+    return 1;  // N is a quadratic residue mod p
+  }
+
+  return -1; // N is a non-quadratic residue mod p
 }
 
 // Function to generate factor base
@@ -723,7 +732,7 @@ std::vector<size_t> selectFactorBase(const BigInteger N, const std::vector<size_
   std::vector<size_t> factorBase;
   for (size_t p : primes) {
     // Select only primes where (N/p) = 1
-    if (legendreSymbol(N, p) == 1U) {
+    if (legendreSymbol(N, p) == 1) {
       factorBase.push_back(p);
     }
   }
