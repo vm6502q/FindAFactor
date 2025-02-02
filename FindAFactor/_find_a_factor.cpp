@@ -986,7 +986,7 @@ struct Factorizer {
             size_t irow = cpu;
             for (; irow < midRow; irow += CpuCount) {
               boost::dynamic_bitset<size_t> &rm = this->smoothNumberValues[irow];
-              if (rm[col]) {
+              if (rm.test(col)) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
@@ -997,7 +997,7 @@ struct Factorizer {
             }
             for (; irow < rows; irow += CpuCount) {
               boost::dynamic_bitset<size_t> &rm = this->smoothNumberValues[irow];
-              if (rm[col]) {
+              if (rm.test(col)) {
                 // XOR-ing factorization rows
                 // is like multiplying the numbers.
                 rm ^= cm;
