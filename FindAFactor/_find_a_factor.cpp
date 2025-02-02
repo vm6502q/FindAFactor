@@ -931,7 +931,7 @@ struct Factorizer {
 
       // Ensure the dependency is valid (all exponents must sum to even parity)
       if (solutionRow.none()) {
-          solutions.push_back(selectedRows);
+        solutions.push_back(selectedRows);
       }
     }
 
