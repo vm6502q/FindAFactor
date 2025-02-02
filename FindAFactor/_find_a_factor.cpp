@@ -57,14 +57,13 @@ Wheel wheelByPrimeCardinal(int i) {
 }
 
 size_t biggestWheel = 1U;
-size_t wheelEntryCount = 1U;
 std::vector<size_t> wheel;
 
 BigInteger smoothForwardFn(const BigInteger &p) {
-  return wheel[(size_t)(p % wheelEntryCount)] + (p / wheelEntryCount) * biggestWheel;
+  return wheel[(size_t)(p % wheel.size())] + (p / wheel.size()) * biggestWheel;
 }
 BigInteger smoothBackwardFn(const BigInteger &p) {
-  return std::distance(wheel.begin(), std::lower_bound(wheel.begin(), wheel.begin() + wheelEntryCount, (size_t)(p % biggestWheel))) + wheelEntryCount * (p / biggestWheel) + 1U;
+  return std::distance(wheel.begin(), std::lower_bound(wheel.begin(), wheel.end(), (size_t)(p % biggestWheel))) + wheel.size() * (p / biggestWheel) + 1U;
 }
 
 
@@ -1204,19 +1203,17 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     biggestWheel *= (size_t)wp;
   }
   // Wheel entry count per largest "gear" scales our brute-force range.
-  // These are defined globally:
-  // size_t wheelEntryCount = 0U;
+  // This is defined globally:
   // std::vector<size_t> wheel;
   for (size_t i = 1U; i < biggestWheel; ++i) {
     if (!isMultiple(i, gearFactorizationPrimes)) {
       wheel.push_back(i);
-      ++wheelEntryCount;
     }
   }
-  if (wheelEntryCount == 0U) {
-    wheelEntryCount = 1U;
+  if (wheel.empty()) {
+    wheel.push_back(1U);
   }
-  size_t batchItemCount = wheelEntryCount;
+  size_t batchItemCount = wheel.size();
   const size_t minBatch = 256U;
   if (minBatch > batchItemCount) {
     batchItemCount = ((minBatch + batchItemCount - 1U) / batchItemCount) * batchItemCount;
@@ -1250,8 +1247,8 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                     rowLimit,
                     isFactorFinder ? 0U : batchStart,
                     smoothPrimes,
-                    isFactorFinder ? ((wheelEntryCount > 1U) ? smoothForwardFn : forward(WHEEL1)) : forward(SMALLEST_WHEEL),
-                    isFactorFinder ? ((wheelEntryCount > 1U) ? smoothBackwardFn : backward(WHEEL1)) : backwardFn);
+                    isFactorFinder ? ((wheel.size() > 1U) ? smoothForwardFn : forward(WHEEL1)) : forward(SMALLEST_WHEEL),
+                    isFactorFinder ? ((wheel.size() > 1U) ? smoothBackwardFn : backward(WHEEL1)) : backwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
 
   std::vector<std::future<BigInteger>> futures;
