@@ -29,7 +29,7 @@ to_factor = 1000
 
 factor = find_a_factor(
     to_factor,
-    method=FactoringMethod.PRIME_SOLVER,
+    method=FactoringMethod.PRIME_PROVER,
     node_count=1, node_id=0,
     gear_factorization_level=11,
     wheel_factorization_level=11,
@@ -42,7 +42,7 @@ factor = find_a_factor(
 
 The `find_a_factor()` function should return any nontrivial factor of `to_factor` (that is, any factor besides `1` or `to_factor`) if it exists. If a nontrivial factor does _not_ exist (i.e., the number to factor is prime), the function will return `1` or the original `to_factor`.
 
-- `method` (default value: `PRIME_SOLVER`/`0`): `PRIME_SOLVER`/`0` will prove that a number is prime (by failing to find any factors with wheel and gear factorization). `FACTOR_FINDER`/`1` is optimized for the assumption that the number has at least two nontrivial factors.
+- `method` (default value: `PRIME_PROVER`/`0`): `PRIME_PROVER`/`0` will prove that a number is prime (by failing to find any factors with wheel and gear factorization). `FACTOR_FINDER`/`1` is optimized for the assumption that the number has at least two nontrivial factors.
 - `node_count` (default value: `1`): `FindAFactor` can perform factorization in a _distributed_ manner, across nodes, without network communication! When `node_count` is set higher than `1`, the search space for factors is segmented equally per node. If the number to factor is semiprime, and brute-force search is used instead of congruence of squares, for example, all nodes except the one that happens to contain the (unknown) prime factor less than the square root of `to_factor` will ultimately return `1`, while one node will find and return this factor. For best performance, every node involved in factorization should have roughly the same CPU throughput capacity. For `FACTOR_FINDER` mode, this splits the sieving range between nodes, but it does not actually coordinate Gaussian elimination rows between nodes.
 - `node_id` (default value: `0`): This is the identifier of this node, when performing distributed factorization with `node_count` higher than `1`. `node_id` values start at `0` and go as high as `(node_count - 1)`.
 - `gear_factorization_level` (default value: `1`): This is the value up to which "wheel (and gear) factorization" are applied to "brute force." A value of `11` includes all prime factors of `11` and below and works well for `PRIME_PROVER`, though significantly higher might be preferred in certain cases. In `FACTOR_FINDER`, one probably wants to avoid setting a different gear level than wheel level.

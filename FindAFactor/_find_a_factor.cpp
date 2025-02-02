@@ -795,26 +795,16 @@ struct Factorizer {
       isIncomplete = false;
     }
 
-    const BigInteger halfIndex = batchOffset + (batchNumber++ >> 1U) + 1U;
+    const BigInteger halfIndex = batchOffset + (batchNumber++ >> 1U);
 
     return ((batchNumber & 1U) ? batchTotal - halfIndex : halfIndex);
-  }
-
-  BigInteger getNextSieveBatch() {
-    std::lock_guard<std::mutex> lock(batchMutex);
-
-    if (batchNumber >= batchRange) {
-      isIncomplete = false;
-    }
-
-    return batchOffset + (batchNumber++) + backwardToFactorSqrt;
   }
 
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
-      for (size_t batchItem = 0U; batchItem < wheelEntryCount;) {
+      for (size_t batchItem = 1U; batchItem < wheelEntryCount;) {
         const BigInteger n = forwardFn(batchStart + batchItem);
         if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
@@ -833,10 +823,9 @@ struct Factorizer {
 
   // Sieving function
   BigInteger sievePolynomials(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
-    for (BigInteger batchNum = getNextSieveBatch(); isIncomplete; batchNum = getNextSieveBatch()) {
-      const BigInteger batchStart = batchNum * wheelEntryCount;
-      const size_t maxLcv = wheelEntryCount + 1U;
-      for (size_t batchItem = 1U; batchItem < maxLcv; ++batchItem) {
+    for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
+      const BigInteger batchStart = (batchNum + backwardToFactorSqrt) * wheelEntryCount;
+      for (size_t batchItem = 1U; batchItem < wheelEntryCount; ++batchItem) {
         // Make the candidate NOT a multiple on the wheels.
         const BigInteger x = forwardFn(batchStart + batchItem);
         // Make the candidate a perfect square.
@@ -1230,13 +1219,13 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
 
   // Range per parallel node
   const auto backwardFn = backward(SMALLEST_WHEEL);
-  const BigInteger nodeRange = (((backwardFn(sqrtN) + nodeCount - 1U) / nodeCount) + batchItemCount - 1U) / batchItemCount;
+  const BigInteger nodeRange = (((backwardFn(sqrtN) + batchItemCount - 1U) / batchItemCount) + nodeCount - 1U) / nodeCount;
   const size_t batchStart = ((size_t)backwardFn(primeCeiling)) / batchItemCount;
   const size_t rowLimit = smoothPrimes.size() + gaussianEliminationRowOffset;
 
   // For FACTOR_FINDER method
   const BigInteger sievingNodeRange =((((smoothBackwardFn(sqrtN + (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier + 0.5)) - smoothBackwardFn(sqrtN))
-                                      + nodeCount - 1U) / nodeCount) + batchItemCount - 1U) / batchItemCount;
+                                      + batchItemCount - 1U) / batchItemCount) + nodeCount - 1U) / nodeCount;
   const BigInteger nodeOffset = nodeId * sievingNodeRange;
 
   // This manages the work of all threads.
