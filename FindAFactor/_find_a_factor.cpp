@@ -1024,6 +1024,7 @@ struct Factorizer {
       // Avoid division by 0
       return 1U;
     }
+
     return gcd(toFactor, x - y);
   }
 
