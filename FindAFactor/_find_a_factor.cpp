@@ -923,7 +923,7 @@ struct Factorizer {
     std::vector<std::vector<size_t>> solutions;
 
     for (size_t col = 0U; col < marks.size(); ++col) {
-      if (marks[col]) {
+      if (marks.test(col)) {
         // Skip pivot columns
         continue;
       }
@@ -933,7 +933,7 @@ struct Factorizer {
 
       // Collect rows that have a 1 in this free column
       for (size_t row = 0U; row < smoothNumberValues.size(); ++row) {
-        if (smoothNumberValues[row][col]) {
+        if (smoothNumberValues[row].test(col)) {
           selectedRows.push_back(row);
           solutionRow ^= smoothNumberValues[row]; // XOR to construct dependency
         }
