@@ -909,7 +909,7 @@ struct Factorizer {
           // Avoid division by 0
           if (_x != y) {
             // Check x - y
-            factor = gcd(toFactor, x - y);
+            factor = gcd(toFactor, _x - y);
             if ((factor > 1U) && (factor < toFactor)) {
               isIncomplete = false;
 
