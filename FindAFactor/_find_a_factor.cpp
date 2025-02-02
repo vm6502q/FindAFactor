@@ -804,7 +804,7 @@ struct Factorizer {
     // Up to wheel factorization, try all batches up to the square root of toFactor.
     for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
       const BigInteger batchStart = batchNum * wheelEntryCount;
-      for (size_t batchItem = 1U; batchItem < wheelEntryCount;) {
+      for (size_t batchItem = 1U; batchItem <= wheelEntryCount;) {
         const BigInteger n = forwardFn(batchStart + batchItem);
         if (!(toFactor % n) && (n != 1U) && (n != toFactor)) {
           isIncomplete = false;
@@ -825,7 +825,7 @@ struct Factorizer {
   BigInteger sievePolynomials(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
     for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
       const BigInteger batchStart = (batchNum + backwardToFactorSqrt) * wheelEntryCount;
-      for (size_t batchItem = 1U; batchItem < wheelEntryCount; ++batchItem) {
+      for (size_t batchItem = 1U; batchItem <= wheelEntryCount; ++batchItem) {
         // Make the candidate NOT a multiple on the wheels.
         const BigInteger x = forwardFn(batchStart + batchItem);
         // Make the candidate a perfect square.
@@ -1194,7 +1194,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   // Wheel entry count per largest "gear" scales our brute-force range.
   // This is defined globally:
   // std::vector<size_t> wheel;
-  for (size_t i = 1U; i < biggestWheel; ++i) {
+  for (size_t i = 1U; i <= biggestWheel; ++i) {
     if (!isMultiple(i, gearFactorizationPrimes)) {
       wheel.push_back(i);
     }
