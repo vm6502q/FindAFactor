@@ -694,7 +694,7 @@ size_t GetGearIncrement(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
       is_wheel_multiple = wheel.test(0U);
       wheel >>= 1U;
       if (is_wheel_multiple) {
-        wheel[wheel.size() - 1U] = true;
+        wheel.set(wheel.size() - 1U);
         break;
       }
     }
