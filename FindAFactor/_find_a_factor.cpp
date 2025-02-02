@@ -966,7 +966,7 @@ struct Factorizer {
           }
 
           // Mark this column as having a pivot.
-          marks[col] = true;
+          marks.set(col);
           break;
         }
       }
