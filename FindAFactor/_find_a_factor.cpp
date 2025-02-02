@@ -756,7 +756,6 @@ std::vector<size_t> selectFactorBase(const BigInteger N, const std::vector<size_
 
 struct Factorizer {
   std::mutex batchMutex;
-  BigInteger toFactorSqr;
   BigInteger toFactor;
   BigInteger toFactorSqrt;
   BigInteger backwardToFactorSqrt;
@@ -765,7 +764,6 @@ struct Factorizer {
   BigInteger batchOffset;
   BigInteger batchTotal;
   BigInteger smoothWheelRadius;
-  size_t afterGearPrimeId;
   size_t wheelEntryCount;
   size_t rowLimit;
   bool isIncomplete;
@@ -777,7 +775,7 @@ struct Factorizer {
 
   Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, const BigInteger& bn,
              const std::vector<size_t> &sp, ForwardFn ffn, ForwardFn bfn)
-    : toFactorSqr(tf * tf), toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
+    : toFactor(tf), toFactorSqrt(tfsqrt), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     smoothWheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), smoothPrimes(sp), forwardFn(ffn), backwardFn(bfn)
   {
     backwardToFactorSqrt = backwardFn(toFactorSqrt);
