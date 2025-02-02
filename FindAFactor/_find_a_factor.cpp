@@ -856,14 +856,18 @@ struct Factorizer {
         if (rfv.none()) {
           // x^2 % toFactor = y^2
           const BigInteger y = sqrt(ySqr);
+
+          // Check x + y
           BigInteger factor = gcd(toFactor, x + y);
           if ((factor > 1U) && (factor < toFactor)) {
             isIncomplete = false;
 
             return factor;
           }
+
+          // Avoid division by 0
           if (x != y) {
-            // Avoid division by 0
+            // Check x - y
             factor = gcd(toFactor, x - y);
             if ((factor > 1U) && (factor < toFactor)) {
               isIncomplete = false;
@@ -893,14 +897,18 @@ struct Factorizer {
           // x^2 % toFactor = y^2
           const BigInteger _x = x * smoothNumberKeys[std::distance(smoothNumberValues.begin(), snvIt)];
           const BigInteger y = sqrt((_x * _x) % toFactor);
+
+          // Check x + y
           BigInteger factor = gcd(toFactor, _x + y);
           if ((factor > 1U) && (factor < toFactor)) {
             isIncomplete = false;
 
             return factor;
           }
+
+          // Avoid division by 0
           if (_x != y) {
-            // Avoid division by 0
+            // Check x - y
             factor = gcd(toFactor, x - y);
             if ((factor > 1U) && (factor < toFactor)) {
               isIncomplete = false;
@@ -1026,16 +1034,20 @@ struct Factorizer {
       x *= smoothNumberKeys[idx];
     }
     const BigInteger y = sqrt((x * x) % toFactor);
+
+    // Check x + y
     BigInteger factor = gcd(toFactor, x + y);
     if ((factor > 1U) && (factor < toFactor)) {
       return factor;
     }
-    if (x == y) {
-      // Avoid division by 0
-      return 1U;
+
+    // Avoid division by 0
+    if (x != y) {
+      // Check x - y
+      return gcd(toFactor, x - y);
     }
 
-    return gcd(toFactor, x - y);
+    return 1U;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
