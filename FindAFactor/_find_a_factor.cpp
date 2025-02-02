@@ -924,7 +924,8 @@ struct Factorizer {
       for (size_t row = 0U; row < smoothNumberValues.size(); ++row) {
         if (smoothNumberValues[row].test(col)) {
           selectedRows.push_back(row);
-          solutionRow ^= smoothNumberValues[row]; // XOR to construct dependency
+           // XOR to construct dependency
+          solutionRow ^= smoothNumberValues[row];
         }
       }
 
@@ -936,7 +937,6 @@ struct Factorizer {
 
     return solutions;
   }
-
 
   // Perform Gaussian elimination on a binary matrix
   std::vector<std::vector<size_t>> gaussianElimination() {
