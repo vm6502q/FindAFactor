@@ -795,7 +795,7 @@ struct Factorizer {
 
     const BigInteger halfIndex = batchOffset + (batchNumber++ >> 1U);
 
-    return ((batchNumber & 1U) ? batchTotal - halfIndex : halfIndex);
+    return ((batchNumber & 1U) ? batchTotal - (halfIndex + 1U) : halfIndex);
   }
 
   BigInteger bruteForce(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
