@@ -785,6 +785,16 @@ struct Factorizer {
     }
   }
 
+  BigInteger getNextBatch() {
+    std::lock_guard<std::mutex> lock(batchMutex);
+
+    if (batchNumber >= batchRange) {
+      isIncomplete = false;
+    }
+
+    return batchOffset + batchNumber++;
+  }
+
   BigInteger getNextAltBatch() {
     std::lock_guard<std::mutex> lock(batchMutex);
 
@@ -820,7 +830,7 @@ struct Factorizer {
 
   // Sieving function
   BigInteger sievePolynomials(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
-    for (BigInteger batchNum = getNextAltBatch(); isIncomplete; batchNum = getNextAltBatch()) {
+    for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
       // NOTE: If you want to add gear factorization back in, realize that these bounds
       // do not yet properly align to exact wheel boundaries, for full repetitions.
       // (They cycle through every validate candidate, but potentially with an offset.)
