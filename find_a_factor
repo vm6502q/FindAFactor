@@ -13,11 +13,12 @@ def main():
     method=FactoringMethod(int(os.environ.get('FINDAFACTOR_METHOD'))) if os.environ.get('FINDAFACTOR_METHOD') else FactoringMethod.PRIME_PROVER
     node_count=int(os.environ.get('FINDAFACTOR_NODE_COUNT')) if os.environ.get('FINDAFACTOR_NODE_COUNT') else 1
     node_id=int(os.environ.get('FINDAFACTOR_NODE_ID')) if os.environ.get('FINDAFACTOR_NODE_ID') else 0
-    gear_factorization_level=int(os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL') else 19
-    wheel_factorization_level=int(os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL') else 13
+    gear_factorization_level=int(os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_GEAR_FACTORIZATION_LEVEL') else 29
+    wheel_factorization_level=int(os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL')) if os.environ.get('FINDAFACTOR_WHEEL_FACTORIZATION_LEVEL') else 17
     sieving_bound_multiplier=float(os.environ.get('FINDAFACTOR_SIEVING_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SIEVING_BOUND_MULTIPLIER') else 1.0
     smoothness_bound_multiplier=float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0
     gaussian_elimination_row_offset=int(os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_OFFSET')) if os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_OFFSET') else 1
+    check_small_factors=True if os.environ.get('FINDAFACTOR_CHECK_SMALL_FACTORS') else False
 
     if argv_len > 1:
         to_factor = int(sys.argv[1])
@@ -37,6 +38,8 @@ def main():
         smoothness_bound_multiplier = float(sys.argv[8])
     if argv_len > 9:
         gaussian_elimination_row_offset = int(sys.argv[9])
+    if argv_len > 10:
+        check_small_factors = sys.argv[10] not in ['False', '0']
 
     start = time.perf_counter()
     result = find_a_factor(
@@ -48,7 +51,8 @@ def main():
         wheel_factorization_level=wheel_factorization_level,
         sieving_bound_multiplier=sieving_bound_multiplier,
         smoothness_bound_multiplier=smoothness_bound_multiplier,
-        gaussian_elimination_row_offset=gaussian_elimination_row_offset
+        gaussian_elimination_row_offset=gaussian_elimination_row_offset,
+        check_small_factors=check_small_factors
     )
     print(time.perf_counter() - start)
     print(str(result) + " * " + str(to_factor // result) + " == " + str(to_factor))
