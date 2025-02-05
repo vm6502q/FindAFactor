@@ -644,9 +644,13 @@ struct Factorizer {
       x *= smoothNumberKeys[idx];
     }
     const BigInteger y = sqrt((x * x) % toFactor);
-    // Uncomment to validate our math, overall
+    // The WHOLE point of EVERYTHING we've done
+    // is to guarantee this condition NEVER throws.
+    // If we're finding solutions with the right
+    // frequency as a function of rows saved,
+    // we've correctly executed Quadratic sieve.
     if ((y * y) != ((x * x) % toFactor)) {
-      throw std::runtime_error("Math is not self-consistent!");
+      throw std::runtime_error("Quadratic sieve math is not self-consistent!");
     }
 
     // Check x + y
