@@ -703,11 +703,11 @@ struct Factorizer {
       // (The GCD is necessarily smooth.)
       std::vector<size_t> nspids(spids);
       for (size_t pi = spids.size(); pi > 0; --pi) {
-        const size_t& p = smoothPrimes[spids[pi]];
+        const size_t& p = smoothPrimes[spids[pi - 1U]];
         if (factor % p) {
           // Once a preamble factor is found not to be present,
           // there's no longer use trying for it on the next iteration.
-          nspids.erase(nspids.begin() + pi);
+          nspids.erase(nspids.begin() + pi - 1U);
           continue;
         }
         factor /= p;
@@ -715,7 +715,7 @@ struct Factorizer {
         if (factor == 1U) {
           // The step is fully factored.
           // (This case is always reached.)
-          nspids.erase(nspids.begin(), nspids.begin() + pi);
+          nspids.erase(nspids.begin(), nspids.begin() + pi - 1U);
           break;
         }
       }
