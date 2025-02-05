@@ -648,9 +648,9 @@ struct Factorizer {
     // is to guarantee this condition NEVER throws.
     // If we're finding solutions with the right
     // frequency as a function of rows saved,
-    // we've correctly executed Quadratic sieve.
+    // we've correctly executed Quadratic Sieve.
     if ((y * y) != ((x * x) % toFactor)) {
-      throw std::runtime_error("Quadratic sieve math is not self-consistent!");
+      throw std::runtime_error("Quadratic Sieve math is not self-consistent!");
     }
 
     // Check x + y
