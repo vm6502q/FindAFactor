@@ -685,6 +685,7 @@ struct Factorizer {
   // Compute the prime factorization modulo 2
   boost::dynamic_bitset<size_t> factorizationParityVector(BigInteger num) {
     boost::dynamic_bitset<size_t> vec(smoothPrimes.size(), 0U);
+    size_t piStart = 0U;
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
       BigInteger factor = gcd(num, smoothWheelRadius);
@@ -694,15 +695,23 @@ struct Factorizer {
       num /= factor;
       // Remove smooth primes from factor.
       // (The GCD is necessarily smooth.)
-      for (size_t pi = 0U; pi < smoothPrimes.size(); ++pi) {
+      bool isPreamble = true;
+      for (size_t pi = piStart; pi < smoothPrimes.size(); ++pi) {
         const size_t& p = smoothPrimes[pi];
         if (factor % p) {
+          // Once a preamble factor is found not to be present,
+          // there's no longer use trying for it on the next iteration.
+          if (isPreamble && (pi == piStart)) {
+            ++piStart;
+          }
           continue;
         }
+        isPreamble = false;
         factor /= p;
         vec.flip(pi);
         if (factor == 1U) {
           // The step is fully factored.
+          // (This case is always reached.)
           break;
         }
       }
