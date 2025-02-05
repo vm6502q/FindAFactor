@@ -704,7 +704,7 @@ struct Factorizer {
       std::vector<size_t> nspids(spids);
       for (size_t rpi = 0U; rpi < spids.size(); ++rpi) {
         const size_t pi = spids.size() - (rpi + 1U);
-        const size_t pid = spids[pi];
+        const size_t& pid = spids[pi];
         const size_t& p = smoothPrimes[pid];
         if (factor % p) {
           // Once a preamble factor is found not to be present,
