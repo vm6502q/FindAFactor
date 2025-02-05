@@ -701,15 +701,13 @@ struct Factorizer {
       num /= factor;
       // Remove smooth primes from factor.
       // (The GCD is necessarily smooth.)
-      std::vector<size_t> nspids(spids);
-      for (size_t rpi = 0U; rpi < spids.size(); ++rpi) {
-        const size_t pi = spids.size() - (rpi + 1U);
+      for (size_t pi = spids.size() - 1U; ; --pi) {
         const size_t& pid = spids[pi];
         const size_t& p = smoothPrimes[pid];
         if (factor % p) {
           // Once a preamble factor is found not to be present,
           // there's no longer use trying for it on the next iteration.
-          nspids.erase(nspids.begin() + pi);
+          spids.erase(spids.begin() + pi);
           continue;
         }
         factor /= p;
@@ -717,7 +715,7 @@ struct Factorizer {
         if (factor == 1U) {
           // The step is fully factored.
           // (This case is always reached.)
-          nspids.erase(nspids.begin(), nspids.begin() + pi);
+          spids.erase(spids.begin(), spids.begin() + pi);
           break;
         }
       }
@@ -725,8 +723,6 @@ struct Factorizer {
         // The number is fully factored and smooth.
         return vec;
       }
-      // Update smoothPrimes IDs
-      spids = nspids;
     }
     if (num != 1U) {
       // The number was not fully factored, because it is not smooth.
