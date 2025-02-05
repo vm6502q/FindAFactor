@@ -645,9 +645,9 @@ struct Factorizer {
     }
     const BigInteger y = sqrt((x * x) % toFactor);
     // Uncomment to validate our math, overall
-    // if ((y * y) != ((x * x) % toFactor)) {
-    //   throw std::runtime_error("Math is not self-consistent!");
-    // }
+    if ((y * y) != ((x * x) % toFactor)) {
+      throw std::runtime_error("Math is not self-consistent!");
+    }
 
     // Check x + y
     BigInteger factor = gcd(toFactor, x + y);
@@ -702,12 +702,13 @@ struct Factorizer {
       // Remove smooth primes from factor.
       // (The GCD is necessarily smooth.)
       std::vector<size_t> nspids(spids);
-      for (size_t pi = spids.size(); pi > 0; --pi) {
-        const size_t& p = smoothPrimes[spids[pi - 1U]];
+      for (size_t rpi = 0U; rpi < spids.size(); ++rpi) {
+        const size_t pi = spids.size() - (rpi + 1U);
+        const size_t& p = smoothPrimes[spids[pi]];
         if (factor % p) {
           // Once a preamble factor is found not to be present,
           // there's no longer use trying for it on the next iteration.
-          nspids.erase(nspids.begin() + pi - 1U);
+          nspids.erase(nspids.begin() + pi);
           continue;
         }
         factor /= p;
@@ -715,7 +716,7 @@ struct Factorizer {
         if (factor == 1U) {
           // The step is fully factored.
           // (This case is always reached.)
-          nspids.erase(nspids.begin(), nspids.begin() + pi - 1U);
+          nspids.erase(nspids.begin(), nspids.begin() + pi);
           break;
         }
       }
