@@ -19,6 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <stdlib.h>
 #include <string>
 
@@ -643,6 +644,10 @@ struct Factorizer {
       x *= smoothNumberKeys[idx];
     }
     const BigInteger y = sqrt((x * x) % toFactor);
+    // Uncomment to validate our math, overall
+    // if ((y * y) != ((x * x) % toFactor)) {
+    //   throw std::runtime_error("Math is not self-consistent!");
+    // }
 
     // Check x + y
     BigInteger factor = gcd(toFactor, x + y);
@@ -685,7 +690,8 @@ struct Factorizer {
   // Compute the prime factorization modulo 2
   boost::dynamic_bitset<size_t> factorizationParityVector(BigInteger num) {
     boost::dynamic_bitset<size_t> vec(smoothPrimes.size(), 0U);
-    size_t piStart = 0U;
+    std::vector<size_t> spids(smoothPrimes.size());
+    std::iota(spids.begin(), spids.end(), 0);
     while (true) {
       // Proceed in steps of the GCD with the smooth prime wheel radius.
       BigInteger factor = gcd(num, smoothWheelRadius);
@@ -695,23 +701,21 @@ struct Factorizer {
       num /= factor;
       // Remove smooth primes from factor.
       // (The GCD is necessarily smooth.)
-      bool isPreamble = true;
-      for (size_t pi = piStart; pi < smoothPrimes.size(); ++pi) {
-        const size_t& p = smoothPrimes[pi];
+      std::vector<size_t> nspids(spids);
+      for (size_t pi = 0; pi < spids.size(); ++pi) {
+        const size_t& p = smoothPrimes[spids[pi]];
         if (factor % p) {
           // Once a preamble factor is found not to be present,
           // there's no longer use trying for it on the next iteration.
-          if (isPreamble && (pi == piStart)) {
-            ++piStart;
-          }
+          nspids.erase(nspids.begin() + pi);
           continue;
         }
-        isPreamble = false;
         factor /= p;
         vec.flip(pi);
         if (factor == 1U) {
           // The step is fully factored.
           // (This case is always reached.)
+          nspids.erase(nspids.begin() + pi + 1U, nspids.end());
           break;
         }
       }
@@ -719,6 +723,8 @@ struct Factorizer {
         // The number is fully factored and smooth.
         return vec;
       }
+      // Update smoothPrimes IDs
+      spids = nspids;
     }
     if (num != 1U) {
       // The number was not fully factored, because it is not smooth.
