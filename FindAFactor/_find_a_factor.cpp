@@ -702,7 +702,7 @@ struct Factorizer {
       // Remove smooth primes from factor.
       // (The GCD is necessarily smooth.)
       std::vector<size_t> nspids(spids);
-      for (size_t pi = 0; pi < spids.size(); ++pi) {
+      for (size_t pi = spids.size(); pi > 0; --pi) {
         const size_t& p = smoothPrimes[spids[pi]];
         if (factor % p) {
           // Once a preamble factor is found not to be present,
@@ -715,7 +715,7 @@ struct Factorizer {
         if (factor == 1U) {
           // The step is fully factored.
           // (This case is always reached.)
-          nspids.erase(nspids.begin() + pi + 1U, nspids.end());
+          nspids.erase(nspids.begin(), nspids.begin() + pi);
           break;
         }
       }
