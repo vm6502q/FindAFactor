@@ -36,7 +36,8 @@ factor = find_a_factor(
     sieving_bound_multiplier=1.0,
     smoothness_bound_multiplier=1.0,
     gaussian_elimination_row_offset=3,
-    check_small_factors=False
+    check_small_factors=False,
+    wheel_primes_excluded=[]
 )
 ```
 
@@ -46,11 +47,12 @@ The `find_a_factor()` function should return any nontrivial factor of `to_factor
 - `node_count` (default value: `1`): `FindAFactor` can perform factorization in a _distributed_ manner, across nodes, without network communication! When `node_count` is set higher than `1`, the search space for factors is segmented equally per node. If the number to factor is semiprime, and brute-force search is used instead of congruence of squares, for example, all nodes except the one that happens to contain the (unknown) prime factor less than the square root of `to_factor` will ultimately return `1`, while one node will find and return this factor. For best performance, every node involved in factorization should have roughly the same CPU throughput capacity. For `FACTOR_FINDER` mode, this splits the sieving range between nodes, but it does not actually coordinate Gaussian elimination rows between nodes.
 - `node_id` (default value: `0`): This is the identifier of this node, when performing distributed factorization with `node_count` higher than `1`. `node_id` values start at `0` and go as high as `(node_count - 1)`.
 - `gear_factorization_level` (default value: `23`): This is the value up to which "wheel (and gear) factorization" are applied to "brute force." A value of `23` includes all prime factors of `23` and below and works well for `PRIME_PROVER`, though significantly higher might be preferred in certain cases. In `FACTOR_FINDER`, one probably wants to avoid setting a different gear level than wheel level.
-- `wheel_factorization_level` (default value: `13`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. For `PRIME_PROVER`, optimized implementation for wheels is only available up to `17`; for `FACTOR_FINDER`, wheels are constructed programmatically **while avoiding smooth primes with quadratic residues**, so there is no fixed ceiling. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization. For `FACTOR_FINDER` method, wheel factorization is applied to map the sieving interval onto non-multiples on the wheel, if the level is set above `1`.
+- `wheel_factorization_level` (default value: `13`): "Wheel" vs. "gear" factorization balances two types of factorization wheel ("wheel" vs. "gear" design) that often work best when the "wheel" is only a few prime number levels lower than gear factorization. For `PRIME_PROVER`, optimized implementation for wheels is only available up to `17`; for `FACTOR_FINDER`, wheels are constructed programmatically **while avoiding `wheel_primes_excluded` entries**, so there is no fixed ceiling. The primes above "wheel" level, up to "gear" level, are the primes used specifically for "gear" factorization. For `FACTOR_FINDER` method, wheel factorization is applied to map the sieving interval onto non-multiples on the wheel, if the level is set above `1`.
 - `sieving_bound_multiplier` (default value: `1.0`): This controls the sieving bound and is calibrated such that it linearly multiplies the number to factor minus its square root (for a full `1.0` increment, which is maximum). While this might be a huge bound, remember that sieving termination is primarily controlled by when `gaussian_elimination_row_multiplier` is exactly satisfied.
 - `smoothness_bound_multiplier` (default value: `1.0`): This controls smoothness bound and is calibrated such that it linearliy multiplies `pow(exp(0.5 * sqrt(log(N) * log(log(N)))), sqrt(2.0)/4)` for `N` being the number to factor (for each `1.0` increment). This was a heuristic suggested by Elara (an OpenAI custom GPT).
 - `gaussian_elimination_row_offset` (default value: `1`): This controls the number of rows greater than the count of smooth primes that are sieved before Gaussian elimination. Basically, for each increment starting with `1`, the chance of finding at least one solution in Gaussian elimination goes like `(1 - 2^(-m))` for a setting value of `m`: `1` value is a 50% chance of success, and the chance of failure is halved for each unit of `1` added. So long as this setting is appropriately low enough, `sieving_bound_multiplier` can be set basically arbitrarily high.
 - `check_small_factors` (default value: `False`): `True` performs initial-phase trial division up to the smoothness bound, and `False` skips it.
+- `wheel_primes_excluded` (default value: `[]`): If using `FACTOR_FINDER` method, these specific primes are excluded from wheel and gear factorization (up to `wheel_factorization_level` and `gear_factorization_level`).
 
 All variables defaults can also be controlled by environment variables:
 - `FINDAFACTOR_METHOD` (integer value)
@@ -62,6 +64,7 @@ All variables defaults can also be controlled by environment variables:
 - `FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER`
 - `FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_OFFSET`
 - `FINDAFACTOR_CHECK_SMALL_FACTORS` (`True` if set at all, otherwise `False`)
+- `FINDAFACTOR_WHEEL_PRIMES_EXCLUDED` (space-separated prime numbers)
 
 ## About 
 This library was originally called ["Qimcifa"](https://github.com/vm6502q/qimcifa) and demonstrated a (Shor's-like) "quantum-inspired" algorithm for integer factoring. It has since been developed into a general factoring algorithm and tool.

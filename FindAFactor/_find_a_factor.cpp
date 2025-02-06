@@ -741,7 +741,7 @@ struct Factorizer {
 };
 
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t gearFactorizationLevel, size_t wheelFactorizationLevel,
-                          double sievingBoundMultiplier, double smoothnessBoundMultiplier, size_t gaussianEliminationRowOffset, bool checkSmallFactors) {
+                          double sievingBoundMultiplier, double smoothnessBoundMultiplier, size_t gaussianEliminationRowOffset, bool checkSmallFactors, std::vector<size_t> wheelPrimesExcluded) {
   // Validation section
   if (method > 1U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
@@ -824,14 +824,14 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     if (smoothPrimes.empty()) {
       throw std::runtime_error("No smooth primes found under bound. (The formula smoothness bound calculates to " + std::to_string(primeCeiling) + ".) Increase the smoothness bound multiplier, unless this is in range of check_small_factors=True.");
     }
-    for (const size_t& sp : smoothPrimes) {
-      const auto& gfpit = std::find(gearFactorizationPrimes.begin(), gearFactorizationPrimes.end(), sp);
-      if (gfpit != gearFactorizationPrimes.end()) {
-         gearFactorizationPrimes.erase(gfpit);
+    for (const size_t& wpe: wheelPrimesExcluded) {
+      const auto git = std::find(gearFactorizationPrimes.begin(), gearFactorizationPrimes.end(), wpe);
+      if (git != gearFactorizationPrimes.end()) {
+        gearFactorizationPrimes.erase(git);
       }
-      const auto& wfpit = std::find(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end(), sp);
-      if (wfpit != wheelFactorizationPrimes.end()) {
-        wheelFactorizationPrimes.erase(wfpit);
+      const auto wit = std::find(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end(), wpe);
+      if (git != wheelFactorizationPrimes.end()) {
+        wheelFactorizationPrimes.erase(git);
       }
     }
   }
