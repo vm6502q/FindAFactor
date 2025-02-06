@@ -1,6 +1,6 @@
 # Choose a wheel factorization ceiling:
 wheel_factorization_level = 50
-# Grab a sample of smooth numbers from `FACTOR_FINDER` mode, and paste them here.
+# Grab a sample of smooth numbers from `FACTOR_FINDER` mode FOR YOUR SPECIFIC NUMBER TO FACTOR, not just any smooth numbers, and paste them here.
 smooth_nums = [42571, 42576, 42583, 42589, 42591, 42592, 42593, 42595, 42598, 42601, 42612, 42615, 42617, 42634, 42635, 42639, 42641, 42849, 43079, 42851, 43094, 42852, 43105, 43109, 42864, 43114, 42871, 43133, 43150, 42909, 43168, 42929, 42931, 42936, 43187, 42937, 42942, 43209, 42962, 42978, 42985, 42986, 42650, 43247, 42677, 43279, 43280, 43285, 42994, 43366, 43314, 43013, 43397, 43594, 43409, 43596, 43846, 43855, 42687, 43059, 43864, 44109, 43671, 43423, 42689,]
 
 # Primes up to 1000 are likely enough to choose from in general (but you can add more).
