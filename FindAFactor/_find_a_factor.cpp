@@ -469,7 +469,7 @@ struct Factorizer {
 
           // Check x + y
           BigInteger factor = gcd(toFactor, x + y);
-          if ((factor > 1U) && (factor < toFactor)) {
+          if ((factor != 1U) && (factor != toFactor)) {
             isIncomplete = false;
 
             return factor;
@@ -479,7 +479,7 @@ struct Factorizer {
           if (x != y) {
             // Check x - y
             factor = gcd(toFactor, x - y);
-            if ((factor > 1U) && (factor < toFactor)) {
+            if ((factor != 1U) && (factor != toFactor)) {
               isIncomplete = false;
 
               return factor;
@@ -510,7 +510,7 @@ struct Factorizer {
 
           // Check x + y
           BigInteger factor = gcd(toFactor, _x + y);
-          if ((factor > 1U) && (factor < toFactor)) {
+          if ((factor != 1U) && (factor != toFactor)) {
             isIncomplete = false;
 
             return factor;
@@ -520,7 +520,7 @@ struct Factorizer {
           if (_x != y) {
             // Check x - y
             factor = gcd(toFactor, _x - y);
-            if ((factor > 1U) && (factor < toFactor)) {
+            if ((factor != 1U) && (factor != toFactor)) {
               isIncomplete = false;
 
               return factor;
@@ -655,7 +655,7 @@ struct Factorizer {
 
     // Check x + y
     BigInteger factor = gcd(toFactor, x + y);
-    if ((factor > 1U) && (factor < toFactor)) {
+    if ((factor != 1U) && (factor != toFactor)) {
       return factor;
     }
 
@@ -681,7 +681,7 @@ struct Factorizer {
     const std::vector<std::vector<size_t>> solutions = gaussianElimination();
     for (const std::vector<size_t>& solution : solutions) {
       const BigInteger factor = solveCongruence(solution);
-      if ((factor > 1U) && (factor < toFactor)) {
+      if ((factor != 1U) && (factor != toFactor)) {
         return factor;
       }
     }
