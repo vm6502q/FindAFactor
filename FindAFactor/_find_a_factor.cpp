@@ -460,6 +460,7 @@ struct Factorizer {
           continue;
         }
         // We have a successful candidate.
+        std::cout << x << ", ";
 
         // If the candidate is already a perfect square,
         // we got lucky, and we might be done already.
@@ -678,6 +679,9 @@ struct Factorizer {
     if (smoothNumberKeys.empty()) {
         throw std::runtime_error("No smooth numbers found. Sieve more, or increase smoothness bound to reduce selectiveness. (The sieving bound multiplier is equivalent to that many times the square root of the number to factor, for calculated numerical range above an offset of the square root of the number to factor.)");
     }
+
+    std::cout << std::endl;
+    std::cout << "Performing Gaussian elimination..." << std::endl;
 
     const std::vector<std::vector<size_t>> solutions = gaussianElimination();
     for (const std::vector<size_t>& solution : solutions) {
@@ -913,6 +917,10 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     // "Brute force" includes extensive wheel multiplication and can be faster.
     return isFactorFinder ? worker.sievePolynomials(&inc_seqs_clone) : worker.bruteForce(&inc_seqs_clone);
   };
+
+  if (isFactorFinder) {
+    std::cout << "Smooth numbers: ";
+  }
 
   for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
     futures.push_back(std::async(std::launch::async, workerFn));
