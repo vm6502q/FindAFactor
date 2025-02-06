@@ -18,7 +18,7 @@ def find_a_factor(n,
                   smoothness_bound_multiplier=float(os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER')) if os.environ.get('FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER') else 1.0,
                   gaussian_elimination_row_offset=int(os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_OFFSET')) if os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_OFFSET') else 1,
                   check_small_factors=True if os.environ.get('FINDAFACTOR_CHECK_SMALL_FACTORS') else False,
-                  wheel_primes_excluded=[int(i) for i in os.environ.get('FINDAFACTOR_WHEEL_PRIMES_EXCLUDED').split()] if os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_OFFSET') else []):
+                  wheel_primes_excluded=[int(i) for i in os.environ.get('FINDAFACTOR_WHEEL_PRIMES_EXCLUDED').split(",")] if os.environ.get('FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_OFFSET') else []):
     return int(_find_a_factor._find_a_factor(str(n),
                                              int(method),
                                              node_count, node_id,

@@ -64,7 +64,7 @@ All variables defaults can also be controlled by environment variables:
 - `FINDAFACTOR_SMOOTHNESS_BOUND_MULTIPLIER`
 - `FINDAFACTOR_GAUSSIAN_ELIMINATION_ROW_OFFSET`
 - `FINDAFACTOR_CHECK_SMALL_FACTORS` (`True` if set at all, otherwise `False`)
-- `FINDAFACTOR_WHEEL_PRIMES_EXCLUDED` (space-separated prime numbers)
+- `FINDAFACTOR_WHEEL_PRIMES_EXCLUDED` (comma-separated prime numbers)
 
 ## About 
 This library was originally called ["Qimcifa"](https://github.com/vm6502q/qimcifa) and demonstrated a (Shor's-like) "quantum-inspired" algorithm for integer factoring. It has since been developed into a general factoring algorithm and tool.
