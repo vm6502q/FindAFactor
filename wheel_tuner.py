@@ -14,6 +14,6 @@ for p in small_primes:
         if (x % p) == 0:
             mult_count += 1
 
-    print("Prime = " + str(p) + ", quality = " + str((1 / p) / ((mult_count / smooth_num_count)) if mult_count else 0))
+    print("Prime = " + str(p) + ", quality = " + (str((1 / p) / ((mult_count / smooth_num_count))) if mult_count else "MAX"))
 
 print("(Any low quality score, particularly less than 1.0, might be worth excluding.)")
