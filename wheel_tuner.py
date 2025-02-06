@@ -14,7 +14,12 @@ for p in small_primes:
         if (x % p) == 0:
             mult_count += 1
 
-    print("Prime = " + str(p) + ", quality = " + (str((1 / p) / ((mult_count / smooth_num_count))) if mult_count else "MAX"))
+    # When counting, 1 in every p numbers is a multiple of p.
+    # Do we have FEWER smooth number multiples than this? Then this is a GOOD candidate to remove from sieving.
+    # Do we have MORE smooth number multiples than this? Then this is a BAD candidate to remove from sieving.
+    # So we INCLUDE the numbers that are GOOD candidates in wheel factorization (so they DON'T occur in sieving),
+    # and we EXCLUDE the numbers that are BAD candidates in wheel factorization (so they DO occur in sieving).
+    print("Prime = " + str(p) + ", quality = " + (str((1 / p) / (mult_count / smooth_num_count)) if mult_count else "MAX"))
 
 print("Any low quality score (particularly less than 1.0, but even higher) might be worth excluding.")
 print("MAX quality scores are the best to include.")
