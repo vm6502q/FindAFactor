@@ -460,7 +460,6 @@ struct Factorizer {
           continue;
         }
         // We have a successful candidate.
-        std::cout << x << ", ";
 
         // If the candidate is already a perfect square,
         // we got lucky, and we might be done already.
@@ -489,6 +488,8 @@ struct Factorizer {
         }
 
         std::lock_guard<std::mutex> lock(batchMutex);
+
+        std::cout << x << ", ";
 
         const auto& snvIt = std::find(smoothNumberValues.begin(), smoothNumberValues.end(), rfv);
 
