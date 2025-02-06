@@ -619,6 +619,7 @@ struct Factorizer {
                 rm ^= cm;
               }
             }
+
             return false;
           });
         }
