@@ -39,7 +39,7 @@ with open(README_PATH) as readme_file:
 ext_modules = [CMakeExtension('_find_a_factor')]
 
 setup(
-    name='FindAFactor',
+    name='findafactor',
     version='6.8.0',
     author='Dan Strano',
     author_email='stranoj@gmail.com',

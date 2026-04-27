@@ -7,7 +7,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "FindAFactor"
+name = "findafactor"
 version = "6.8.0"
 requires-python = ">=3.8"
 description = "Find any nontrivial factor of a number"
