@@ -77,40 +77,6 @@ jobs:
           name: FindAFactor-${{ matrix.platform }}
           path: dist/
 
-  build_focal:
-    runs-on: ubuntu-20.04  # Use a Focal Fossa runner
-    strategy:
-      matrix:
-        platform:
-          - manylinux_2_31_x86_64
-    steps:
-      - name: Checkout FindAFactor
-        uses: actions/checkout@v4
-
-      - name: Prepare Build Environment (Linux)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pybind11 libboost-dev
-
-      - name: Install Python Dependencies
-        run: |
-          mkdir venv
-          python -m venv venv
-          source venv/bin/activate
-          python -m pip install --upgrade pip
-          python -m pip install wheel setuptools pybind11 build cmake
-
-      - name: Build Wheel
-        run: |
-          source venv/bin/activate
-          python setup.py bdist_wheel --plat-name=${{ matrix.platform }}
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: FindAFactor-${{ matrix.platform }}
-          path: dist/
-
   build_windows:
     runs-on: windows-latest  # Use a Linux runner
     strategy:
