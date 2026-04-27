@@ -6,6 +6,7 @@ from enum import IntEnum
 class FactoringMethod(IntEnum):
     PRIME_PROVER = 0
     FACTOR_FINDER = 1
+    POLLARD_RHO = 2
 
 
 def find_a_factor(n,

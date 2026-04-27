@@ -745,14 +745,129 @@ struct Factorizer {
   }
 };
 
+// Pollard's Rho factorization using Brent's improvement.
+// By (Anthropic) Claude
+//
+// Expected runtime O(n^(1/4)) — faster than trial division for
+// mid-range semiprimes, slower than Quadratic Sieve for large ones.
+// Fills the gap between wheel/gear trial division and QS.
+//
+// Brent's variant saves periodic "tortoise" checkpoints and batches
+// GCD computations (every `batchSize` steps), reducing GCD overhead
+// significantly vs. Floyd's cycle detection.
+//
+// Returns a non-trivial factor of n, or 1 if this attempt failed
+// (caller should retry with a different c).
+BigInteger pollardRhoBrent(const BigInteger& n, const BigInteger& c)
+{
+    if (n == 1U) return 1U;
+
+    // Degenerate polynomial constants — skip.
+    if (c == 0U || c == n - 2U) return 1U;
+
+    BigInteger y = 2U;      // tortoise checkpoint
+    BigInteger r = 1U;      // Brent's power-of-2 cycle length
+    BigInteger q = 1U;      // accumulated product for batched GCD
+    BigInteger x, ys, factor;
+
+    const size_t batchSize = 128U;  // batch GCD every this many steps
+
+    do {
+        x = y;
+        // Advance tortoise to start of next Brent segment
+        for (BigInteger i = 0U; i < r; ++i) {
+            y = (y * y + c) % n;
+        }
+
+        BigInteger k = 0U;
+        factor = 1U;
+
+        while (k < r && factor == 1U) {
+            ys = y;
+            const BigInteger steps = std::min(batchSize, (size_t)(r - k));
+            for (BigInteger i = 0U; i < steps; ++i) {
+                y = (y * y + c) % n;
+                const BigInteger diff = (y > x) ? (y - x) : (x - y);
+                q = (q * diff) % n;
+            }
+            factor = gcd(n, q);
+            k += steps;
+        }
+
+        r <<= 1U;
+
+    } while (factor == 1U);
+
+    // If we got n itself, fall back to step-by-step from last checkpoint
+    if (factor == n) {
+        factor = 1U;
+        y = ys;
+        while (factor == 1U) {
+            y = (y * y + c) % n;
+            const BigInteger diff = (y > x) ? (y - x) : (x - y);
+            factor = gcd(n, diff);
+        }
+    }
+
+    return (factor == n) ? 1U : factor;
+}
+
+// Driver: try multiple (c) values across available CPU threads.
+// Returns a non-trivial factor, or 1 if all attempts failed.
+BigInteger pollardRho(const BigInteger& n, const BigInteger& sqrtN)
+{
+    if (n <= 3U) return 1U;
+
+    // Quick perfect-square check (already done in caller, but be safe)
+    if (sqrtN * sqrtN == n) return sqrtN;
+
+    std::atomic<bool> found(false);
+    BigInteger result = 1U;
+    std::mutex resultMutex;
+
+    // Each thread tries a different c value.  c = 1 is the classic choice;
+    // we fan out from there.  Values 0 and n-2 are degenerate — skip them.
+    const size_t maxAttempts = CpuCount * 8U;
+
+    std::vector<std::future<BigInteger>> futures;
+    futures.reserve(maxAttempts);
+
+    for (size_t attempt = 0U; attempt < maxAttempts; ++attempt) {
+        const BigInteger c = (BigInteger)(attempt + 1U);
+        if (c == n - 2U) continue;
+
+        futures.push_back(std::async(std::launch::async,
+            [&n, &found, c]() -> BigInteger {
+                if (found.load(std::memory_order_relaxed)) return 1U;
+                const BigInteger f = pollardRhoBrent(n, c);
+                if (f > 1U && f < n) {
+                    found.store(true, std::memory_order_relaxed);
+                    return f;
+                }
+                return 1U;
+            }));
+    }
+
+    for (auto& fut : futures) {
+        const BigInteger f = fut.get();
+        if (f > 1U && f < n) {
+            std::lock_guard<std::mutex> lk(resultMutex);
+            if (result == 1U) result = f;
+        }
+    }
+
+    return result;
+}
+
 std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCount, size_t nodeId, size_t gearFactorizationLevel, size_t wheelFactorizationLevel,
                           double sievingBoundMultiplier, double smoothnessBoundMultiplier, size_t gaussianEliminationRowOffset, bool checkSmallFactors, std::vector<size_t> wheelPrimesExcluded) {
   // Validation section
-  if (method > 1U) {
+  if (method > 2U) {
     std::cout << "Mode number " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
     method = 1U;
   }
-  const bool isFactorFinder = (method > 0U);
+  const bool isPollardRho = (method == 2U);
+  const bool isFactorFinder = (method == 1U);
   if (!wheelFactorizationLevel) {
     wheelFactorizationLevel = 1U;
   } else if (!method && (wheelFactorizationLevel > 17U)) {
@@ -817,6 +932,20 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     if ((result != 1U) || (toFactor <= (primeCeiling * primeCeiling))) {
       return boost::lexical_cast<std::string>(result);
     }
+  }
+  // Pollard's Rho: method 2, or as a fast pre-check before Quadratic Sieve.
+  // Effective for mid-range semiprimes where trial division is too slow
+  // but Quadratic Sieve setup cost isn't yet justified.
+  if (isPollardRho || isFactorFinder) {
+    const BigInteger rhoResult = pollardRho(toFactor, sqrtN);
+    if (rhoResult > 1U && rhoResult < toFactor) {
+      return boost::lexical_cast<std::string>(rhoResult);
+    }
+    // If Pollard's Rho failed and we're in method 2, report failure.
+    if (isPollardRho) {
+      return std::to_string(1);
+    }
+    // Otherwise fall through to Quadratic Sieve.
   }
 
   // Set up wheel factorization (or "gear" factorization)
@@ -949,5 +1078,8 @@ using namespace Qimcifa;
 
 PYBIND11_MODULE(_find_a_factor, m) {
   m.doc() = "pybind11 plugin to find any factor of input";
+  // method: 0 = PRIME_PROVER (brute force trial division)
+  //         1 = FACTOR_FINDER (Pollard's Rho pre-check + Quadratic Sieve)
+  //         2 = POLLARD_RHO (Pollard's Rho only, O(n^1/4))
   m.def("_find_a_factor", &find_a_factor, "Finds any nontrivial factor of input");
 }
