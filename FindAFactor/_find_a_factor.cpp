@@ -384,7 +384,7 @@ struct Factorizer {
   ForwardFn backwardFn;
 
   Factorizer(const BigInteger &tf, const BigInteger &tfsqrt, const BigInteger &lb, const BigInteger &range, size_t nodeCount, size_t nodeId, size_t w, size_t rl, const BigInteger& bn,
-             const std::vector<size_t> &sp, ForwardFn ffn, ForwardFn bfn)
+             const std::vector<size_t> &sp, size_t wfl, ForwardFn ffn, ForwardFn bfn)
     : toFactor(tf), toFactorSqrt(tfsqrt), qsBackwardLowBound(lb), batchRange(range), batchNumber(bn), batchOffset(nodeId * range), batchTotal(nodeCount * range),
     smoothWheelRadius(1U), wheelEntryCount(w), rowLimit(rl), isIncomplete(true), smoothPrimes(sp), forwardFn(ffn), backwardFn(bfn)
   {
@@ -392,6 +392,9 @@ struct Factorizer {
     smoothNumberValues.reserve(rowLimit);
     for (const size_t p : smoothPrimes) {
       smoothWheelRadius *= p;
+    }
+    while (smoothPrimes.size() && (smoothPrimes[0U] <= wfl)) {
+      smoothPrimes.erase(smoothPrimes.begin());
     }
   }
 
@@ -1029,6 +1032,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                     rowLimit,
                     isFactorFinder ? 0U : ppStartingBatch,
                     smoothPrimes,
+                    wheelFactorizationLevel,
                     isFactorFinder ? ((wheel.size() > 1U) ? smoothForwardFn : forward(WHEEL1)) : ppForwardFn,
                     isFactorFinder ? ((wheel.size() > 1U) ? smoothBackwardFn : backward(WHEEL1)) : ppBackwardFn);
   // Square of count of smooth primes, for FACTOR_FINDER batch multiplier base unit, was suggested by Lyra (OpenAI GPT)
