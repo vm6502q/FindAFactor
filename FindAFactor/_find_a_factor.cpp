@@ -390,11 +390,11 @@ struct Factorizer {
   {
     smoothNumberKeys.reserve(rowLimit);
     smoothNumberValues.reserve(rowLimit);
-    for (const size_t p : smoothPrimes) {
-      smoothWheelRadius *= p;
-    }
     while (smoothPrimes.size() && (smoothPrimes[0U] <= wfl)) {
       smoothPrimes.erase(smoothPrimes.begin());
+    }
+    for (const size_t p : smoothPrimes) {
+      smoothWheelRadius *= p;
     }
   }
 
@@ -443,6 +443,10 @@ struct Factorizer {
 
   // Sieving function
   BigInteger sievePolynomials(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
+    if (smoothWheelRadius < 2U) {
+      throw std::invalid_argument("Wheel factorization level setting excludes all smooth primes!");
+    }
+
     for (BigInteger batchNum = getNextBatch(); isIncomplete; batchNum = getNextBatch()) {
       // NOTE: If you want to add gear factorization back in, realize that these bounds
       // do not yet properly align to exact wheel boundaries, for full repetitions.
