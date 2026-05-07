@@ -7,6 +7,7 @@ class FactoringMethod(IntEnum):
     PRIME_PROVER = 0
     FACTOR_FINDER = 1
     POLLARD_RHO = 2
+    ECM_ONLY = 3
 
 
 def find_a_factor(n,
