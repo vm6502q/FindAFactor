@@ -783,13 +783,13 @@ struct Factorizer {
       batchTotal(nodeCount * range), wheelEntryCount(w), rowLimit(rl),
       isIncomplete(true), smoothPrimes(sp), forwardFn(ffn), backwardFn(bfn)
   {
+    while (smoothPrimes.size() && (smoothPrimes[0U] <= wfl)) {
+      smoothPrimes.erase(smoothPrimes.begin());
+      --rowLimit;
+    }
     smoothNumberKeys.reserve(rowLimit);
     smoothNumberQValues.reserve(rowLimit);
     smoothNumberValues.reserve(rowLimit);
-
-    while (smoothPrimes.size() && (smoothPrimes[0U] <= wfl)) {
-      smoothPrimes.erase(smoothPrimes.begin());
-    }
   }
 
   BigInteger getNextBatch() {
