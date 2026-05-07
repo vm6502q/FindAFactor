@@ -477,15 +477,6 @@ void fillSieve(std::vector<uint8_t>& sieve, const MpqsPoly& poly,
 //                        LARGE PRIME VARIANT (partial relations)                                         //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// A "partial relation" has one large prime cofactor remaining after trial division.
-// Two partials sharing the same large prime can be combined into a full relation.
-struct PartialRelation {
-  BigInteger x;                              // polynomial argument at which Q(x) was found
-  BigInteger qx;                             // Q(x) value
-  boost::dynamic_bitset<size_t> parityVec;  // factorization parity of the B-smooth part
-  BigInteger largePrime;                     // the single large prime cofactor
-};
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                        ECM: ELLIPTIC CURVE METHOD (Lenstra, Stage 1 + Stage 2)                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -778,11 +769,6 @@ struct Factorizer {
   std::vector<BigInteger> origKeys;
   std::vector<BigInteger> origQValues;
 
-  // Large prime variant: partial relations keyed by large prime
-  std::mutex partialMutex;
-  std::unordered_map<std::string, PartialRelation> partialRelations;
-  size_t largePrimeBound;  // primes below this are "large" (but above factor base)
-
   ForwardFn forwardFn;
   ForwardFn backwardFn;
 
@@ -804,10 +790,6 @@ struct Factorizer {
     while (smoothPrimes.size() && (smoothPrimes[0U] <= wfl)) {
       smoothPrimes.erase(smoothPrimes.begin());
     }
-
-    // Large prime bound: allow cofactors up to factorBase.back()^2
-    const size_t fbMax = smoothPrimes.empty() ? 100U : smoothPrimes.back();
-    largePrimeBound = fbMax * fbMax;
   }
 
   BigInteger getNextBatch() {
@@ -904,19 +886,12 @@ struct Factorizer {
 
           const bool qxNegative = (qx < 0U);
           const BigInteger absQx = qxNegative ? -qx : qx;
-          const BigInteger rfvResult = tryFactorWithLargePrime(absQx, x, qxNegative, sieve[si] >= threshold);
+          const BigInteger rfvResult = tryFactorWithLargePrime(absQx, x, qxNegative);
           if (rfvResult != 0U && rfvResult != 1U && rfvResult != toFactor) {
             isIncomplete = false;
             return rfvResult;
           }
 
-          // Periodically print progress
-          {
-            std::lock_guard<std::mutex> lk(batchMutex);
-            if (smoothNumberKeys.size() % 10U == 0U && !smoothNumberKeys.empty()) {
-              // Non-intrusive tick; actual print in outer code
-            }
-          }
         }
       }
     }
@@ -924,16 +899,13 @@ struct Factorizer {
     return 1U;
   }
 
-  // Attempt to factor |qx| over the factor base.
-  // If fully smooth: add full relation.
-  // If one large prime cofactor remains (and within bound): try to combine with stored partial.
-  // Returns a non-trivial factor if one is found immediately, else 0.
+  // Trial-divide |Q(x)| over the factor base. If fully smooth, store as a relation.
   BigInteger tryFactorWithLargePrime(const BigInteger& absQx, const BigInteger& x,
-                                      bool qxNegative, bool isFullCandidate) {
+                                      bool qxNegative) {
     BigInteger rem = absQx;
     // Parity vector: bit 0 = sign (-1), bits 1..n = factor base primes.
     boost::dynamic_bitset<size_t> vec(smoothPrimes.size() + 1U, 0U);
-    if (qxNegative) vec.flip(0U); // set sign bit
+    if (qxNegative) vec.flip(0U);
 
     for (size_t pi = 0U; pi < smoothPrimes.size(); ++pi) {
       const size_t p = smoothPrimes[pi];
@@ -941,7 +913,6 @@ struct Factorizer {
     }
 
     if (rem == 1U) return addFullRelation(x, absQx, vec);
-    // Large prime variant disabled — only fully smooth relations are accepted.
     return 0U;
   }
 
@@ -970,39 +941,6 @@ struct Factorizer {
     return 0U;
   }
 
-  BigInteger addPartialRelation(const BigInteger& x, const BigInteger& absQx,
-                                 const boost::dynamic_bitset<size_t>& vec,
-                                 const BigInteger& largePrime)
-  {
-    boost::dynamic_bitset<size_t> combinedVec;
-    BigInteger combinedX, combinedQ;
-
-    {
-      std::lock_guard<std::mutex> lock(partialMutex);
-      const std::string lpKey = boost::lexical_cast<std::string>(largePrime);
-
-      auto it = partialRelations.find(lpKey);
-      if (it == partialRelations.end()) {
-        partialRelations[lpKey] = {x, absQx, vec, largePrime};
-        return 0U;
-      }
-
-      const PartialRelation& other = it->second;
-      combinedVec = vec ^ other.parityVec;
-      combinedX = ((x % toFactor + toFactor) % toFactor *
-                   ((other.x % toFactor + toFactor) % toFactor)) % toFactor;
-      combinedQ = absQx * other.qx; // Q1*Q2 = largePrime^2 * smooth_product
-      partialRelations.erase(it);
-    }
-
-    return addFullRelation(combinedX, combinedQ, combinedVec);
-  }
-
-  // Legacy single-polynomial sieve (kept for fallback/compatibility)
-  BigInteger sievePolynomials(std::vector<boost::dynamic_bitset<size_t>> *inc_seqs) {
-    // Delegate to MPQS
-    return mpqsSieve(inc_seqs);
-  }
 
   std::vector<std::vector<size_t>> gaussianElimination() {
     const size_t rows = smoothNumberValues.size();
