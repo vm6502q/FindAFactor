@@ -937,7 +937,7 @@ struct Factorizer {
   BigInteger addFullRelation(const BigInteger& x, const boost::dynamic_bitset<size_t>& vec) {
     std::lock_guard<std::mutex> lock(batchMutex);
 
-    std::cout << x << ", ";
+    std::cout << x << std::endl;
 
     // Check for duplicate
     const auto& snvIt = std::find(smoothNumberValues.begin(), smoothNumberValues.end(), vec);
@@ -1129,7 +1129,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
                            std::vector<size_t> wheelPrimesExcluded)
 {
   // Validation
-  if (method > 3U) {
+  if (method > 4U) {
     std::cout << "Mode " << method << " not implemented. Defaulting to FACTOR_FINDER." << std::endl;
     method = 1U;
   }
@@ -1137,9 +1137,10 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   //         1 = FACTOR_FINDER (ECM → Pollard Rho → MPQS)
   //         2 = POLLARD_RHO only
   //         3 = ECM only
-  const bool isPollardRho  = (method == 2U);
-  const bool isEcmOnly     = (method == 3U);
-  const bool isFactorFinder = (method == 1U);
+  //         4 = QUADRATIC_SIEVE and ECM only
+  const bool isPollardRho = (method == 1U) || (method == 2U);
+  const bool isEcm        = (method == 1U) || (method == 3U) || (method == 4U);
+  const bool isQuadSieve  = (method == 1U) || (method == 4U);
 
   if (!wheelFactorizationLevel) wheelFactorizationLevel = 1U;
   else if (!method && (wheelFactorizationLevel > 17U)) {
@@ -1198,23 +1199,33 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   }
 
   // ECM pre-check (fast for small factors, fills the gap between Rho and QS)
-  if (isEcmOnly || isFactorFinder) {
-    std::cout << "Running ECM pre-check..." << std::endl;
+  if (isEcm) {
+    std::cout << "Running ECM pre-check...";
     const BigInteger ecmResult = ecm(toFactor, primes);
     if (ecmResult > 1U && ecmResult < toFactor) {
+      std::cout << std::endl;
       return boost::lexical_cast<std::string>(ecmResult);
     }
-    if (isEcmOnly) return std::to_string(1);
+    if (method == 3U) {
+      std::cout << std::endl;
+      return std::to_string(1);
+    }
+    std::cout << " Done." << std::endl;
   }
 
   // Pollard's Rho
-  if (isPollardRho || isFactorFinder) {
-    std::cout << "Running Pollard's Rho..." << std::endl;
+  if (isPollardRho) {
+    std::cout << "Running Pollard's Rho...";
     const BigInteger rhoResult = pollardRho(toFactor, sqrtN);
     if (rhoResult > 1U && rhoResult < toFactor) {
+      std::cout << std::endl;
       return boost::lexical_cast<std::string>(rhoResult);
     }
-    if (isPollardRho) return std::to_string(1);
+    if (method == 2U) {
+      std::cout << std::endl;
+      return std::to_string(1);
+    }
+    std::cout << " Done." << std::endl;
   }
 
   // Set up wheel and gear factorization
@@ -1222,7 +1233,8 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   std::vector<size_t> wheelFactorizationPrimes(primes.begin(), itw);
   std::vector<size_t> smoothPrimes;
 
-  if (isFactorFinder) {
+  if (isQuadSieve) {
+    std::cout << "Selecting factor base...";
     smoothPrimes = selectFactorBase(toFactor, primes);
     if (smoothPrimes.empty()) {
       throw std::runtime_error("No smooth primes found. Increase smoothness bound multiplier.");
@@ -1233,8 +1245,10 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
       const auto wit = std::find(wheelFactorizationPrimes.begin(), wheelFactorizationPrimes.end(), wpe);
       if (wit != wheelFactorizationPrimes.end()) wheelFactorizationPrimes.erase(wit);
     }
+    std::cout << " Done." << std::endl;
   }
 
+  std::cout << "Setting up wheels (and 'gears')...";
   BigInteger biggestWheelBigInt = 1U;
   for (const size_t &wp : gearFactorizationPrimes) biggestWheelBigInt *= (size_t)wp;
   biggestWheel = (size_t)biggestWheelBigInt;
@@ -1271,26 +1285,28 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
   const BigInteger qsNodeRange = ((((smoothBackwardFn(sqrtN + (BigInteger)((toFactor - sqrtN).convert_to<double>() * sievingBoundMultiplier + 0.5)) - qsBackwardLowBound)
                                     + batchItemCount - 1U) / batchItemCount) + nodeCount - 1U) / nodeCount;
 
-  Factorizer worker(toFactor, sqrtN, qsBackwardLowBound,
-                    isFactorFinder ? qsNodeRange : ppNodeRange,
-                    nodeCount, nodeId, batchItemCount, rowLimit,
-                    isFactorFinder ? 0U : ppStartingBatch,
-                    smoothPrimes, wheelFactorizationLevel,
-                    isFactorFinder ? ((wheel.size() > 1U) ? smoothForwardFn : forward(WHEEL1)) : ppForwardFn,
-                    isFactorFinder ? ((wheel.size() > 1U) ? smoothBackwardFn : backward(WHEEL1)) : ppBackwardFn);
+  std::cout << " Done." << std::endl;
 
-  if (isFactorFinder) {
-    std::cout << "MPQS sieving. Smooth numbers: ";
+  Factorizer worker(toFactor, sqrtN, qsBackwardLowBound,
+                    isQuadSieve ? qsNodeRange : ppNodeRange,
+                    nodeCount, nodeId, batchItemCount, rowLimit,
+                    isQuadSieve ? 0U : ppStartingBatch,
+                    smoothPrimes, wheelFactorizationLevel,
+                    isQuadSieve ? ((wheel.size() > 1U) ? smoothForwardFn : forward(WHEEL1)) : ppForwardFn,
+                    isQuadSieve ? ((wheel.size() > 1U) ? smoothBackwardFn : backward(WHEEL1)) : ppBackwardFn);
+
+  if (isQuadSieve) {
+    std::cout << "MPQS sieving. Smooth numbers:" << std::endl;
   }
 
   std::vector<std::future<BigInteger>> futures;
   futures.reserve(CpuCount);
 
-  const auto workerFn = [&inc_seqs, &worker, &isFactorFinder] {
+  const auto workerFn = [&inc_seqs, &worker, &isQuadSieve] {
     std::vector<boost::dynamic_bitset<size_t>> inc_seqs_clone;
     inc_seqs_clone.reserve(inc_seqs.size());
     for (const boost::dynamic_bitset<size_t> &b : inc_seqs) inc_seqs_clone.emplace_back(b);
-    return isFactorFinder ? worker.mpqsSieve(&inc_seqs_clone) : worker.bruteForce(&inc_seqs_clone);
+    return isQuadSieve ? worker.mpqsSieve(&inc_seqs_clone) : worker.bruteForce(&inc_seqs_clone);
   };
 
   for (unsigned cpu = 0U; cpu < CpuCount; ++cpu) {
@@ -1302,7 +1318,7 @@ std::string find_a_factor(std::string toFactorStr, size_t method, size_t nodeCou
     if ((r > 1U) && (r < toFactor)) return boost::lexical_cast<std::string>(r);
   }
 
-  if (isFactorFinder) return boost::lexical_cast<std::string>(worker.solveForFactor());
+  if (isQuadSieve) return boost::lexical_cast<std::string>(worker.solveForFactor());
 
   return std::to_string(1);
 }
