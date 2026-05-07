@@ -759,13 +759,18 @@ struct Factorizer {
   size_t rowLimit;
   bool isIncomplete;
   std::vector<size_t> smoothPrimes;
+  // Node segmentation for polynomial selection: each node covers a disjoint stride.
+  size_t polyIndex;   // next polynomial index for this node
+  size_t nodeStride;  // increment between polynomials on the same node (= nodeCount)
 
   // Full relations
-  std::vector<BigInteger> smoothNumberKeys;      // x_i = A*xi+B (raw)
-  std::vector<BigInteger> smoothNumberQValues;   // |Q(xi)| = absQx for each relation
+  std::vector<BigInteger> smoothNumberKeys;
+  std::vector<BigInteger> smoothNumberQValues;
   std::vector<boost::dynamic_bitset<size_t>> smoothNumberValues;
-  std::vector<boost::dynamic_bitset<size_t>> track; // augmented matrix for elimination
-  // Copies saved before gaussianElimination reorders rows via swaps:
+  // Gaussian elimination: track[r] stores original row indices as a sorted list.
+  // Using explicit index lists instead of rows-wide bitsets keeps memory O(rows * avgDeps)
+  // rather than O(rows^2), which matters for large factor bases (200-bit N and above).
+  std::vector<std::vector<uint32_t>> track;
   std::vector<BigInteger> origKeys;
   std::vector<BigInteger> origQValues;
 
@@ -781,7 +786,9 @@ struct Factorizer {
     : toFactor(tf), toFactorSqrt(tfsqrt), qsBackwardLowBound(lb),
       batchRange(range), batchNumber(bn), batchOffset(nodeId * range),
       batchTotal(nodeCount * range), wheelEntryCount(w), rowLimit(rl),
-      isIncomplete(true), smoothPrimes(sp), forwardFn(ffn), backwardFn(bfn)
+      isIncomplete(true), smoothPrimes(sp),
+      polyIndex(nodeId), nodeStride(std::max(size_t(1), nodeCount)),
+      forwardFn(ffn), backwardFn(bfn)
   {
     while (smoothPrimes.size() && (smoothPrimes[0U] <= wfl)) {
       smoothPrimes.erase(smoothPrimes.begin());
@@ -798,10 +805,13 @@ struct Factorizer {
     return batchOffset + batchNumber++;
   }
 
-  // MPQS polynomial index: unbounded — termination is by rowLimit, not by range.
+  // Returns the next polynomial index for this node, striding by nodeCount
+  // so that different nodes cover disjoint polynomials.
   size_t getNextPolyIndex() {
     std::lock_guard<std::mutex> lock(batchMutex);
-    return (size_t)(batchNumber++);
+    const size_t idx = polyIndex;
+    polyIndex += nodeStride;
+    return idx;
   }
 
   BigInteger getNextAltBatch() {
@@ -827,13 +837,17 @@ struct Factorizer {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //   MPQS SIEVE: replaces the old single-polynomial sievePolynomials                                      //
+  //   MPQS SIEVE: self-initializing multiple-polynomial quadratic sieve                                    //
   //                                                                                                        //
-  //   Key improvements over prior code:                                                                    //
   //   1. Multiple polynomials via Gray-code B-variants (self-initialization)                               //
   //   2. Log-approximation byte sieve — O(M/p) per prime rather than per-candidate trial division          //
-  //   3. Large prime variant: partial relations with one cofactor                                          //
-  //   4. Proper Tonelli-Shanks roots precomputed per polynomial                                            //
+  //   3. Proper Tonelli-Shanks roots precomputed per polynomial                                            //
+  //   4. Node-strided polynomial selection: node k uses polynomials k, k+S, k+2S, ... (S=nodeCount)        //
+  //                                                                                                        //
+  //   Note on GNFS: the General Number Field Sieve replaces the single polynomial x^2-N with a pair        //
+  //   f,g sharing a common root mod N, sieving (a,b) pairs where norms on both sides are simultaneously    //
+  //   smooth. Polynomial selection and algebraic-norm sieving are substantial additions; GNFS outpaces     //
+  //   MPQS roughly above 100 decimal digits but the crossover depends heavily on implementation quality.   //
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   BigInteger mpqsSieve(std::vector<boost::dynamic_bitset<size_t>>* /*inc_seqs*/) {
@@ -950,8 +964,26 @@ struct Factorizer {
     origQValues = smoothNumberQValues;
     const std::vector<boost::dynamic_bitset<size_t>> origParity = smoothNumberValues;
 
-    track.assign(rows, boost::dynamic_bitset<size_t>(rows, 0U));
-    for (size_t r = 0U; r < rows; ++r) track[r].set(r);
+    // track[r] = sorted list of original row indices combined into current row r.
+    // Using explicit sorted lists instead of rows-wide bitsets: O(rows * avgDeps)
+    // memory rather than O(rows^2), critical for large factor bases.
+    track.resize(rows);
+    for (size_t r = 0U; r < rows; ++r) { track[r] = { (uint32_t)r }; }
+
+    // Symmetric difference of two sorted uint32_t lists (GF(2) XOR of index sets)
+    auto xorTrack = [](std::vector<uint32_t>& a, const std::vector<uint32_t>& b) {
+      std::vector<uint32_t> result;
+      result.reserve(a.size() + b.size());
+      size_t i = 0U, j = 0U;
+      while (i < a.size() && j < b.size()) {
+        if      (a[i] < b[j]) result.push_back(a[i++]);
+        else if (b[j] < a[i]) result.push_back(b[j++]);
+        else { ++i; ++j; } // same index cancels
+      }
+      while (i < a.size()) result.push_back(a[i++]);
+      while (j < b.size()) result.push_back(b[j++]);
+      a = std::move(result);
+    };
 
     // Forward elimination only. Rows that reduce to zero are valid solutions.
     size_t nextPivot = 0U;
@@ -970,22 +1002,14 @@ struct Factorizer {
       }
 
       const size_t pivotIdx = nextPivot;
-      const boost::dynamic_bitset<size_t> cm  = smoothNumberValues[pivotIdx];
-      const boost::dynamic_bitset<size_t> trk = track[pivotIdx];
-      const size_t remaining = rows - pivotIdx - 1U;
-      const size_t maxLcv = std::min((size_t)CpuCount, remaining);
-      for (size_t cpu = 0U; cpu < maxLcv; ++cpu) {
-        dispatch.dispatch([this, cpu, col, pivotIdx, rows, cm, trk]() -> bool {
-          for (size_t r = pivotIdx + 1U + cpu; r < rows; r += CpuCount) {
-            if (this->smoothNumberValues[r].test(col)) {
-              this->smoothNumberValues[r] ^= cm;
-              this->track[r] ^= trk;
-            }
-          }
-          return false;
-        });
+      const boost::dynamic_bitset<size_t> cm = smoothNumberValues[pivotIdx];
+      // Eliminate downward only (forward elimination)
+      for (size_t r = pivotIdx + 1U; r < rows; ++r) {
+        if (smoothNumberValues[r].test(col)) {
+          smoothNumberValues[r] ^= cm;
+          xorTrack(track[r], track[pivotIdx]);
+        }
       }
-      dispatch.finish();
       ++nextPivot;
     }
 
@@ -994,16 +1018,14 @@ struct Factorizer {
     for (size_t r = 0U; r < rows; ++r) {
       if (!smoothNumberValues[r].none()) continue;
 
-      std::vector<size_t> selected;
+      const std::vector<uint32_t>& trkr = track[r];
+      std::vector<size_t> selected(trkr.begin(), trkr.end());
+
+      // Sanity check: XOR of original parity vectors must be zero
       boost::dynamic_bitset<size_t> parityXor(cols, 0U);
-      for (size_t i = 0U; i < rows; ++i) {
-        if (track[r].test(i)) {
-          selected.push_back(i);
-          parityXor ^= origParity[i];
-        }
-      }
+      for (const size_t idx : selected) parityXor ^= origParity[idx];
       if (!selected.empty() && parityXor.none())
-        solutions.push_back(selected);
+        solutions.push_back(std::move(selected));
     }
 
     if (solutions.empty()) {
