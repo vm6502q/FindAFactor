@@ -752,7 +752,6 @@ struct Factorizer {
   BigInteger batchNumber;
   BigInteger batchOffset;
   BigInteger batchTotal;
-  BigInteger smoothWheelRadius;
   size_t wheelEntryCount;
   size_t rowLimit;
   bool isIncomplete;
@@ -778,16 +777,15 @@ struct Factorizer {
              ForwardFn ffn, ForwardFn bfn)
     : toFactor(tf), toFactorSqrt(tfsqrt), qsBackwardLowBound(lb),
       batchRange(range), batchNumber(bn), batchOffset(nodeId * range),
-      batchTotal(nodeCount * range),
-      smoothWheelRadius(1U), wheelEntryCount(w), rowLimit(rl),
+      batchTotal(nodeCount * range), wheelEntryCount(w), rowLimit(rl),
       isIncomplete(true), smoothPrimes(sp), forwardFn(ffn), backwardFn(bfn)
   {
     smoothNumberKeys.reserve(rowLimit);
     smoothNumberValues.reserve(rowLimit);
+
     while (smoothPrimes.size() && (smoothPrimes[0U] <= wfl)) {
       smoothPrimes.erase(smoothPrimes.begin());
     }
-    for (const size_t p : smoothPrimes) smoothWheelRadius *= p;
 
     // Large prime bound: allow cofactors up to factorBase.back()^2
     const size_t fbMax = smoothPrimes.empty() ? 100U : smoothPrimes.back();
@@ -833,7 +831,7 @@ struct Factorizer {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   BigInteger mpqsSieve(std::vector<boost::dynamic_bitset<size_t>>* /*inc_seqs*/) {
-    if (smoothWheelRadius < 2U) {
+    if (smoothPrimes.empty()) {
       throw std::invalid_argument("Wheel factorization level excludes all smooth primes!");
     }
 
@@ -1085,36 +1083,6 @@ struct Factorizer {
       if (factor != 1U && factor != toFactor) return factor;
     }
     throw std::runtime_error("No solution produced a congruence of squares. (" + std::to_string(solutions.size()) + " solutions tried.)");
-  }
-
-  // Factorize a number over the smooth prime base, returning the parity vector.
-  // Returns empty bitset if not smooth.
-  boost::dynamic_bitset<size_t> factorizationParityVector(BigInteger num) {
-    boost::dynamic_bitset<size_t> vec(smoothPrimes.size(), 0U);
-    std::vector<size_t> spids(smoothPrimes.size());
-    std::iota(spids.begin(), spids.end(), 0);
-    while (true) {
-      BigInteger factor = gcd(num, smoothWheelRadius);
-      if (factor == 1U) break;
-      num /= factor;
-      for (size_t pi = spids.size() - 1U; ; --pi) {
-        const size_t& pid = spids[pi];
-        const size_t& p = smoothPrimes[pid];
-        if (factor % p) {
-          spids.erase(spids.begin() + pi);
-          continue;
-        }
-        factor /= p;
-        vec.flip(pid);
-        if (factor == 1U) {
-          spids.erase(spids.begin(), spids.begin() + pi);
-          break;
-        }
-      }
-      if (num == 1U) return vec;
-    }
-    if (num != 1U) return boost::dynamic_bitset<size_t>();
-    return vec;
   }
 };
 
