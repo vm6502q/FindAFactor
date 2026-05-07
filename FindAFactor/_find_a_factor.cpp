@@ -435,7 +435,7 @@ bool initMpqsPoly(MpqsPoly& poly, const BigInteger& N,
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//              LOG-APPROXIMATION SIEVE (byte array, replaces per-candidate factoring)                   //
+//              LOG-APPROXIMATION SIEVE (byte array, replaces per-candidate factoring)                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Fill a sieve array of length 2*M centered at x=0 with log-approximations.
@@ -478,7 +478,7 @@ void fillSieve(std::vector<uint8_t>& sieve, const MpqsPoly& poly,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                        ECM: ELLIPTIC CURVE METHOD (Lenstra, Stage 1 + Stage 2)                        //
+//                        ECM: ELLIPTIC CURVE METHOD (Lenstra, Stage 1 + Stage 2)                         //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Montgomery form: By^2 = x^3 + Ax^2 + x  (projective coordinates (X:Z))
 // Addition and doubling in projective Montgomery form are branch-free and GCD-friendly.
@@ -662,7 +662,7 @@ BigInteger ecm(const BigInteger& n, const std::vector<size_t>& primes,
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                        POLLARD'S RHO (Brent's improvement) — by Anthropic Claude                      //
+//                        POLLARD'S RHO (Brent's improvement) — by Anthropic Claude                       //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 BigInteger pollardRhoBrent(const BigInteger& n, const BigInteger& c) {
@@ -827,13 +827,13 @@ struct Factorizer {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //   MPQS SIEVE: replaces the old single-polynomial sievePolynomials                                     //
+  //   MPQS SIEVE: replaces the old single-polynomial sievePolynomials                                      //
   //                                                                                                        //
   //   Key improvements over prior code:                                                                    //
   //   1. Multiple polynomials via Gray-code B-variants (self-initialization)                               //
-  //   2. Log-approximation byte sieve — O(M/p) per prime rather than per-candidate trial division         //
+  //   2. Log-approximation byte sieve — O(M/p) per prime rather than per-candidate trial division          //
   //   3. Large prime variant: partial relations with one cofactor                                          //
-  //   4. Proper Tonelli-Shanks roots precomputed per polynomial                                           //
+  //   4. Proper Tonelli-Shanks roots precomputed per polynomial                                            //
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   BigInteger mpqsSieve(std::vector<boost::dynamic_bitset<size_t>>* /*inc_seqs*/) {
